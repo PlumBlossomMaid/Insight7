@@ -9,7 +9,6 @@
 #include "insight/ops/reduction.h"
 #include <cmath>
 #include <limits>
-#include <numbers>
 
 namespace ins {
 
@@ -71,7 +70,7 @@ Array sinc(const Array &x) {
             dtype_name(x.dtype()));
 
   // sinc(x) = sin(πx) / (πx)
-  const double pi = std::numbers::pi;
+  const double pi = M_PI;
 
   // Convert to working dtype (F64 for integer inputs, preserve F32)
   DType working_dtype = (x.dtype() == DType::F32) ? DType::F32 : DType::F64;

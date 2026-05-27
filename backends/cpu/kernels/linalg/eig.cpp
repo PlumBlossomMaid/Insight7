@@ -1,8 +1,10 @@
-﻿// backends/cpu/kernels/linalg/eig.cpp
+// backends/cpu/kernels/linalg/eig.cpp
 /**
  * @file eig.cpp
  * @brief CPU kernel for eigenvalues and eigenvectors (complex).
  */
+
+#ifdef INSIGHT_USE_OPENBLAS
 
 #include "common.h"
 #include <complex.h>
@@ -123,3 +125,5 @@ C_Status eig_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(eig, INSIGHT_DTYPE_F32, eig_kernel_cpu);
 REGISTER_CPU_KERNEL(eig, INSIGHT_DTYPE_F64, eig_kernel_cpu);
+
+#endif

@@ -1,7 +1,8 @@
 // insight/ops/signal.h
 #pragma once
 #include "insight/core/array.h"
-#include <numbers>
+#define _USE_MATH_DEFINES
+#include <cmath>
 
 namespace ins {
 
@@ -19,12 +20,12 @@ namespace ins {
  *
  * Example:
  * @code
- * Array phase = arange(0, 4 * std::numbers::pi, std::numbers::pi);
+ * Array phase = arange(0, 4 * M_PI, M_PI);
  * Array unwrapped = unwrap(phase);
  * @endcode
  */
-Array unwrap(const Array &p, int axis = -1, double discont = std::numbers::pi,
-             double period = 2 * std::numbers::pi);
+Array unwrap(const Array &p, int axis = -1, double discont = M_PI,
+             double period = 2 * M_PI);
 
 /**
  * @brief Normalized sinc function: sinc(x) = sin(πx) / (πx)

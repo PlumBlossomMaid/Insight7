@@ -1,4 +1,4 @@
-﻿// backends/cpu/kernels/linalg/cholesky.cpp
+// backends/cpu/kernels/linalg/cholesky.cpp
 /**
  * @file cholesky.cpp
  * @brief CPU kernel for Cholesky decomposition using LAPACK.
@@ -6,6 +6,9 @@
 
 #include "common.h"
 #include <cstdio>
+
+#ifdef INSIGHT_USE_OPENBLAS
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -95,3 +98,4 @@ C_Status cholesky_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(cholesky, INSIGHT_DTYPE_F32, cholesky_kernel_cpu);
 REGISTER_CPU_KERNEL(cholesky, INSIGHT_DTYPE_F64, cholesky_kernel_cpu);
+#endif

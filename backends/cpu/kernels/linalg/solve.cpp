@@ -1,8 +1,10 @@
-﻿// backends/cpu/kernels/linalg/solve.cpp
+// backends/cpu/kernels/linalg/solve.cpp
 /**
  * @file solve.cpp
  * @brief CPU kernel for solving linear systems AX = B using LAPACK.
  */
+
+#ifdef INSIGHT_USE_OPENBLAS
 
 #include "common.h"
 
@@ -95,3 +97,5 @@ C_Status solve_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(solve, INSIGHT_DTYPE_F32, solve_kernel_cpu);
 REGISTER_CPU_KERNEL(solve, INSIGHT_DTYPE_F64, solve_kernel_cpu);
+
+#endif

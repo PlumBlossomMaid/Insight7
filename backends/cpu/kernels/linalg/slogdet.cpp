@@ -1,8 +1,10 @@
-﻿// backends/cpu/kernels/linalg/slogdet.cpp
+// backends/cpu/kernels/linalg/slogdet.cpp
 /**
  * @file slogdet.cpp
  * @brief CPU kernel for sign and log determinant.
  */
+
+#ifdef INSIGHT_USE_OPENBLAS
 
 #include "common.h"
 
@@ -95,3 +97,5 @@ C_Status slogdet_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(slogdet, INSIGHT_DTYPE_F32, slogdet_kernel_cpu);
 REGISTER_CPU_KERNEL(slogdet, INSIGHT_DTYPE_F64, slogdet_kernel_cpu);
+
+#endif

@@ -1,8 +1,10 @@
-﻿// backends/cpu/kernels/linalg/cholesky_solve.cpp
+// backends/cpu/kernels/linalg/cholesky_solve.cpp
 /**
  * @file cholesky_solve.cpp
  * @brief CPU kernel for solving linear systems using Cholesky factor.
  */
+
+#ifdef INSIGHT_USE_OPENBLAS
 
 #include "common.h"
 
@@ -83,3 +85,5 @@ REGISTER_CPU_KERNEL(cholesky_solve, INSIGHT_DTYPE_F32,
                     cholesky_solve_kernel_cpu);
 REGISTER_CPU_KERNEL(cholesky_solve, INSIGHT_DTYPE_F64,
                     cholesky_solve_kernel_cpu);
+
+#endif

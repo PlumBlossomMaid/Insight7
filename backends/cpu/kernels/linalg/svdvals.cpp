@@ -1,8 +1,10 @@
-﻿// backends/cpu/kernels/linalg/svdvals.cpp
+// backends/cpu/kernels/linalg/svdvals.cpp
 /**
  * @file svdvals.cpp
  * @brief CPU kernel for singular values only.
  */
+
+#ifdef INSIGHT_USE_OPENBLAS
 
 #include "common.h"
 
@@ -77,3 +79,5 @@ C_Status svdvals_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(svdvals, INSIGHT_DTYPE_F32, svdvals_kernel_cpu);
 REGISTER_CPU_KERNEL(svdvals, INSIGHT_DTYPE_F64, svdvals_kernel_cpu);
+
+#endif

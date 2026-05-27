@@ -15,6 +15,7 @@
 #include "insight/ops/creation.h"
 #include "insight/ops/elementwise.h"
 #include "insight/ops/manipulation.h"
+#include <climits>
 #include <cmath>
 #include <functional>
 #include <vector>

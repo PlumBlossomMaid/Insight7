@@ -4,6 +4,8 @@
  * @brief CPU kernel for matrix inverse using LAPACK.
  */
 
+#ifdef INSIGHT_USE_OPENBLAS
+
 #include "common.h"
 
 #ifdef __cplusplus
@@ -89,3 +91,5 @@ C_Status inv_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(inv, INSIGHT_DTYPE_F32, inv_kernel_cpu);
 REGISTER_CPU_KERNEL(inv, INSIGHT_DTYPE_F64, inv_kernel_cpu);
+
+#endif

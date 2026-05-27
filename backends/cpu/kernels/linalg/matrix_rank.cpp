@@ -5,7 +5,7 @@
  */
 
 #include "common.h"
-
+#ifdef INSIGHT_USE_OPENBLAS
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -82,3 +82,4 @@ C_Status matrix_rank_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(matrix_rank, INSIGHT_DTYPE_F32, matrix_rank_kernel_cpu);
 REGISTER_CPU_KERNEL(matrix_rank, INSIGHT_DTYPE_F64, matrix_rank_kernel_cpu);
+#endif

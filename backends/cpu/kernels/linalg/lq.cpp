@@ -1,8 +1,10 @@
-﻿// backends/cpu/kernels/linalg/lq.cpp
+// backends/cpu/kernels/linalg/lq.cpp
 /**
  * @file lq.cpp
  * @brief CPU kernel for LQ decomposition using LAPACK.
  */
+
+#ifdef INSIGHT_USE_OPENBLAS
 
 #include "common.h"
 #include <algorithm>
@@ -167,3 +169,5 @@ C_Status lq_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(lq, INSIGHT_DTYPE_F32, lq_kernel_cpu);
 REGISTER_CPU_KERNEL(lq, INSIGHT_DTYPE_F64, lq_kernel_cpu);
+
+#endif

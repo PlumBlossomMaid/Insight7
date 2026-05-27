@@ -1,8 +1,10 @@
-﻿// backends/cpu/kernels/linalg/svd.cpp
+// backends/cpu/kernels/linalg/svd.cpp
 /**
  * @file svd.cpp
  * @brief CPU kernel for Singular Value Decomposition using LAPACK.
  */
+
+#ifdef INSIGHT_USE_OPENBLAS
 
 #include "common.h"
 
@@ -88,3 +90,5 @@ C_Status svd_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(svd, INSIGHT_DTYPE_F32, svd_kernel_cpu);
 REGISTER_CPU_KERNEL(svd, INSIGHT_DTYPE_F64, svd_kernel_cpu);
+
+#endif

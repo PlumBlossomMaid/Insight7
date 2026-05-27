@@ -1,4 +1,4 @@
-﻿// backends/cpu/kernels/linalg/common.h
+// backends/cpu/kernels/linalg/common.h
 /**
  * @file common.h
  * @brief Common utilities for CPU linear algebra kernels.
@@ -9,6 +9,7 @@
 
 #include "../../registry/cpu_registry.h"
 #include "insight/c_api/array.h"
+#include <cstdio>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>

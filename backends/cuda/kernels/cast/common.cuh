@@ -22,13 +22,29 @@ static inline void cast_launch_config(int64_t n, int &blocks, int &threads) {
 }
 
 // ============================================================================
-// Template Kernels (defined in header - OK)
+// Template Kernels (defined in header)
 // ============================================================================
+
+template <typename T>
+__device__ static inline cuFloatComplex to_float_complex(T v) {
+  return make_cuFloatComplex(static_cast<float>(v), 0.0f);
+}
+
+template <typename T>
+__device__ static inline cuDoubleComplex to_double_complex(T v) {
+  return make_cuDoubleComplex(static_cast<double>(v), 0.0);
+}
 
 template <typename SrcT, typename DstT>
 __global__ void cast_kernel(const SrcT *src, DstT *dst, int64_t n) {
   int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < n) {
+  if (idx >= n)
+    return;
+  if constexpr (std::is_same_v<DstT, cuFloatComplex>) {
+    dst[idx] = to_float_complex(src[idx]);
+  } else if constexpr (std::is_same_v<DstT, cuDoubleComplex>) {
+    dst[idx] = to_double_complex(src[idx]);
+  } else {
     dst[idx] = static_cast<DstT>(src[idx]);
   }
 }
@@ -36,7 +52,16 @@ __global__ void cast_kernel(const SrcT *src, DstT *dst, int64_t n) {
 template <typename DstT>
 __global__ void cast_bool_to_kernel(const bool *src, DstT *dst, int64_t n) {
   int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if (idx < n) {
+  if (idx >= n)
+    return;
+
+  if constexpr (std::is_same_v<DstT, cuFloatComplex>) {
+    dst[idx] = src[idx] ? make_cuFloatComplex(1.0f, 0.0f)
+                        : make_cuFloatComplex(0.0f, 0.0f);
+  } else if constexpr (std::is_same_v<DstT, cuDoubleComplex>) {
+    dst[idx] = src[idx] ? make_cuDoubleComplex(1.0, 0.0)
+                        : make_cuDoubleComplex(0.0, 0.0);
+  } else {
     dst[idx] = src[idx] ? DstT(1) : DstT(0);
   }
 }

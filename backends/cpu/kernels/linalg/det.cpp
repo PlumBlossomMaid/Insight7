@@ -4,6 +4,8 @@
  * @brief CPU kernel for determinant of a square matrix using LAPACK (CLAPACK).
  */
 
+#ifdef INSIGHT_USE_OPENBLAS
+
 #include "common.h"
 
 #ifdef __cplusplus
@@ -91,3 +93,5 @@ C_Status det_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(det, INSIGHT_DTYPE_F32, det_kernel_cpu);
 REGISTER_CPU_KERNEL(det, INSIGHT_DTYPE_F64, det_kernel_cpu);
+
+#endif

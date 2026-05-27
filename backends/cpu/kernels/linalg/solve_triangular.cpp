@@ -1,8 +1,10 @@
-﻿// backends/cpu/kernels/linalg/solve_triangular.cpp
+// backends/cpu/kernels/linalg/solve_triangular.cpp
 /**
  * @file solve_triangular.cpp
  * @brief CPU kernel for solving triangular systems.
  */
+
+#ifdef INSIGHT_USE_OPENBLAS
 
 #include "common.h"
 
@@ -100,3 +102,5 @@ REGISTER_CPU_KERNEL(solve_triangular, INSIGHT_DTYPE_F32,
                     solve_triangular_kernel_cpu);
 REGISTER_CPU_KERNEL(solve_triangular, INSIGHT_DTYPE_F64,
                     solve_triangular_kernel_cpu);
+
+#endif

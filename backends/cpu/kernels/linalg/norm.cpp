@@ -1,8 +1,10 @@
-﻿// backends/cpu/kernels/linalg/norm.cpp
+// backends/cpu/kernels/linalg/norm.cpp
 /**
  * @file norm.cpp
  * @brief CPU kernel for vector and matrix norms.
  */
+
+#ifdef INSIGHT_USE_OPENBLAS
 
 #include "common.h"
 
@@ -148,3 +150,5 @@ C_Status norm_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(norm, INSIGHT_DTYPE_F32, norm_kernel_cpu);
 REGISTER_CPU_KERNEL(norm, INSIGHT_DTYPE_F64, norm_kernel_cpu);
+
+#endif

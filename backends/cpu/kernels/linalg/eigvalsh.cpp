@@ -1,8 +1,10 @@
-﻿// backends/cpu/kernels/linalg/eigvalsh.cpp
+// backends/cpu/kernels/linalg/eigvalsh.cpp
 /**
  * @file eigvalsh.cpp
  * @brief CPU kernel for eigenvalues of symmetric matrix.
  */
+
+#ifdef INSIGHT_USE_OPENBLAS
 
 #include "common.h"
 
@@ -84,3 +86,5 @@ C_Status eigvalsh_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(eigvalsh, INSIGHT_DTYPE_F32, eigvalsh_kernel_cpu);
 REGISTER_CPU_KERNEL(eigvalsh, INSIGHT_DTYPE_F64, eigvalsh_kernel_cpu);
+
+#endif

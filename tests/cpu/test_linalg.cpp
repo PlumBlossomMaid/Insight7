@@ -1,6 +1,7 @@
 // tests/cpu/test_linalg.cpp
 #include "insight/insight.h"
 #include "insight/ops/linalg.h"
+#include "insight/utils/features.h"
 #include <cmath>
 #include <complex>
 #include <gtest/gtest.h>
@@ -11,10 +12,12 @@ class LinalgTest : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
     ins::init();
+    if (!ins::is_compiled_with_openblas()) {
+      GTEST_SKIP() << "Skipping linear algebra tests: OpenBLAS not available";
+    }
     set_device(CPUPlace());
   }
 };
-
 // ============================================================================
 // Helper functions
 // ============================================================================

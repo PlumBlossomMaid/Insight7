@@ -4,6 +4,8 @@
  * @brief CPU kernel for condition number of a matrix.
  */
 
+#ifdef INSIGHT_USE_OPENBLAS
+
 #include "common.h"
 
 #ifdef __cplusplus
@@ -80,3 +82,5 @@ C_Status cond_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(cond, INSIGHT_DTYPE_F32, cond_kernel_cpu);
 REGISTER_CPU_KERNEL(cond, INSIGHT_DTYPE_F64, cond_kernel_cpu);
+
+#endif

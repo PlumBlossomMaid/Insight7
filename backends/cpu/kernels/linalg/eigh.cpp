@@ -1,8 +1,10 @@
-﻿// backends/cpu/kernels/linalg/eigh.cpp
+// backends/cpu/kernels/linalg/eigh.cpp
 /**
  * @file eigh.cpp
  * @brief CPU kernel for symmetric/Hermitian eigenvalue decomposition.
  */
+
+#ifdef INSIGHT_USE_OPENBLAS
 
 #include "common.h"
 
@@ -86,3 +88,5 @@ C_Status eigh_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(eigh, INSIGHT_DTYPE_F32, eigh_kernel_cpu);
 REGISTER_CPU_KERNEL(eigh, INSIGHT_DTYPE_F64, eigh_kernel_cpu);
+
+#endif

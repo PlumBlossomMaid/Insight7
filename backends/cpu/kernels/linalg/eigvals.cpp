@@ -5,7 +5,7 @@
  */
 
 #include "common.h"
-
+#ifdef INSIGHT_USE_OPENBLAS
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -99,3 +99,4 @@ C_Status eigvals_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(eigvals, INSIGHT_DTYPE_F32, eigvals_kernel_cpu);
 REGISTER_CPU_KERNEL(eigvals, INSIGHT_DTYPE_F64, eigvals_kernel_cpu);
+#endif

@@ -1,8 +1,10 @@
-﻿// backends/cpu/kernels/linalg/lstsq.cpp
+// backends/cpu/kernels/linalg/lstsq.cpp
 /**
  * @file lstsq.cpp
  * @brief CPU kernel for least squares solution using LAPACK.
  */
+
+#ifdef INSIGHT_USE_OPENBLAS
 
 #include "common.h"
 
@@ -107,3 +109,5 @@ C_Status lstsq_kernel_cpu(void **inputs, void **outputs) {
 
 REGISTER_CPU_KERNEL(lstsq, INSIGHT_DTYPE_F32, lstsq_kernel_cpu);
 REGISTER_CPU_KERNEL(lstsq, INSIGHT_DTYPE_F64, lstsq_kernel_cpu);
+
+#endif
