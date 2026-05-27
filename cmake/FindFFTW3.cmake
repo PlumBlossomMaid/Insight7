@@ -7,6 +7,8 @@ find_path(FFTW3_INCLUDE_DIR
         /opt/fftw3/include
         $ENV{FFTW3_HOME}/include
         ${CMAKE_PREFIX_PATH}/include
+        $ENV{PROGRAMFILES}/fftw3
+        $ENV{PROGRAMFILES}/FFTW3
 )
 
 find_library(FFTW3_LIBRARY
@@ -17,6 +19,10 @@ find_library(FFTW3_LIBRARY
         /opt/fftw3/lib
         $ENV{FFTW3_HOME}/lib
         ${CMAKE_PREFIX_PATH}/lib
+        $ENV{PROGRAMFILES}/fftw3
+        $ENV{PROGRAMFILES}/FFTW3
+    PATH_SUFFIXES
+        lib lib/Release lib/Debug
 )
 
 find_library(FFTW3f_LIBRARY
@@ -27,6 +33,10 @@ find_library(FFTW3f_LIBRARY
         /opt/fftw3/lib
         $ENV{FFTW3_HOME}/lib
         ${CMAKE_PREFIX_PATH}/lib
+        $ENV{PROGRAMFILES}/fftw3
+        $ENV{PROGRAMFILES}/FFTW3
+    PATH_SUFFIXES
+        lib lib/Release lib/Debug
 )
 
 if(FFTW3_INCLUDE_DIR AND FFTW3_LIBRARY AND FFTW3f_LIBRARY)

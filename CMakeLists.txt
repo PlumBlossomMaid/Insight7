@@ -16,6 +16,9 @@ if(INSIGHT_WITH_CUDA AND NOT CMAKE_CUDA_ARCHITECTURES)
     set(CMAKE_CUDA_ARCHITECTURES "52;61;70;75;80;86;89" CACHE STRING "CUDA architectures")
 endif()
 
+# Position-independent code (required for static libs linked into shared libs)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 # C++ standard
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,6 +30,7 @@ option(INSIGHT_WITH_CUDA "Enable CUDA backend" ON)
 
 option(INSIGHT_DYNAMIC_CPU_BACKEND "Build CPU backend as shared library (DLL/SO)" ON)
 option(INSIGHT_DYNAMIC_GPU_BACKEND "Build GPU backend as shared library (DLL/SO)" ON)
+option(INSIGHT_BUILD_DEMO "Build demo executable" OFF)
 
 # Add custom CMake module path
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -159,6 +163,7 @@ else()
 endif()
 
 # ========== Demo Executable ==========
+if(INSIGHT_BUILD_DEMO)
 add_executable(insight_demo
     insight.cpp
 )
@@ -192,17 +197,20 @@ if(INSIGHT_WITH_CUDA AND INSIGHT_DYNAMIC_GPU_BACKEND)
     )
 endif()
 
+# ========== Output Settings ==========
+if(INSIGHT_BUILD_DEMO)
+    set_target_properties(insight_demo PROPERTIES
+        OUTPUT_NAME "insight"
+        RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
+    )
+endif()
+endif()
+
 # ========== Unit Tests ==========
 if(INSIGHT_BUILD_TESTS)
     enable_testing()
     add_subdirectory(tests)
 endif()
-
-# ========== Output Settings ==========
-set_target_properties(insight_demo PROPERTIES
-    OUTPUT_NAME "insight"
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
-)
 
 # ========== Configuration Summary ==========
 

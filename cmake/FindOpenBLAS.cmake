@@ -7,6 +7,7 @@ find_path(OpenBLAS_INCLUDE_DIR
         /opt/OpenBLAS/include
         $ENV{OPENBLAS_HOME}/include
         ${CMAKE_PREFIX_PATH}/include
+        $ENV{PROGRAMFILES}/OpenBLAS/include
     PATH_SUFFIXES
         openblas
 )
@@ -19,6 +20,9 @@ find_library(OpenBLAS_LIBRARY
         /opt/OpenBLAS/lib
         $ENV{OPENBLAS_HOME}/lib
         ${CMAKE_PREFIX_PATH}/lib
+        $ENV{PROGRAMFILES}/OpenBLAS/lib
+    PATH_SUFFIXES
+        lib/Release lib/Debug
 )
 
 if(OpenBLAS_INCLUDE_DIR AND OpenBLAS_LIBRARY)

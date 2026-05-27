@@ -59,6 +59,11 @@ static void *get_symbol(LibHandle lib, const char *name) {
 static void unload_library(LibHandle lib) { FreeLibrary(lib); }
 
 static const char *backend_extension() { return ".dll"; }
+
+static std::string backend_libname(const char *base_name) {
+  // Windows DLLs have no 'lib' prefix
+  return std::string(base_name) + backend_extension();
+}
 #else
 using LibHandle = void *;
 
@@ -83,6 +88,11 @@ static void *get_symbol(LibHandle lib, const char *name) {
 static void unload_library(LibHandle lib) { dlclose(lib); }
 
 static const char *backend_extension() { return ".so"; }
+
+static std::string backend_libname(const char *base_name) {
+  // Linux/macOS shared libs use 'lib' prefix
+  return std::string("lib") + base_name + backend_extension();
+}
 #endif
 
 /**
@@ -96,12 +106,10 @@ static const char *backend_extension() { return ".so"; }
  * "insight_cpu_backend")
  */
 static void load_backend_plugin(DeviceKind kind, const char *lib_name) {
-  // Build full path with platform-specific extension
-  char lib_path[512];
-  snprintf(lib_path, sizeof(lib_path), "lib%s%s", lib_name,
-           backend_extension());
+  // Build full path with platform-specific naming
+  std::string lib_path = backend_libname(lib_name);
 
-  LibHandle lib = load_library(lib_path);
+  LibHandle lib = load_library(lib_path.c_str());
 
   INS_CHECK(lib, std::string(lib_name) + "not available");
 

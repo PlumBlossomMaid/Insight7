@@ -9,13 +9,15 @@ find_path(CLAPACK_INCLUDE_DIR
         /opt/clapack/include
         $ENV{CLAPACK_HOME}/include
         ${CMAKE_PREFIX_PATH}/include
+        $ENV{PROGRAMFILES}/CLAPACK/include
+        $ENV{PROGRAMFILES}/lapack/include
 )
 
 # CLAPACK library name varies:
 # - Linux: libclapack.a, liblapack.a
 # - Windows: lapack.lib, clapack.lib
 find_library(CLAPACK_LIBRARY
-    NAMES 
+    NAMES
         clapack      # Linux / some builds
         libclapack   # Linux
         lapack       # Windows (vcpkg provides lapack.lib)
@@ -25,6 +27,10 @@ find_library(CLAPACK_LIBRARY
         /opt/clapack/lib
         $ENV{CLAPACK_HOME}/lib
         ${CMAKE_PREFIX_PATH}/lib
+        $ENV{PROGRAMFILES}/CLAPACK/lib
+        $ENV{PROGRAMFILES}/lapack/lib
+    PATH_SUFFIXES
+        lib/Release lib/Debug
 )
 
 # Also find f2c library (required by CLAPACK on some systems)
@@ -36,6 +42,10 @@ find_library(F2C_LIBRARY
         /opt/clapack/lib
         $ENV{CLAPACK_HOME}/lib
         ${CMAKE_PREFIX_PATH}/lib
+        $ENV{PROGRAMFILES}/CLAPACK/lib
+        $ENV{PROGRAMFILES}/lapack/lib
+    PATH_SUFFIXES
+        lib/Release lib/Debug
 )
 
 if(CLAPACK_INCLUDE_DIR AND CLAPACK_LIBRARY)
