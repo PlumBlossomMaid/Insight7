@@ -109,76 +109,8 @@ C_Status insight_array_destroy(InsightArray *array) {
   return C_SUCCESS;
 }
 
-C_Status insight_array_create_view(InsightArray *dst, const InsightArray *src,
-                                   int64_t offset, const int64_t *dims,
-                                   int32_t ndim, const int64_t *strides) {
-
-  if (!dst || !src || !src->ref_count) {
-    insight_set_last_error("insight_array_create_view: dst, src, and "
-                           "src->ref_count must be non-null");
-    return C_FAILED;
-  }
-
-  // Allow ndim == 0 (scalar view)
-  if (ndim < 0 || ndim > INSIGHT_MAX_NDIM) {
-    insight_set_last_error("insight_array_create_view: ndim out of range");
-    return C_FAILED;
-  }
-
-  // dims and strides are only required if ndim > 0
-  if (ndim > 0 && (!dims || !strides)) {
-    insight_set_last_error("insight_array_create_view: dims and strides must "
-                           "be non-null when ndim > 0");
-    return C_FAILED;
-  }
-
-  std::memset(dst, 0, sizeof(InsightArray));
-  dst->data = src->data;
-  dst->ref_count = src->ref_count;
-  ++(*dst->ref_count);
-  dst->is_view = 1;
-  dst->offset = offset;
-  dst->ndim = ndim;
-  dst->dtype = src->dtype;
-  dst->device_type = src->device_type;
-  dst->device_id = src->device_id;
-
-  dst->numel = 1;
-  for (int32_t i = 0; i < ndim; ++i) {
-    dst->dims[i] = dims[i];
-    dst->strides[i] = strides[i];
-    dst->numel *= dims[i];
-  }
-
-  // scalar when strides is set to 1
-  if (ndim == 0) {
-    dst->strides[0] = 1;
-  }
-
-  return C_SUCCESS;
-}
-
-int64_t insight_array_numel(const InsightArray *array) {
-  return array ? array->numel : 0;
-}
-
-size_t insight_array_nbytes(const InsightArray *array) {
-  if (!array)
-    return 0;
-  return static_cast<size_t>(array->numel) * insight_dtype_size(array->dtype);
-}
-
-int insight_array_is_contiguous(const InsightArray *array) {
-  if (!array || array->ndim <= 0)
-    return 0;
-  int64_t expected_stride = 1;
-  for (int32_t i = array->ndim - 1; i >= 0; --i) {
-    if (array->strides[i] != expected_stride)
-      return 0;
-    expected_stride *= array->dims[i];
-  }
-  return 1;
-}
+// insight_array_create_view, insight_array_numel, insight_array_nbytes,
+// insight_array_is_contiguous — moved to array_capi.cpp (LOW-level C ABI)
 
 char *insight_array_tostring(const InsightArray *array) {
   if (!array || !array->data)

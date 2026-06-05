@@ -421,3 +421,23 @@ local a = ins.randn({10000000}, ins.float32)  -- integer literal
 local N = math.floor(1e7)
 local a = ins.randn({N}, ins.float32)
 ```
+
+**Helper functions in `init.lua`**: Add `_toint()` and `_toint_table()` for
+wrapper functions to auto-convert floats to integers:
+
+```lua
+function M._toint(v)
+    if type(v) == "number" then return math.floor(v) end
+    return v
+end
+
+function M._toint_table(t)
+    if type(t) ~= "table" then return t end
+    local out = {}
+    for i, v in ipairs(t) do out[i] = math.floor(v) end
+    return out
+end
+```
+
+Usage in wrappers: `local shape = M._toint_table(raw_shape)` before passing to
+native functions that expect integer shape dimensions.

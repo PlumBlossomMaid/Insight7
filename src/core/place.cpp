@@ -66,14 +66,7 @@ C_Status insight_get_available_devices(char ***devices_out) {
   return C_SUCCESS;
 }
 
-void insight_free_device_list(char **devices) {
-  if (!devices)
-    return;
-  for (size_t i = 0; devices[i] != nullptr; ++i) {
-    std::free(devices[i]);
-  }
-  std::free(devices);
-}
+// insight_free_device_list — moved to place_capi.cpp (LOW-level C ABI)
 
 } // extern "C"
 
