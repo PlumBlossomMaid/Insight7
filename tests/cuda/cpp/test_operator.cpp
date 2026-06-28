@@ -10,7 +10,7 @@ using namespace ins;
 class OperatorTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "cuda"});
+    ins::init({"cpu", "iluvatar"});
     try {
       set_device(GPUPlace(0));
     } catch (...) {
@@ -22,13 +22,14 @@ protected:
 // ========== Helper Functions ==========
 
 static Array gpu_1d() {
-  return to_array({1.0, 2.0, 3.0, 4.0, 5.0}, Shape({5}), DType::F64, CPUPlace())
+  return to_array({1.0f, 2.0f, 3.0f, 4.0f, 5.0f}, Shape({5}), DType::F32,
+                  CPUPlace())
       .to(GPUPlace(0));
 }
 
 static Array gpu_2d() {
-  return to_array({1.0, 2.0, 3.0, 4.0, 5.0, 6.0}, Shape({2, 3}), DType::F64,
-                  CPUPlace())
+  return to_array({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, Shape({2, 3}),
+                  DType::F32, CPUPlace())
       .to(GPUPlace(0));
 }
 
@@ -42,7 +43,8 @@ static void expect_array_eq(const Array &gpu_a,
   Array a = gpu_a.to(CPUPlace());
   ASSERT_EQ(a.numel(), static_cast<int64_t>(expected.size()));
   for (int64_t i = 0; i < a.numel(); ++i) {
-    EXPECT_TRUE(approx_equal(a.at(i).item<double>(), expected[i]));
+    EXPECT_TRUE(
+        approx_equal(static_cast<double>(a.at(i).item<float>()), expected[i]));
   }
 }
 
@@ -74,7 +76,7 @@ TEST_F(OperatorTestGPU, BitwiseNot) {
 
 TEST_F(OperatorTestGPU, LogicalNot) {
   Array cpu_a =
-      to_array({1.0, 0.0, 3.0, 0.0, 5.0}, Shape({5}), DType::F64, CPUPlace());
+      to_array({1.0, 0.0, 3.0, 0.0, 5.0}, Shape({5}), DType::F32, CPUPlace());
   Array a = cpu_a.to(GPUPlace(0));
   Array b = !a;
   Array cpu_b = b.to(CPUPlace());
@@ -112,7 +114,7 @@ TEST_F(OperatorTestGPU, MulArrayArray) {
 TEST_F(OperatorTestGPU, DivArrayArray) {
   Array a = gpu_1d();
   Array b =
-      to_array({1.0, 2.0, 3.0, 4.0, 5.0}, Shape({5}), DType::F64, CPUPlace())
+      to_array({1.0, 2.0, 3.0, 4.0, 5.0}, Shape({5}), DType::F32, CPUPlace())
           .to(GPUPlace(0));
   Array c = a / b;
   expect_array_eq(c, {1.0, 1.0, 1.0, 1.0, 1.0});
@@ -250,7 +252,7 @@ TEST_F(OperatorTestGPU, GreaterEqualArrayArray) {
 
 TEST_F(OperatorTestGPU, EqualArrayScalar) {
   Array a =
-      to_array({3.0, 4.0, 5.0, 4.0, 3.0}, Shape({5}), DType::F64, CPUPlace())
+      to_array({3.0, 4.0, 5.0, 4.0, 3.0}, Shape({5}), DType::F32, CPUPlace())
           .to(GPUPlace(0));
   Array c = a == 4.0;
   Array cpu_c = c.to(CPUPlace());
@@ -264,7 +266,7 @@ TEST_F(OperatorTestGPU, EqualArrayScalar) {
 
 TEST_F(OperatorTestGPU, EqualScalarArray) {
   Array a =
-      to_array({3.0, 4.0, 5.0, 4.0, 3.0}, Shape({5}), DType::F64, CPUPlace())
+      to_array({3.0, 4.0, 5.0, 4.0, 3.0}, Shape({5}), DType::F32, CPUPlace())
           .to(GPUPlace(0));
   Array c = 4.0 == a;
   Array cpu_c = c.to(CPUPlace());
@@ -393,7 +395,7 @@ TEST_F(OperatorTestGPU, ChainArithmetic) {
 
 TEST_F(OperatorTestGPU, ChainComparison) {
   Array a =
-      to_array({1.0, 2.0, 3.0, 4.0, 5.0}, Shape({5}), DType::F64, CPUPlace())
+      to_array({1.0, 2.0, 3.0, 4.0, 5.0}, Shape({5}), DType::F32, CPUPlace())
           .to(GPUPlace(0));
   Array mask = (a > 1) & (a < 5);
   Array cpu_mask = mask.to(CPUPlace());
@@ -438,12 +440,12 @@ TEST_F(OperatorTestGPU, AnyAllOnMultiElement) {
   EXPECT_TRUE(a.all());
 
   Array b =
-      to_array({0.0, 1.0, 0.0, 2.0, 0.0}, Shape({5}), DType::F64, CPUPlace())
+      to_array({0.0, 1.0, 0.0, 2.0, 0.0}, Shape({5}), DType::F32, CPUPlace())
           .to(GPUPlace(0));
   EXPECT_TRUE(b.any());
   EXPECT_FALSE(b.all());
 
-  Array c = zeros({3, 3}, DType::F64, GPUPlace(0));
+  Array c = zeros({3, 3}, DType::F32, GPUPlace(0));
   EXPECT_FALSE(c.any());
   EXPECT_FALSE(c.all());
 }
@@ -457,23 +459,23 @@ TEST_F(OperatorTestGPU, EmptyArray) {
 
 TEST_F(OperatorTestGPU, BroadcastingInOperations) {
   Array a = gpu_2d();
-  Array b = to_array({10.0, 20.0, 30.0}, Shape({3}), DType::F64, CPUPlace())
+  Array b = to_array({10.0f, 20.0f, 30.0f}, Shape({3}), DType::F32, CPUPlace())
                 .to(GPUPlace(0));
   Array c = a + b;
   Array cpu_c = c.to(CPUPlace());
-  const double *result = cpu_c.data<double>();
-  EXPECT_NEAR(result[0], 1 + 10, 1e-6);
-  EXPECT_NEAR(result[1], 2 + 20, 1e-6);
-  EXPECT_NEAR(result[2], 3 + 30, 1e-6);
-  EXPECT_NEAR(result[3], 4 + 10, 1e-6);
-  EXPECT_NEAR(result[4], 5 + 20, 1e-6);
-  EXPECT_NEAR(result[5], 6 + 30, 1e-6);
+  const float *result = cpu_c.data<float>();
+  EXPECT_NEAR(result[0], 1.0f + 10.0f, 1e-4f);
+  EXPECT_NEAR(result[1], 2.0f + 20.0f, 1e-4f);
+  EXPECT_NEAR(result[2], 3.0f + 30.0f, 1e-4f);
+  EXPECT_NEAR(result[3], 4.0f + 10.0f, 1e-4f);
+  EXPECT_NEAR(result[4], 5.0f + 20.0f, 1e-4f);
+  EXPECT_NEAR(result[5], 6.0f + 30.0f, 1e-4f);
 }
 
 TEST_F(OperatorTestGPU, DivisionByScalarZero) {
   Array a = gpu_1d();
-  Array b = a / 0.0;
+  Array b = a / 0.0f;
   Array cpu_b = b.to(CPUPlace());
-  const double *data = cpu_b.data<double>();
+  const float *data = cpu_b.data<float>();
   EXPECT_TRUE(std::isinf(data[0]));
 }

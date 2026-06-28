@@ -26,7 +26,7 @@ using namespace ins;
 class AudioTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "cuda"});
+    ins::init({"cpu", "iluvatar"});
     try {
       set_device(GPUPlace(0));
     } catch (...) {

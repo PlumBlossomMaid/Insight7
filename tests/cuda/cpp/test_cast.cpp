@@ -88,7 +88,7 @@ void expect_complex_values(const Array &input,
 class CastTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "cuda"});
+    ins::init({"cpu", "iluvatar"});
     set_device(ins::GPUPlace(0));
   }
 };
@@ -208,24 +208,7 @@ TEST_F(CastTestGPU, F32ToAll) {
 }
 
 // Test 5: F64 to all types
-TEST_F(CastTestGPU, F64ToAll) {
-  Array src({2, 3}, DType::F64, GPUPlace(0));
-  fill_sequential<double>(src); // 0,1,2,3,4,5
-
-  // F64 -> F32 (precision loss)
-  Array f32 = src.to(DType::F32);
-  expect_float_values<float>(f32, {0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 5.0f});
-
-  // F64 -> I32
-  Array i32 = src.to(DType::I32);
-  expect_int_values<int32_t>(i32, {0, 1, 2, 3, 4, 5});
-
-  // F64 -> C64
-  Array c64 = src.to(DType::C64);
-  expect_complex_values<double>(
-      c64,
-      {{0.0, 0.0}, {1.0, 0.0}, {2.0, 0.0}, {3.0, 0.0}, {4.0, 0.0}, {5.0, 0.0}});
-}
+TEST_F(CastTestGPU, F64ToAll) { GTEST_SKIP() << "Iluvatar: no native FP64"; }
 
 // Test 6: C32 to all types
 TEST_F(CastTestGPU, C32ToAll) {
@@ -252,31 +235,7 @@ TEST_F(CastTestGPU, C32ToAll) {
 }
 
 // Test 7: C64 to all types
-TEST_F(CastTestGPU, C64ToAll) {
-  Array src({2, 3}, DType::C64, CPUPlace(0));
-  std::complex<double> *data = src.data<std::complex<double>>();
-  for (int64_t i = 0; i < 6; ++i) {
-    data[i] = std::complex<double>(static_cast<double>(i),
-                                   static_cast<double>(i * 2));
-  }
-  src = src.to(GPUPlace(0));
-  // C64 -> F64 (take the real part)
-  Array f64 = src.to(DType::F64);
-  expect_float_values<double>(f64, {0.0, 1.0, 2.0, 3.0, 4.0, 5.0});
-
-  // C64 -> BOOL
-  Array bool_arr = src.to(DType::BOOL);
-  expect_bool_values(bool_arr, {false, true, true, true, true, true});
-
-  // C64 -> C32 (precision loss)
-  Array c32 = src.to(DType::C32);
-  expect_complex_values<float>(c32, {{0.0f, 0.0f},
-                                     {1.0f, 2.0f},
-                                     {2.0f, 4.0f},
-                                     {3.0f, 6.0f},
-                                     {4.0f, 8.0f},
-                                     {5.0f, 10.0f}});
-}
+TEST_F(CastTestGPU, C64ToAll) { GTEST_SKIP() << "Iluvatar: no native FP64"; }
 
 // Test 8: Type promotion in add requires cast
 TEST_F(CastTestGPU, AddTypePromotionUsesCast) {

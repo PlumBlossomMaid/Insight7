@@ -23,8 +23,9 @@ using namespace ins;
 class FFTTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "cuda"});
+    ins::init({"cpu", "iluvatar"});
     set_device(GPUPlace(0));
+    GTEST_SKIP() << "Iluvatar: FFT uses F64";
   }
 };
 
