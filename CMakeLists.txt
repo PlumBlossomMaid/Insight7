@@ -89,6 +89,9 @@ if(OpenMP_CXX_FOUND)
     target_compile_definitions(insight_core PUBLIC INSIGHT_WITH_OPENMP)
 endif()
 
+# libdl for dlopen/dlsym (dynamic backend loading)
+target_link_libraries(insight_core PUBLIC ${CMAKE_DL_LIBS})
+
 # ========== Thrust ==========
 if(INSIGHT_WITH_CUDA)
     option(INSIGHT_USE_THRUST "Use Thrust for GPU algorithms (sort, scan, etc.)" ON)
@@ -437,6 +440,34 @@ else()
     message(STATUS "CUDA backend disabled by user option")
 endif()
 
+# ========== IXUCA (天数智芯 Iluvatar) Backend ==========
+# Auto-detect CoreX SDK (provides CUDA-compatible runtime for Iluvatar GPU)
+# Set to ON to force, OFF to disable, or leave unset for auto-detection
+set(INSIGHT_WITH_ILUVATAR "AUTO" CACHE STRING "Enable Iluvatar (天数智芯) GPU backend (ON/OFF/AUTO)")
+set_property(CACHE INSIGHT_WITH_ILUVATAR PROPERTY STRINGS ON OFF AUTO)
+
+if(INSIGHT_WITH_ILUVATAR STREQUAL "ON" OR INSIGHT_WITH_ILUVATAR STREQUAL "AUTO")
+    # Check for CoreX clang++ compiler
+    find_program(COREX_CLANGXX "clang++" PATHS "/usr/local/corex/bin" NO_DEFAULT_PATH)
+    # Check for CoreX CUDA-compatible headers
+    if(COREX_CLANGXX AND EXISTS "/usr/local/corex/include/cuda_runtime.h")
+        set(INSIGHT_WITH_ILUVATAR ON)
+        add_subdirectory(backends/iluvatar)
+        target_compile_definitions(insight_core PUBLIC INSIGHT_WITH_ILUVATAR)
+        message(STATUS "IXUCA backend enabled (CoreX SDK found at /usr/local/corex)")
+    elseif(INSIGHT_WITH_ILUVATAR STREQUAL "AUTO")
+        # Auto mode: not found, silently disable
+        set(INSIGHT_WITH_ILUVATAR OFF)
+        message(STATUS "IXUCA backend: CoreX SDK not found, disabled")
+    else()
+        message(WARNING "IXUCA backend requested but CoreX SDK not found")
+        set(INSIGHT_WITH_ILUVATAR OFF)
+    endif()
+else()
+    set(INSIGHT_WITH_ILUVATAR OFF)
+    message(STATUS "IXUCA backend disabled by user option")
+endif()
+
 # ========== Demos ==========
 option(INSIGHT_BUILD_DEMOS "Build demo programs" ON)
 if(INSIGHT_BUILD_DEMOS)
@@ -467,6 +498,7 @@ message(STATUS "  FFTW3:     ${INSIGHT_USE_FFTW3}")
 message(STATUS "  SndFile:   ${INSIGHT_USE_SNDFILE}")
 message(STATUS "  Matplot:   ${INSIGHT_USE_MATPLOT}")
 message(STATUS "  CUDA:      ${INSIGHT_WITH_CUDA}")
+message(STATUS "  IXUCA:     ${INSIGHT_WITH_ILUVATAR}")
 message(STATUS "  Thrust:    ${INSIGHT_USE_THRUST}")
 message(STATUS "  Tests:     ${INSIGHT_BUILD_TESTS}")
 message(STATUS "")

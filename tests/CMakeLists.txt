@@ -52,6 +52,9 @@ function(copy_all_backend_dlls TARGET_NAME)
     if(INSIGHT_WITH_CUDA AND INSIGHT_DYNAMIC_GPU_BACKEND)
         copy_backend_dll(${TARGET_NAME} insight_cuda_backend)
     endif()
+    if(INSIGHT_WITH_ILUVATAR AND INSIGHT_DYNAMIC_GPU_BACKEND)
+        copy_backend_dll(${TARGET_NAME} insight_iluvatar_backend)
+    endif()
 endfunction()
 
 # CPU 测试
@@ -62,9 +65,27 @@ if(INSIGHT_WITH_CUDA)
     copy_all_backend_dlls(insight_tests_cuda)
 endif()
 
+# IXUCA 测试
+if(INSIGHT_WITH_ILUVATAR)
+    add_executable(insight_tests_iluvatar ${CUDA_TEST_SOURCES})
+    target_link_libraries(insight_tests_iluvatar
+        insight_core
+        insight_cpu_backend
+        insight_iluvatar_backend
+        GTest::gtest_main
+    )
+    target_include_directories(insight_tests_iluvatar
+        PRIVATE ${INSIGHT_INCLUDE_DIR}
+    )
+    copy_all_backend_dlls(insight_tests_iluvatar)
+endif()
+
 # ========== 自动发现并注册测试 ==========
 include(GoogleTest)
 gtest_discover_tests(insight_tests_cpu)
 if(INSIGHT_WITH_CUDA)
     gtest_discover_tests(insight_tests_cuda)
+endif()
+if(INSIGHT_WITH_ILUVATAR)
+    gtest_discover_tests(insight_tests_iluvatar)
 endif()
