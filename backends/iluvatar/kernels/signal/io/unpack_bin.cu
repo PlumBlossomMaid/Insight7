@@ -42,4 +42,4 @@ C_Status signal_unpack_bin_kernel_gpu(void **inputs, void **outputs) {
 } // extern "C"
 
 REGISTER_ILUVATAR_KERNEL(signal_unpack_bin, INSIGHT_DTYPE_U8,
-                    signal_unpack_bin_kernel_gpu);
+                         signal_unpack_bin_kernel_gpu);

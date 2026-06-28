@@ -416,10 +416,10 @@ C_Status boolrelextrema_2d_kernel_gpu(void **inputs, void **outputs) {
 } // extern "C"
 
 REGISTER_ILUVATAR_KERNEL(boolrelextrema_2d, INSIGHT_DTYPE_F32,
-                    boolrelextrema_2d_kernel_gpu);
+                         boolrelextrema_2d_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(boolrelextrema_2d, INSIGHT_DTYPE_F64,
-                    boolrelextrema_2d_kernel_gpu);
+                         boolrelextrema_2d_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(boolrelextrema_2d, INSIGHT_DTYPE_F16,
-                    boolrelextrema_2d_kernel_gpu);
+                         boolrelextrema_2d_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(boolrelextrema_2d, INSIGHT_DTYPE_BF16,
-                    boolrelextrema_2d_kernel_gpu);
+                         boolrelextrema_2d_kernel_gpu);

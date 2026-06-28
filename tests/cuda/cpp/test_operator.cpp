@@ -22,13 +22,14 @@ protected:
 // ========== Helper Functions ==========
 
 static Array gpu_1d() {
-  return to_array({1.0f, 2.0f, 3.0f, 4.0f, 5.0f}, Shape({5}), DType::F32, CPUPlace())
+  return to_array({1.0f, 2.0f, 3.0f, 4.0f, 5.0f}, Shape({5}), DType::F32,
+                  CPUPlace())
       .to(GPUPlace(0));
 }
 
 static Array gpu_2d() {
-  return to_array({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, Shape({2, 3}), DType::F32,
-                  CPUPlace())
+  return to_array({1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f}, Shape({2, 3}),
+                  DType::F32, CPUPlace())
       .to(GPUPlace(0));
 }
 
@@ -42,7 +43,8 @@ static void expect_array_eq(const Array &gpu_a,
   Array a = gpu_a.to(CPUPlace());
   ASSERT_EQ(a.numel(), static_cast<int64_t>(expected.size()));
   for (int64_t i = 0; i < a.numel(); ++i) {
-    EXPECT_TRUE(approx_equal(static_cast<double>(a.at(i).item<float>()), expected[i]));
+    EXPECT_TRUE(
+        approx_equal(static_cast<double>(a.at(i).item<float>()), expected[i]));
   }
 }
 

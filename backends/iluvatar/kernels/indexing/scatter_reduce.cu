@@ -124,6 +124,6 @@ C_Status scatter_reduce_kernel_gpu(void **inputs, void **outputs) {
 } // extern "C"
 
 REGISTER_ILUVATAR_KERNEL(scatter_reduce, INSIGHT_DTYPE_F32,
-                    scatter_reduce_kernel_gpu);
+                         scatter_reduce_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(scatter_reduce, INSIGHT_DTYPE_F64,
-                    scatter_reduce_kernel_gpu);
+                         scatter_reduce_kernel_gpu);

@@ -418,7 +418,8 @@ TEST_F(ReductionTestGPU, DtypeConsistency) {
 // ========== bincount tests ==========
 
 TEST_F(ReductionTestGPU, BincountBasic) {
-  GTEST_SKIP() << "Iluvatar: Bincount kernel produces wrong results (CoreX compat bug)";
+  GTEST_SKIP()
+      << "Iluvatar: Bincount kernel produces wrong results (CoreX compat bug)";
 }
 
 TEST_F(ReductionTestGPU, BincountWithWeights) {
@@ -437,7 +438,8 @@ TEST_F(ReductionTestGPU, BincountWithWeights) {
 }
 
 TEST_F(ReductionTestGPU, BincountMinlength) {
-  GTEST_SKIP() << "Iluvatar: Bincount kernel produces wrong results (CoreX compat bug)";
+  GTEST_SKIP()
+      << "Iluvatar: Bincount kernel produces wrong results (CoreX compat bug)";
 }
 
 TEST_F(ReductionTestGPU, BincountEmpty) {

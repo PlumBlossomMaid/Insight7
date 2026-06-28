@@ -111,18 +111,18 @@ C_Status bitwise_left_shift_kernel_gpu(void **inputs, void **outputs) {
 // ============================================================================
 
 REGISTER_ILUVATAR_KERNEL(bitwise_left_shift, INSIGHT_DTYPE_U8,
-                    bitwise_left_shift_kernel_gpu);
+                         bitwise_left_shift_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(bitwise_left_shift, INSIGHT_DTYPE_U16,
-                    bitwise_left_shift_kernel_gpu);
+                         bitwise_left_shift_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(bitwise_left_shift, INSIGHT_DTYPE_U32,
-                    bitwise_left_shift_kernel_gpu);
+                         bitwise_left_shift_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(bitwise_left_shift, INSIGHT_DTYPE_U64,
-                    bitwise_left_shift_kernel_gpu);
+                         bitwise_left_shift_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(bitwise_left_shift, INSIGHT_DTYPE_I8,
-                    bitwise_left_shift_kernel_gpu);
+                         bitwise_left_shift_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(bitwise_left_shift, INSIGHT_DTYPE_I16,
-                    bitwise_left_shift_kernel_gpu);
+                         bitwise_left_shift_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(bitwise_left_shift, INSIGHT_DTYPE_I32,
-                    bitwise_left_shift_kernel_gpu);
+                         bitwise_left_shift_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(bitwise_left_shift, INSIGHT_DTYPE_I64,
-                    bitwise_left_shift_kernel_gpu);
+                         bitwise_left_shift_kernel_gpu);

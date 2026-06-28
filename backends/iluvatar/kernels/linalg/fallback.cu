@@ -25,9 +25,9 @@ static C_Status cholesky_solve_kernel_gpu(void **inputs, void **outputs) {
   return C_FALLBACK;
 }
 REGISTER_ILUVATAR_KERNEL(cholesky_solve, INSIGHT_DTYPE_F32,
-                    cholesky_solve_kernel_gpu);
+                         cholesky_solve_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(cholesky_solve, INSIGHT_DTYPE_F64,
-                    cholesky_solve_kernel_gpu);
+                         cholesky_solve_kernel_gpu);
 
 // QR decomposition: complex Householder + orgqr + row-major conversion
 static C_Status qr_kernel_gpu(void **inputs, void **outputs) {
@@ -68,8 +68,10 @@ REGISTER_ILUVATAR_KERNEL(cond, INSIGHT_DTYPE_F64, cond_kernel_gpu);
 static C_Status matrix_rank_kernel_gpu(void **inputs, void **outputs) {
   return C_FALLBACK;
 }
-REGISTER_ILUVATAR_KERNEL(matrix_rank, INSIGHT_DTYPE_F32, matrix_rank_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(matrix_rank, INSIGHT_DTYPE_F64, matrix_rank_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(matrix_rank, INSIGHT_DTYPE_F32,
+                         matrix_rank_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(matrix_rank, INSIGHT_DTYPE_F64,
+                         matrix_rank_kernel_gpu);
 
 // pinv: requires SVD + matrix multiplication
 static C_Status pinv_kernel_gpu(void **inputs, void **outputs) {

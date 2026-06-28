@@ -167,14 +167,14 @@ C_Status signal_freq_shift_kernel_gpu(void **inputs, void **outputs) {
 } // extern "C"
 
 REGISTER_ILUVATAR_KERNEL(signal_freq_shift, INSIGHT_DTYPE_F64,
-                    signal_freq_shift_kernel_gpu);
+                         signal_freq_shift_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(signal_freq_shift, INSIGHT_DTYPE_F32,
-                    signal_freq_shift_kernel_gpu);
+                         signal_freq_shift_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(signal_freq_shift, INSIGHT_DTYPE_C64,
-                    signal_freq_shift_kernel_gpu);
+                         signal_freq_shift_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(signal_freq_shift, INSIGHT_DTYPE_C32,
-                    signal_freq_shift_kernel_gpu);
+                         signal_freq_shift_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(signal_freq_shift, INSIGHT_DTYPE_F16,
-                    signal_freq_shift_kernel_gpu);
+                         signal_freq_shift_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(signal_freq_shift, INSIGHT_DTYPE_BF16,
-                    signal_freq_shift_kernel_gpu);
+                         signal_freq_shift_kernel_gpu);

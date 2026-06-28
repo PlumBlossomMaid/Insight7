@@ -100,10 +100,10 @@ C_Status signal_hz2bark_kernel_gpu(void **inputs, void **outputs) {
 } // extern "C"
 
 REGISTER_ILUVATAR_KERNEL(signal_hz2bark, INSIGHT_DTYPE_F64,
-                    signal_hz2bark_kernel_gpu);
+                         signal_hz2bark_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(signal_hz2bark, INSIGHT_DTYPE_F32,
-                    signal_hz2bark_kernel_gpu);
+                         signal_hz2bark_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(signal_hz2bark, INSIGHT_DTYPE_F16,
-                    signal_hz2bark_kernel_gpu);
+                         signal_hz2bark_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(signal_hz2bark, INSIGHT_DTYPE_BF16,
-                    signal_hz2bark_kernel_gpu);
+                         signal_hz2bark_kernel_gpu);

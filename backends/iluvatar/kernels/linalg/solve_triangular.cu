@@ -69,6 +69,6 @@ static C_Status solve_triangular_kernel_gpu(void **inputs, void **outputs) {
 }
 
 REGISTER_ILUVATAR_KERNEL(solve_triangular, INSIGHT_DTYPE_F32,
-                    solve_triangular_kernel_gpu);
+                         solve_triangular_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(solve_triangular, INSIGHT_DTYPE_F64,
-                    solve_triangular_kernel_gpu);
+                         solve_triangular_kernel_gpu);

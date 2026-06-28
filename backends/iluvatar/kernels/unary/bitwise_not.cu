@@ -116,8 +116,12 @@ C_Status bitwise_not_kernel_gpu(void **inputs, void **outputs) {
 
 } // extern "C"
 
-REGISTER_ILUVATAR_KERNEL(bitwise_not, INSIGHT_DTYPE_BOOL, bitwise_not_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(bitwise_not, INSIGHT_DTYPE_BOOL,
+                         bitwise_not_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(bitwise_not, INSIGHT_DTYPE_I8, bitwise_not_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(bitwise_not, INSIGHT_DTYPE_I16, bitwise_not_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(bitwise_not, INSIGHT_DTYPE_I32, bitwise_not_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(bitwise_not, INSIGHT_DTYPE_I64, bitwise_not_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(bitwise_not, INSIGHT_DTYPE_I16,
+                         bitwise_not_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(bitwise_not, INSIGHT_DTYPE_I32,
+                         bitwise_not_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(bitwise_not, INSIGHT_DTYPE_I64,
+                         bitwise_not_kernel_gpu);

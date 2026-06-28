@@ -124,22 +124,37 @@ C_Status contiguous_copy_gpu(void **inputs, void **outputs) {
 
 } // extern "C"
 
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_BOOL, contiguous_copy_gpu);
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_U8, contiguous_copy_gpu);
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_I8, contiguous_copy_gpu);
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_I16, contiguous_copy_gpu);
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_I32, contiguous_copy_gpu);
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_I64, contiguous_copy_gpu);
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_U16, contiguous_copy_gpu);
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_U32, contiguous_copy_gpu);
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_U64, contiguous_copy_gpu);
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_F16, contiguous_copy_gpu);
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_BF16, contiguous_copy_gpu);
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_F32, contiguous_copy_gpu);
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_F64, contiguous_copy_gpu);
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_C32, contiguous_copy_gpu);
-REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_C64, contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_BOOL,
+                         contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_U8,
+                         contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_I8,
+                         contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_I16,
+                         contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_I32,
+                         contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_I64,
+                         contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_U16,
+                         contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_U32,
+                         contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_U64,
+                         contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_F16,
+                         contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_BF16,
+                         contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_F32,
+                         contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_F64,
+                         contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_C32,
+                         contiguous_copy_gpu);
+REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_C64,
+                         contiguous_copy_gpu);
 REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_F8_E4M3,
-                    contiguous_copy_gpu);
+                         contiguous_copy_gpu);
 REGISTER_ILUVATAR_KERNEL(contiguous_copy, INSIGHT_DTYPE_F8_E5M2,
-                    contiguous_copy_gpu);
+                         contiguous_copy_gpu);

@@ -119,10 +119,10 @@ C_Status spectrogram_power_kernel_gpu(void **inputs, void **outputs) {
 } // extern "C"
 
 REGISTER_ILUVATAR_KERNEL(spectrogram_accum, INSIGHT_DTYPE_C64,
-                    spectrogram_accum_kernel_gpu);
+                         spectrogram_accum_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(spectrogram_accum, INSIGHT_DTYPE_C32,
-                    spectrogram_accum_kernel_gpu);
+                         spectrogram_accum_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(spectrogram_power, INSIGHT_DTYPE_C64,
-                    spectrogram_power_kernel_gpu);
+                         spectrogram_power_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(spectrogram_power, INSIGHT_DTYPE_C32,
-                    spectrogram_power_kernel_gpu);
+                         spectrogram_power_kernel_gpu);

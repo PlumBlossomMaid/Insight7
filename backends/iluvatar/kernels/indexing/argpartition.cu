@@ -84,4 +84,5 @@ C_Status argpartition_kernel_gpu(void **inputs, void **outputs) {
 
 } // extern "C"
 
-REGISTER_ILUVATAR_KERNEL(argpartition, INSIGHT_DTYPE_F32, argpartition_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(argpartition, INSIGHT_DTYPE_F32,
+                         argpartition_kernel_gpu);

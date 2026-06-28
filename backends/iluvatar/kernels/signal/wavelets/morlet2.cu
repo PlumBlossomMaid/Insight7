@@ -78,4 +78,4 @@ C_Status signal_morlet2_kernel_gpu(void **inputs, void **outputs) {
 } // extern "C"
 
 REGISTER_ILUVATAR_KERNEL(signal_morlet2, INSIGHT_DTYPE_C64,
-                    signal_morlet2_kernel_gpu);
+                         signal_morlet2_kernel_gpu);

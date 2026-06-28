@@ -16,6 +16,6 @@ static C_Status firfilter_zi_state_kernel_gpu(void **inputs, void **outputs) {
 } // extern "C"
 
 REGISTER_ILUVATAR_KERNEL(firfilter_zi_state, INSIGHT_DTYPE_F32,
-                    firfilter_zi_state_kernel_gpu);
+                         firfilter_zi_state_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(firfilter_zi_state, INSIGHT_DTYPE_F64,
-                    firfilter_zi_state_kernel_gpu);
+                         firfilter_zi_state_kernel_gpu);

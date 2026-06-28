@@ -153,10 +153,10 @@ C_Status general_cosine_kernel_gpu(void **inputs, void **outputs) {
 } // extern "C"
 
 REGISTER_ILUVATAR_KERNEL(general_cosine, INSIGHT_DTYPE_F64,
-                    general_cosine_kernel_gpu);
+                         general_cosine_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(general_cosine, INSIGHT_DTYPE_F32,
-                    general_cosine_kernel_gpu);
+                         general_cosine_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(general_cosine, INSIGHT_DTYPE_F16,
-                    general_cosine_kernel_gpu);
+                         general_cosine_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(general_cosine, INSIGHT_DTYPE_BF16,
-                    general_cosine_kernel_gpu);
+                         general_cosine_kernel_gpu);

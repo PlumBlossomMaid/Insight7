@@ -93,7 +93,8 @@ elementwise_offset_with_base(int64_t linear, const ElementwiseMetadata *meta,
 
 // Half-precision arithmetic helpers (avoid ambiguous conversion on CUDA 11.8)
 // CUDA 11.8 only has __hadd for __half; others must cast through float
-// CoreX provides hdiv(__half) via iluvatar_fp16.hpp; guard ours to avoid redefinition.
+// CoreX provides hdiv(__half) via iluvatar_fp16.hpp; guard ours to avoid
+// redefinition.
 __device__ __forceinline__ __half hadd(__half a, __half b) {
   return __hadd(a, b);
 }

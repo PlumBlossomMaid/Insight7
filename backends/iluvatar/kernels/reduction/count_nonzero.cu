@@ -84,8 +84,12 @@ C_Status count_nonzero_kernel_gpu(void **inputs, void **outputs) {
 } // extern "C"
 
 REGISTER_ILUVATAR_KERNEL(count_nonzero, INSIGHT_DTYPE_BOOL,
-                    count_nonzero_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(count_nonzero, INSIGHT_DTYPE_F32, count_nonzero_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(count_nonzero, INSIGHT_DTYPE_F64, count_nonzero_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(count_nonzero, INSIGHT_DTYPE_I32, count_nonzero_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(count_nonzero, INSIGHT_DTYPE_I64, count_nonzero_kernel_gpu);
+                         count_nonzero_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(count_nonzero, INSIGHT_DTYPE_F32,
+                         count_nonzero_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(count_nonzero, INSIGHT_DTYPE_F64,
+                         count_nonzero_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(count_nonzero, INSIGHT_DTYPE_I32,
+                         count_nonzero_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(count_nonzero, INSIGHT_DTYPE_I64,
+                         count_nonzero_kernel_gpu);

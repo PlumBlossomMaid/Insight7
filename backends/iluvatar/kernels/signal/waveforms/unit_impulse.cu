@@ -96,7 +96,11 @@ C_Status unit_impulse_kernel_gpu(void **inputs, void **outputs) {
 
 } // extern "C"
 
-REGISTER_ILUVATAR_KERNEL(unit_impulse, INSIGHT_DTYPE_F64, unit_impulse_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(unit_impulse, INSIGHT_DTYPE_F32, unit_impulse_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(unit_impulse, INSIGHT_DTYPE_F16, unit_impulse_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(unit_impulse, INSIGHT_DTYPE_BF16, unit_impulse_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(unit_impulse, INSIGHT_DTYPE_F64,
+                         unit_impulse_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(unit_impulse, INSIGHT_DTYPE_F32,
+                         unit_impulse_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(unit_impulse, INSIGHT_DTYPE_F16,
+                         unit_impulse_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(unit_impulse, INSIGHT_DTYPE_BF16,
+                         unit_impulse_kernel_gpu);

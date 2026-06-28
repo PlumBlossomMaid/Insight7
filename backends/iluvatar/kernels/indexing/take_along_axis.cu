@@ -129,10 +129,10 @@ C_Status take_along_axis_kernel_gpu(void **inputs, void **outputs) {
 } // extern "C"
 
 REGISTER_ILUVATAR_KERNEL(take_along_axis, INSIGHT_DTYPE_F32,
-                    take_along_axis_kernel_gpu);
+                         take_along_axis_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(take_along_axis, INSIGHT_DTYPE_F64,
-                    take_along_axis_kernel_gpu);
+                         take_along_axis_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(take_along_axis, INSIGHT_DTYPE_I32,
-                    take_along_axis_kernel_gpu);
+                         take_along_axis_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(take_along_axis, INSIGHT_DTYPE_I64,
-                    take_along_axis_kernel_gpu);
+                         take_along_axis_kernel_gpu);

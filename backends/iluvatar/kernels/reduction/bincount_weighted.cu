@@ -144,6 +144,6 @@ C_Status bincount_weighted_kernel_gpu(void **inputs, void **outputs) {
 } // extern "C"
 
 REGISTER_ILUVATAR_KERNEL(bincount_weighted, INSIGHT_DTYPE_I32,
-                    bincount_weighted_kernel_gpu);
+                         bincount_weighted_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(bincount_weighted, INSIGHT_DTYPE_I64,
-                    bincount_weighted_kernel_gpu);
+                         bincount_weighted_kernel_gpu);

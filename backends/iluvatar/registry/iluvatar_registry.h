@@ -7,8 +7,8 @@ extern "C" {
 
 void iluvatar_register_kernel(const char *op_name, int32_t dtype,
                               InsightKernel func);
-void iluvatar_sync_kernels(C_Status (*register_fn)(const char *, int32_t, int32_t,
-                                                   InsightKernel));
+void iluvatar_sync_kernels(C_Status (*register_fn)(const char *, int32_t,
+                                                   int32_t, InsightKernel));
 void iluvatar_set_last_error(const char *msg);
 const char *iluvatar_get_last_error(void);
 

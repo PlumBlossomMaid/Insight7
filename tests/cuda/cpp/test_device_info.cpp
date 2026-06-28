@@ -8,7 +8,7 @@ using namespace ins;
 
 class DeviceInfoTestGPU : public ::testing::Test {
 protected:
-  static void SetUpTestSuite() { ins::init({"cpu", "cuda"}); }
+  static void SetUpTestSuite() { ins::init({"cpu", "iluvatar"}); }
 };
 
 TEST_F(DeviceInfoTestGPU, GPUDeviceCount) {

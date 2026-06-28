@@ -158,17 +158,29 @@ C_Status greater_equal_kernel_gpu(void **inputs, void **outputs) {
 // Kernel Registration
 // ============================================================================
 
-REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_F32, greater_equal_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_F64, greater_equal_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_I8, greater_equal_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_I16, greater_equal_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_I32, greater_equal_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_I64, greater_equal_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_U8, greater_equal_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_U16, greater_equal_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_U32, greater_equal_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_U64, greater_equal_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_F32,
+                         greater_equal_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_F64,
+                         greater_equal_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_I8,
+                         greater_equal_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_I16,
+                         greater_equal_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_I32,
+                         greater_equal_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_I64,
+                         greater_equal_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_U8,
+                         greater_equal_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_U16,
+                         greater_equal_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_U32,
+                         greater_equal_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_U64,
+                         greater_equal_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_BOOL,
-                    greater_equal_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_C32, greater_equal_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_C64, greater_equal_kernel_gpu);
+                         greater_equal_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_C32,
+                         greater_equal_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(greater_equal, INSIGHT_DTYPE_C64,
+                         greater_equal_kernel_gpu);

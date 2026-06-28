@@ -109,10 +109,16 @@ C_Status bitwise_xor_kernel_gpu(void **inputs, void **outputs) {
 // ============================================================================
 
 REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_U8, bitwise_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_U16, bitwise_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_U32, bitwise_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_U64, bitwise_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_U16,
+                         bitwise_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_U32,
+                         bitwise_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_U64,
+                         bitwise_xor_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_I8, bitwise_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_I16, bitwise_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_I32, bitwise_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_I64, bitwise_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_I16,
+                         bitwise_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_I32,
+                         bitwise_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_I64,
+                         bitwise_xor_kernel_gpu);

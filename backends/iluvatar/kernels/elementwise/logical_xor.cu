@@ -162,17 +162,29 @@ C_Status logical_xor_kernel_gpu(void **inputs, void **outputs) {
 // Kernel Registration
 // ============================================================================
 
-REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_F32, logical_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_F64, logical_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_F32,
+                         logical_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_F64,
+                         logical_xor_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_I8, logical_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_I16, logical_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_I32, logical_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_I64, logical_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_I16,
+                         logical_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_I32,
+                         logical_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_I64,
+                         logical_xor_kernel_gpu);
 REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_U8, logical_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_U16, logical_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_U32, logical_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_U64, logical_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_BOOL, logical_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_BOOL, logical_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_C32, logical_xor_kernel_gpu);
-REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_C64, logical_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_U16,
+                         logical_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_U32,
+                         logical_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_U64,
+                         logical_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_BOOL,
+                         logical_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(bitwise_xor, INSIGHT_DTYPE_BOOL,
+                         logical_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_C32,
+                         logical_xor_kernel_gpu);
+REGISTER_ILUVATAR_KERNEL(logical_xor, INSIGHT_DTYPE_C64,
+                         logical_xor_kernel_gpu);

@@ -173,7 +173,8 @@ TEST_F(CreationTestGPU, EyeNegativeOffset) {
 // ============================================================================
 
 TEST_F(CreationTestGPU, ArangeSingle) {
-  GTEST_SKIP() << "Iluvatar: Arange on GPU produces wrong results (CoreX compat)";
+  GTEST_SKIP()
+      << "Iluvatar: Arange on GPU produces wrong results (CoreX compat)";
 }
 
 TEST_F(CreationTestGPU, ArangeStartStop) {
@@ -280,7 +281,8 @@ TEST_F(CreationTestGPU, LogspaceFloat64) {
 }
 
 TEST_F(CreationTestGPU, LogspaceSingle) {
-  GTEST_SKIP() << "Iluvatar: Logspace on GPU produces wrong results (CoreX compat)";
+  GTEST_SKIP()
+      << "Iluvatar: Logspace on GPU produces wrong results (CoreX compat)";
 }
 
 // ============================================================================
