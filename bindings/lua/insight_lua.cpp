@@ -50,7 +50,9 @@
 
 #include <cmath>
 #include <csignal>
+#include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 // Helper: convert Lua table {1,2,3} to std::vector<int64_t>
@@ -237,6 +239,44 @@ static std::string lua_spec_to_cpp(const std::string &spec) {
     }
   }
   return out;
+}
+
+static int lua_axis_to_cpp(int axis) {
+  if (axis == 0)
+    throw std::runtime_error("Lua axes are 1-based: axis 0 is invalid");
+  return axis > 0 ? axis - 1 : axis;
+}
+
+static std::optional<int> lua_optional_axis_to_cpp(sol::optional<int> axis) {
+  if (!axis)
+    return std::nullopt;
+  return lua_axis_to_cpp(*axis);
+}
+
+static int lua_axis_or_default_to_cpp(sol::optional<int> axis,
+                                      int lua_default_axis) {
+  return lua_axis_to_cpp(axis.value_or(lua_default_axis));
+}
+
+static std::vector<int> lua_axes_to_cpp(const std::vector<int> &axes) {
+  std::vector<int> converted;
+  converted.reserve(axes.size());
+  for (int axis : axes)
+    converted.push_back(lua_axis_to_cpp(axis));
+  return converted;
+}
+
+static std::vector<int>
+lua_axes_or_default_to_cpp(sol::optional<std::vector<int>> axes,
+                           std::vector<int> defaults) {
+  return lua_axes_to_cpp(axes.value_or(std::move(defaults)));
+}
+
+static std::vector<int> lua_axes_table_to_cpp(sol::table axes) {
+  std::vector<int> converted;
+  for (auto &kv : axes)
+    converted.push_back(lua_axis_to_cpp(kv.second.as<int>()));
+  return converted;
 }
 
 // ============================================================================
@@ -603,12 +643,14 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   array_type["transpose"] =
       sol::overload([](const ins::Array &a) { return a.transpose(); },
                     [](const ins::Array &a, std::vector<int> perm) {
-                      return a.transpose(perm);
+                      return a.transpose(lua_axes_to_cpp(perm));
                     });
   array_type["squeeze"] = [](const ins::Array &a, sol::optional<int> axis) {
-    return a.squeeze(axis ? std::optional<int>(*axis) : std::nullopt);
+    return a.squeeze(lua_optional_axis_to_cpp(axis));
   };
-  array_type["unsqueeze"] = &ins::Array::unsqueeze;
+  array_type["unsqueeze"] = [](const ins::Array &a, int dim) {
+    return a.unsqueeze(lua_axis_to_cpp(dim));
+  };
 
   // Device/type conversion
   // NOTE: No to(int) overload — DType values are numbers in Lua and would
@@ -875,130 +917,130 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   // ====================================================================
   m["sum"] = [](const ins::Array &x, sol::optional<int> axis,
                 sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::sum(x, ax, keepdims.value_or(false));
   };
   m["mean"] = [](const ins::Array &x, sol::optional<int> axis,
                  sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::mean(x, ax, keepdims.value_or(false));
   };
   m["max"] = [](const ins::Array &x, sol::optional<int> axis,
                 sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::max(x, ax, keepdims.value_or(false));
   };
   m["min"] = [](const ins::Array &x, sol::optional<int> axis,
                 sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::min(x, ax, keepdims.value_or(false));
   };
   m["prod"] = [](const ins::Array &x, sol::optional<int> axis,
                  sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::prod(x, ax, keepdims.value_or(false));
   };
   m["argmax"] = [](const ins::Array &x, sol::optional<int> axis,
                    sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::argmax(x, ax, keepdims.value_or(false));
   };
   m["argmin"] = [](const ins::Array &x, sol::optional<int> axis,
                    sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::argmin(x, ax, keepdims.value_or(false));
   };
   m["any"] = [](const ins::Array &x, sol::optional<int> axis,
                 sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::any(x, ax, keepdims.value_or(false));
   };
   m["all"] = [](const ins::Array &x, sol::optional<int> axis,
                 sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::all(x, ax, keepdims.value_or(false));
   };
   m["var"] = [](const ins::Array &x, sol::optional<int> axis,
                 sol::optional<bool> keepdims, sol::optional<int> ddof) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::var(x, ax, keepdims.value_or(false), ddof.value_or(0));
   };
   m["std"] = [](const ins::Array &x, sol::optional<int> axis,
                 sol::optional<bool> keepdims, sol::optional<int> ddof) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::std(x, ax, keepdims.value_or(false), ddof.value_or(0));
   };
   m["cumsum"] = [](const ins::Array &x, int axis) {
-    return ins::cumsum(x, axis);
+    return ins::cumsum(x, lua_axis_to_cpp(axis));
   };
   m["cumprod"] = [](const ins::Array &x, int axis) {
-    return ins::cumprod(x, axis);
+    return ins::cumprod(x, lua_axis_to_cpp(axis));
   };
   m["cummax"] = [](const ins::Array &x, int axis) {
-    return ins::cummax(x, axis);
+    return ins::cummax(x, lua_axis_to_cpp(axis));
   };
   m["cummin"] = [](const ins::Array &x, int axis) {
-    return ins::cummin(x, axis);
+    return ins::cummin(x, lua_axis_to_cpp(axis));
   };
   m["sem"] = [](const ins::Array &x, sol::optional<int> axis,
                 sol::optional<bool> keepdims, sol::optional<int> ddof) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::sem(x, ax, keepdims.value_or(false), ddof.value_or(0));
   };
   m["count_nonzero"] = [](const ins::Array &x, sol::optional<int> axis,
                           sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::count_nonzero(x, ax, keepdims.value_or(false));
   };
   m["median"] = [](const ins::Array &x, sol::optional<int> axis,
                    sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::median(x, ax, keepdims.value_or(false));
   };
   m["quantile"] = sol::overload(
       [](const ins::Array &x, double q, sol::optional<int> axis,
          sol::optional<bool> keepdims) {
-        std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+        std::optional<int> ax = lua_optional_axis_to_cpp(axis);
         return ins::quantile(x, q, ax, keepdims.value_or(false));
       },
       [](const ins::Array &x, const ins::Array &q, sol::optional<int> axis,
          sol::optional<bool> keepdims) {
-        std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+        std::optional<int> ax = lua_optional_axis_to_cpp(axis);
         return ins::quantile(x, q, ax, keepdims.value_or(false));
       });
   m["percentile"] = [](const ins::Array &x, double q, sol::optional<int> axis,
                        sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::percentile(x, q, ax, keepdims.value_or(false));
   };
   m["nansum"] = [](const ins::Array &x, sol::optional<int> axis,
                    sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::nansum(x, ax, keepdims.value_or(false));
   };
   m["nanmean"] = [](const ins::Array &x, sol::optional<int> axis,
                     sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::nanmean(x, ax, keepdims.value_or(false));
   };
   m["nanmax"] = [](const ins::Array &x, sol::optional<int> axis,
                    sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::nanmax(x, ax, keepdims.value_or(false));
   };
   m["nanmin"] = [](const ins::Array &x, sol::optional<int> axis,
                    sol::optional<bool> keepdims) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::nanmin(x, ax, keepdims.value_or(false));
   };
   m["nanstd"] = [](const ins::Array &x, sol::optional<int> axis,
                    sol::optional<bool> keepdims, sol::optional<int> ddof) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::nanstd(x, ax, keepdims.value_or(false), ddof.value_or(0));
   };
   m["nanvar"] = [](const ins::Array &x, sol::optional<int> axis,
                    sol::optional<bool> keepdims, sol::optional<int> ddof) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::nanvar(x, ax, keepdims.value_or(false), ddof.value_or(0));
   };
 
@@ -1006,23 +1048,25 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   // Manipulation
   // ====================================================================
   m["concat"] = [](sol::table arrays, sol::optional<int> axis) {
-    return ins::concat(table_to_arrays(arrays), axis.value_or(0));
+    return ins::concat(table_to_arrays(arrays),
+                       lua_axis_or_default_to_cpp(axis, 1));
   };
   m["stack"] = [](sol::table arrays, sol::optional<int> axis) {
-    return ins::stack(table_to_arrays(arrays), axis.value_or(0));
+    return ins::stack(table_to_arrays(arrays),
+                      lua_axis_or_default_to_cpp(axis, 1));
   };
   m["split"] = [](const ins::Array &x, int sections, sol::optional<int> axis) {
-    return ins::split(x, sections, axis.value_or(0));
+    return ins::split(x, sections, lua_axis_or_default_to_cpp(axis, 1));
   };
   m["tile"] = [](const ins::Array &x, const ins::Shape &reps) {
     return ins::tile(x, reps);
   };
   m["repeat"] = [](const ins::Array &x, int repeats, sol::optional<int> axis) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::repeat(x, repeats, ax);
   };
   m["flip"] = [](const ins::Array &x, sol::optional<int> axis) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::flip(x, ax);
   };
   m["pad"] = [](const ins::Array &x, std::vector<int64_t> pad_width,
@@ -1032,31 +1076,34 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   m["flatten"] = [](const ins::Array &x) { return ins::flatten(x); };
   m["ravel"] = [](const ins::Array &x) { return ins::ravel(x); };
   m["roll"] = [](const ins::Array &x, int shift, sol::optional<int> axis) {
-    std::optional<int> ax = axis ? std::optional<int>(*axis) : std::nullopt;
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::roll(x, shift, ax);
   };
   m["permute"] = [](const ins::Array &x, std::vector<int> axes) {
-    return ins::permute(x, axes);
+    return ins::permute(x, lua_axes_to_cpp(axes));
   };
   m["swapaxes"] = [](const ins::Array &x, int axis1, int axis2) {
-    return ins::swapaxes(x, axis1, axis2);
+    return ins::swapaxes(x, lua_axis_to_cpp(axis1), lua_axis_to_cpp(axis2));
   };
   m["moveaxis"] = [](const ins::Array &x, int source, int destination) {
-    return ins::moveaxis(x, source, destination);
+    return ins::moveaxis(x, lua_axis_to_cpp(source),
+                         lua_axis_to_cpp(destination));
   };
   m["fliplr"] = [](const ins::Array &x) { return ins::fliplr(x); };
   m["flipud"] = [](const ins::Array &x) { return ins::flipud(x); };
   m["rot90"] = [](const ins::Array &x, sol::optional<int> k,
                   sol::optional<std::vector<int>> axes) {
-    return ins::rot90(x, k.value_or(1), axes.value_or(std::vector<int>{0, 1}));
+    return ins::rot90(x, k.value_or(1),
+                      lua_axes_or_default_to_cpp(axes, {1, 2}));
   };
   m["diag"] = [](const ins::Array &x, sol::optional<int> k) {
     return ins::diag(x, k.value_or(0));
   };
   m["diagonal"] = [](const ins::Array &x, sol::optional<int> offset,
                      sol::optional<int> axis1, sol::optional<int> axis2) {
-    return ins::diagonal(x, offset.value_or(0), axis1.value_or(0),
-                         axis2.value_or(1));
+    return ins::diagonal(x, offset.value_or(0),
+                         lua_axis_or_default_to_cpp(axis1, 1),
+                         lua_axis_or_default_to_cpp(axis2, 2));
   };
   m["tril"] = [](const ins::Array &x, sol::optional<int> k) {
     return ins::tril(x, k.value_or(0));
@@ -1066,7 +1113,7 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   };
   m["diff"] = [](const ins::Array &x, sol::optional<int> n,
                  sol::optional<int> axis) {
-    return ins::diff(x, n.value_or(1), axis.value_or(-1));
+    return ins::diff(x, n.value_or(1), lua_axis_or_default_to_cpp(axis, -1));
   };
 
   // ====================================================================
@@ -1116,20 +1163,23 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   // ====================================================================
   m["fft"] = [](const ins::Array &x, sol::optional<int> n,
                 sol::optional<int> axis, sol::optional<std::string> norm_mode) {
-    return ins::fft::fft(x, n.value_or(-1), axis.value_or(-1),
+    return ins::fft::fft(x, n.value_or(-1),
+                         lua_axis_or_default_to_cpp(axis, -1),
                          norm_mode.value_or("backward"));
   };
   m["ifft"] = [](const ins::Array &x, sol::optional<int> n,
                  sol::optional<int> axis,
                  sol::optional<std::string> norm_mode) {
-    return ins::fft::ifft(x, n.value_or(-1), axis.value_or(-1),
+    return ins::fft::ifft(x, n.value_or(-1),
+                          lua_axis_or_default_to_cpp(axis, -1),
                           norm_mode.value_or("backward"));
   };
   m["rfft"] = [](sol::this_state L, const ins::Array &x, sol::optional<int> n,
                  sol::optional<int> axis,
                  sol::optional<std::string> norm_mode) -> sol::object {
     try {
-      auto result = ins::fft::rfft(x, n.value_or(-1), axis.value_or(-1),
+      auto result = ins::fft::rfft(x, n.value_or(-1),
+                                   lua_axis_or_default_to_cpp(axis, -1),
                                    norm_mode.value_or("backward"));
       return sol::make_object(L, std::move(result));
     } catch (const std::exception &e) {
@@ -1140,7 +1190,8 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   m["irfft"] = [](const ins::Array &x, sol::optional<int> n,
                   sol::optional<int> axis,
                   sol::optional<std::string> norm_mode) {
-    return ins::fft::irfft(x, n.value_or(-1), axis.value_or(-1),
+    return ins::fft::irfft(x, n.value_or(-1),
+                           lua_axis_or_default_to_cpp(axis, -1),
                            norm_mode.value_or("backward"));
   };
   m["fftfreq"] = [](int64_t n, sol::optional<double> d) {
@@ -1150,10 +1201,10 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
     return ins::fft::rfftfreq(n, d.value_or(1.0));
   };
   m["fftshift"] = [](const ins::Array &x, sol::optional<int> axis) {
-    return ins::fft::fftshift(x, axis.value_or(-1));
+    return ins::fft::fftshift(x, lua_axis_or_default_to_cpp(axis, -1));
   };
   m["ifftshift"] = [](const ins::Array &x, sol::optional<int> axis) {
-    return ins::fft::ifftshift(x, axis.value_or(-1));
+    return ins::fft::ifftshift(x, lua_axis_or_default_to_cpp(axis, -1));
   };
   m["next_fast_len"] = [](int target) {
     return ins::fft::next_fast_len(target);
@@ -1161,27 +1212,29 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   m["hfft"] = [](const ins::Array &x, sol::optional<int> n,
                  sol::optional<int> axis,
                  sol::optional<std::string> norm_mode) {
-    return ins::fft::hfft(x, n.value_or(-1), axis.value_or(-1),
+    return ins::fft::hfft(x, n.value_or(-1),
+                          lua_axis_or_default_to_cpp(axis, -1),
                           norm_mode.value_or("backward"));
   };
   m["ihfft"] = [](const ins::Array &x, sol::optional<int> n,
                   sol::optional<int> axis,
                   sol::optional<std::string> norm_mode) {
-    return ins::fft::ihfft(x, n.value_or(-1), axis.value_or(-1),
+    return ins::fft::ihfft(x, n.value_or(-1),
+                           lua_axis_or_default_to_cpp(axis, -1),
                            norm_mode.value_or("backward"));
   };
   m["rfft2"] = [](const ins::Array &x, sol::optional<std::vector<int64_t>> s,
                   sol::optional<std::vector<int>> axes,
                   sol::optional<std::string> norm_mode) {
     return ins::fft::rfft2(x, s.value_or(std::vector<int64_t>{}),
-                           axes.value_or(std::vector<int>{-2, -1}),
+                           lua_axes_or_default_to_cpp(axes, {-2, -1}),
                            norm_mode.value_or("backward"));
   };
   m["irfft2"] = [](const ins::Array &x, sol::optional<std::vector<int64_t>> s,
                    sol::optional<std::vector<int>> axes,
                    sol::optional<std::string> norm_mode) {
     return ins::fft::irfft2(x, s.value_or(std::vector<int64_t>{}),
-                            axes.value_or(std::vector<int>{-2, -1}),
+                            lua_axes_or_default_to_cpp(axes, {-2, -1}),
                             norm_mode.value_or("backward"));
   };
   m["fft2"] = [](const ins::Array &x, sol::optional<sol::table> s,
@@ -1192,12 +1245,8 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
       for (auto &kv : *s)
         s_vec.push_back(kv.second.as<int64_t>());
     }
-    std::vector<int> axes_vec = {-2, -1};
-    if (axes) {
-      axes_vec.clear();
-      for (auto &kv : *axes)
-        axes_vec.push_back(kv.second.as<int>());
-    }
+    std::vector<int> axes_vec =
+        axes ? lua_axes_table_to_cpp(*axes) : std::vector<int>{-2, -1};
     return ins::fft::fft2(x, s_vec, axes_vec, norm_mode.value_or("backward"));
   };
   m["ifft2"] = [](const ins::Array &x, sol::optional<sol::table> s,
@@ -1208,26 +1257,22 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
       for (auto &kv : *s)
         s_vec.push_back(kv.second.as<int64_t>());
     }
-    std::vector<int> axes_vec = {-2, -1};
-    if (axes) {
-      axes_vec.clear();
-      for (auto &kv : *axes)
-        axes_vec.push_back(kv.second.as<int>());
-    }
+    std::vector<int> axes_vec =
+        axes ? lua_axes_table_to_cpp(*axes) : std::vector<int>{-2, -1};
     return ins::fft::ifft2(x, s_vec, axes_vec, norm_mode.value_or("backward"));
   };
   m["rfftn"] = [](const ins::Array &x, sol::optional<std::vector<int64_t>> s,
                   sol::optional<std::vector<int>> axes,
                   sol::optional<std::string> norm_mode) {
     return ins::fft::rfftn(x, s.value_or(std::vector<int64_t>{}),
-                           axes.value_or(std::vector<int>{}),
+                           lua_axes_or_default_to_cpp(axes, {}),
                            norm_mode.value_or("backward"));
   };
   m["irfftn"] = [](const ins::Array &x, sol::optional<std::vector<int64_t>> s,
                    sol::optional<std::vector<int>> axes,
                    sol::optional<std::string> norm_mode) {
     return ins::fft::irfftn(x, s.value_or(std::vector<int64_t>{}),
-                            axes.value_or(std::vector<int>{}),
+                            lua_axes_or_default_to_cpp(axes, {}),
                             norm_mode.value_or("backward"));
   };
 
@@ -1423,7 +1468,7 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
     };
     sig["detrend"] = [](const ins::Array &data, sol::optional<int> axis,
                         sol::optional<std::string> type) {
-      return ins::signal::detrend(data, axis.value_or(-1),
+      return ins::signal::detrend(data, lua_axis_or_default_to_cpp(axis, -1),
                                   type.value_or("linear"));
     };
     sig["wiener"] = [](const ins::Array &im,
@@ -1434,30 +1479,34 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
     };
     sig["firfilter"] = [](const ins::Array &b, const ins::Array &x,
                           sol::optional<int> axis) {
-      return ins::signal::firfilter(b, x, axis.value_or(-1));
+      return ins::signal::firfilter(b, x, lua_axis_or_default_to_cpp(axis, -1));
     };
     sig["lfilter"] = [](const ins::Array &b, const ins::Array &a,
                         const ins::Array &x, sol::optional<int> axis) {
-      return ins::signal::lfilter(b, a, x, axis.value_or(-1));
+      return ins::signal::lfilter(b, a, x,
+                                  lua_axis_or_default_to_cpp(axis, -1));
     };
     sig["lfilter_zi"] = &ins::signal::lfilter_zi;
     sig["filtfilt"] = [](const ins::Array &b, const ins::Array &a,
                          const ins::Array &x, sol::optional<int> axis) {
-      return ins::signal::filtfilt(b, a, x, axis.value_or(-1));
+      return ins::signal::filtfilt(b, a, x,
+                                   lua_axis_or_default_to_cpp(axis, -1));
     };
     sig["decimate"] = [](const ins::Array &x, int64_t q,
                          sol::optional<int> axis,
                          sol::optional<bool> zero_phase) {
-      return ins::signal::decimate(x, q, axis.value_or(-1),
+      return ins::signal::decimate(x, q, lua_axis_or_default_to_cpp(axis, -1),
                                    zero_phase.value_or(true));
     };
     sig["resample"] = [](const ins::Array &x, int64_t num,
                          sol::optional<int> axis) {
-      return ins::signal::resample(x, num, axis.value_or(-1));
+      return ins::signal::resample(x, num,
+                                   lua_axis_or_default_to_cpp(axis, -1));
     };
     sig["resample_poly"] = [](const ins::Array &x, int64_t up, int64_t down,
                               sol::optional<int> axis) {
-      return ins::signal::resample_poly(x, up, down, axis.value_or(-1));
+      return ins::signal::resample_poly(x, up, down,
+                                        lua_axis_or_default_to_cpp(axis, -1));
     };
     sig["freq_shift"] = &ins::signal::freq_shift;
     sig["sosfilt"] = &ins::signal::sosfilt;
@@ -1578,7 +1627,7 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
 
     // --- Demod ---
     sig["fm_demod"] = [](const ins::Array &x, sol::optional<int> axis) {
-      return ins::signal::fm_demod(x, axis.value_or(-1));
+      return ins::signal::fm_demod(x, lua_axis_or_default_to_cpp(axis, -1));
     };
 
     // --- Peak Finding ---
@@ -1670,8 +1719,8 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
     sig["unwrap"] = [](const ins::Array &p, sol::optional<int> axis,
                        sol::optional<double> discont,
                        sol::optional<double> period) {
-      return ins::unwrap(p, axis.value_or(-1), discont.value_or(M_PI),
-                         period.value_or(2 * M_PI));
+      return ins::unwrap(p, lua_axis_or_default_to_cpp(axis, -1),
+                         discont.value_or(M_PI), period.value_or(2 * M_PI));
     };
     sig["sinc"] = &ins::sinc;
   }
@@ -1681,8 +1730,8 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   m["unwrap"] = [](const ins::Array &p, sol::optional<int> axis,
                    sol::optional<double> discont,
                    sol::optional<double> period) {
-    return ins::unwrap(p, axis.value_or(-1), discont.value_or(M_PI),
-                       period.value_or(2 * M_PI));
+    return ins::unwrap(p, lua_axis_or_default_to_cpp(axis, -1),
+                       discont.value_or(M_PI), period.value_or(2 * M_PI));
   };
   m["sinc"] = &ins::sinc;
 
@@ -2557,12 +2606,13 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   // Fast slice: integer params, no string parsing overhead
   // dim: 1-based, start: 1-based inclusive, stop: 1-based exclusive
   m["slice"] = [](const ins::Array &a, int dim, int64_t start, int64_t stop) {
-    return a.slice(dim - 1, start - 1, stop - 1);
+    return a.slice(lua_axis_to_cpp(dim), start - 1, stop - 1);
   };
   m["masked_select"] = &ins::masked_select;
   m["argsort"] = [](const ins::Array &x, sol::optional<int> axis,
                     sol::optional<bool> descending) {
-    return ins::argsort(x, axis.value_or(-1), descending.value_or(false));
+    return ins::argsort(x, lua_axis_or_default_to_cpp(axis, -1),
+                        descending.value_or(false));
   };
   m["searchsorted"] = [](const ins::Array &x, const ins::Array &v,
                          sol::optional<std::string> side) {
@@ -2570,7 +2620,8 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   };
   m["sort"] = [](const ins::Array &x, sol::optional<int> axis,
                  sol::optional<bool> descending) {
-    return ins::sort(x, axis.value_or(-1), descending.value_or(false));
+    return ins::sort(x, lua_axis_or_default_to_cpp(axis, -1),
+                     descending.value_or(false));
   };
   m["unique"] = [](const ins::Array &x, sol::optional<bool> return_indices,
                    sol::optional<bool> return_inverse,
@@ -2581,24 +2632,25 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   };
   m["topk"] = [](const ins::Array &x, int64_t k, sol::optional<int> axis,
                  sol::optional<bool> largest, sol::optional<bool> sorted) {
-    return ins::topk(x, k, axis.value_or(-1), largest.value_or(true),
-                     sorted.value_or(true));
+    return ins::topk(x, k, lua_axis_or_default_to_cpp(axis, -1),
+                     largest.value_or(true), sorted.value_or(true));
   };
   m["gather"] = [](const ins::Array &x, int dim, const ins::Array &index) {
-    return ins::gather(x, dim, index);
+    return ins::gather(x, lua_axis_to_cpp(dim), index);
   };
   m["scatter"] = [](const ins::Array &x, int dim, const ins::Array &index,
                     const ins::Array &src) {
-    return ins::scatter(x, dim, index, src);
+    return ins::scatter(x, lua_axis_to_cpp(dim), index, src);
   };
   m["scatter_add"] = [](const ins::Array &x, int dim, const ins::Array &index,
                         const ins::Array &src) {
-    return ins::scatter_add(x, dim, index, src);
+    return ins::scatter_add(x, lua_axis_to_cpp(dim), index, src);
   };
   m["scatter_reduce"] = [](const ins::Array &x, int dim,
                            const ins::Array &index, const ins::Array &src,
                            sol::optional<std::string> reduce) {
-    return ins::scatter_reduce(x, dim, index, src, reduce.value_or("replace"));
+    return ins::scatter_reduce(x, lua_axis_to_cpp(dim), index, src,
+                               reduce.value_or("replace"));
   };
   m["interp"] = [](const ins::Array &x, const ins::Array &xp,
                    const ins::Array &fp, sol::optional<double> left,
