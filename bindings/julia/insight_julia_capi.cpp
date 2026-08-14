@@ -160,7 +160,7 @@ static std::vector<int64_t> julia_to_insight_dims(const int64_t *dims,
 // insight_jl_array_free().
 Array *insight_jl_zeros(const int64_t *dims, int32_t ndim, int32_t dtype,
                         int32_t device_type) {
-  Shape shape(std::vector<int64_t>(dims, dims + ndim));
+  Shape shape(julia_to_insight_dims(dims, ndim));
   DType dt = static_cast<DType>(dtype);
   Place place = device_type == 1 ? GPUPlace(0) : CPUPlace();
   return new Array(zeros(shape, dt, place));
@@ -168,7 +168,7 @@ Array *insight_jl_zeros(const int64_t *dims, int32_t ndim, int32_t dtype,
 
 Array *insight_jl_ones(const int64_t *dims, int32_t ndim, int32_t dtype,
                        int32_t device_type) {
-  Shape shape(std::vector<int64_t>(dims, dims + ndim));
+  Shape shape(julia_to_insight_dims(dims, ndim));
   DType dt = static_cast<DType>(dtype);
   Place place = device_type == 1 ? GPUPlace(0) : CPUPlace();
   return new Array(ones(shape, dt, place));
@@ -176,7 +176,7 @@ Array *insight_jl_ones(const int64_t *dims, int32_t ndim, int32_t dtype,
 
 Array *insight_jl_full(const int64_t *dims, int32_t ndim, double fill_value,
                        int32_t dtype, int32_t device_type) {
-  Shape shape(std::vector<int64_t>(dims, dims + ndim));
+  Shape shape(julia_to_insight_dims(dims, ndim));
   DType dt = static_cast<DType>(dtype);
   Place place = device_type == 1 ? GPUPlace(0) : CPUPlace();
   return new Array(full(shape, fill_value, dt, place));
@@ -187,9 +187,7 @@ Array *insight_jl_full(const int64_t *dims, int32_t ndim, double fill_value,
 // layout.
 Array *insight_jl_from_data(const void *data, const int64_t *dims, int32_t ndim,
                             int32_t dtype, int32_t device_type) {
-  std::vector<int64_t> rdims(dims, dims + ndim);
-  std::reverse(rdims.begin(), rdims.end());
-  Shape shape(rdims);
+  Shape shape(julia_to_insight_dims(dims, ndim));
   DType dt = static_cast<DType>(dtype);
   Place place = device_type == 1 ? GPUPlace(0) : CPUPlace();
   Array *arr = new Array(shape, dt, CPUPlace());
@@ -583,8 +581,8 @@ Array *insight_jl_chirp(const Array *t, double f0, double t1, double f1,
                                  vertex_zero != 0));
 }
 Array *insight_jl_unit_impulse(const int64_t *dims, int32_t ndim, int64_t idx) {
-  return new Array(signal::unit_impulse(
-      Shape(std::vector<int64_t>(dims, dims + ndim)), idx));
+  return new Array(
+      signal::unit_impulse(Shape(julia_to_insight_dims(dims, ndim)), idx));
 }
 
 // --- B-Splines ---
@@ -893,7 +891,7 @@ Array *insight_jl_unpack_bin(const Array *binary, int32_t dtype,
 
 Array *insight_jl_rand(const int64_t *dims, int32_t ndim, int32_t dtype,
                        int32_t device_type) {
-  Shape shape(std::vector<int64_t>(dims, dims + ndim));
+  Shape shape(julia_to_insight_dims(dims, ndim));
   DType dt = static_cast<DType>(dtype);
   Place place = device_type == 1 ? GPUPlace(0) : CPUPlace();
   return new Array(rand(shape, dt, place));
@@ -901,7 +899,7 @@ Array *insight_jl_rand(const int64_t *dims, int32_t ndim, int32_t dtype,
 
 Array *insight_jl_randn(const int64_t *dims, int32_t ndim, int32_t dtype,
                         int32_t device_type) {
-  Shape shape(std::vector<int64_t>(dims, dims + ndim));
+  Shape shape(julia_to_insight_dims(dims, ndim));
   DType dt = static_cast<DType>(dtype);
   Place place = device_type == 1 ? GPUPlace(0) : CPUPlace();
   return new Array(randn(shape, dt, place));
@@ -976,7 +974,7 @@ Array *insight_jl_concat(const Array **arrays, int32_t count, int32_t axis) {
 
 Array *insight_jl_reshape(const Array *x, const int64_t *dims, int32_t ndim) {
   try {
-    Shape shape(std::vector<int64_t>(dims, dims + ndim));
+    Shape shape(julia_to_insight_dims(dims, ndim));
     return new Array(x->reshape(shape));
   } catch (...) {
     return nullptr;
@@ -1206,7 +1204,7 @@ Array *insight_jl_interp(const Array *x, const Array *xp, const Array *fp,
   return new Array(interp(*x, *xp, *fp, l, r));
 }
 Array *insight_jl_indices(const int64_t *dims, int32_t ndim, int32_t sparse) {
-  Shape shape(std::vector<int64_t>(dims, dims + ndim));
+  Shape shape(julia_to_insight_dims(dims, ndim));
   return new Array(indices(shape, sparse != 0));
 }
 void insight_jl_ix_(const Array **arrays, int32_t count, Array **out,
@@ -1234,32 +1232,32 @@ Array *insight_jl_randn_like(const Array *x) {
 }
 Array *insight_jl_exponential(double scale, const int64_t *dims, int32_t ndim,
                               int32_t dtype, int32_t device_type) {
-  Shape shape(std::vector<int64_t>(dims, dims + ndim));
+  Shape shape(julia_to_insight_dims(dims, ndim));
   Place place = device_type == 1 ? GPUPlace(0) : CPUPlace();
   return new Array(exponential(scale, shape, static_cast<DType>(dtype), place));
 }
 Array *insight_jl_gamma(double shape_param, double rate, const int64_t *dims,
                         int32_t ndim, int32_t dtype, int32_t device_type) {
-  Shape shape(std::vector<int64_t>(dims, dims + ndim));
+  Shape shape(julia_to_insight_dims(dims, ndim));
   Place place = device_type == 1 ? GPUPlace(0) : CPUPlace();
   return new Array(
       gamma(shape_param, rate, shape, static_cast<DType>(dtype), place));
 }
 Array *insight_jl_beta_dist(double a, double b, const int64_t *dims,
                             int32_t ndim, int32_t dtype, int32_t device_type) {
-  Shape shape(std::vector<int64_t>(dims, dims + ndim));
+  Shape shape(julia_to_insight_dims(dims, ndim));
   Place place = device_type == 1 ? GPUPlace(0) : CPUPlace();
   return new Array(beta(a, b, shape, static_cast<DType>(dtype), place));
 }
 Array *insight_jl_binomial(int64_t n, double p, const int64_t *dims,
                            int32_t ndim, int32_t dtype, int32_t device_type) {
-  Shape shape(std::vector<int64_t>(dims, dims + ndim));
+  Shape shape(julia_to_insight_dims(dims, ndim));
   Place place = device_type == 1 ? GPUPlace(0) : CPUPlace();
   return new Array(binomial(n, p, shape, static_cast<DType>(dtype), place));
 }
 Array *insight_jl_poisson(double lam, const int64_t *dims, int32_t ndim,
                           int32_t dtype, int32_t device_type) {
-  Shape shape(std::vector<int64_t>(dims, dims + ndim));
+  Shape shape(julia_to_insight_dims(dims, ndim));
   Place place = device_type == 1 ? GPUPlace(0) : CPUPlace();
   return new Array(poisson(lam, shape, static_cast<DType>(dtype), place));
 }

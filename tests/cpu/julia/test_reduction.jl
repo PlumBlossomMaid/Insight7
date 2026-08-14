@@ -57,10 +57,10 @@ check("argmin", Insight.numel(m) == 1)
 
 # cummax
 m2 = Insight.from_data(Float32[1 2 3; 4 5 6])
-check("cummax", Insight.cummax(m2, 0).ptr != C_NULL)
+check("cummax", Insight.cummax(m2, 1).ptr != C_NULL)
 
 # cummin
-check("cummin", Insight.cummin(m2, 0).ptr != C_NULL)
+check("cummin", Insight.cummin(m2, 1).ptr != C_NULL)
 
 # count_nonzero
 check("count_nonzero", Insight.count_nonzero(m2).ptr != C_NULL)

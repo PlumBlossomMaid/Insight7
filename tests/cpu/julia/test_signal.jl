@@ -44,8 +44,15 @@ a = Insight.reshape(a, [2, 4])
 u = Insight.unwrap(a, axis=1)
 check("unwrap_2d_axis1", Insight.numel(u) == 8)
 
-u = Insight.unwrap(a, axis=0)
-check("unwrap_2d_axis0", Insight.numel(u) == 8)
+u = Insight.unwrap(a, axis=2)
+check("unwrap_2d_axis2", Insight.numel(u) == 8)
+
+try
+    Insight.unwrap(a, axis=0)
+    check("unwrap_axis0_invalid", false)
+catch e
+    check("unwrap_axis0_invalid", isa(e, ArgumentError))
+end
 
 data = [0.0, 0.1, 3.2, 3.3, 6.4, 6.5]
 a = Insight.from_data(data)

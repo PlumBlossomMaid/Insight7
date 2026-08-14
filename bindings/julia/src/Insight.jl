@@ -724,10 +724,17 @@ end
 # Additional Reduction (Phase D)
 # ============================================================================
 
-# Helper: convert Julia 1-based axis to Insight 0-based axis.
-# With dim reversal: Julia axis k = Insight axis (ndim - k).
-# axis <= 0 means "all axes" — pass through unchanged.
-_julia_axis(arr::InsightArray, axis::Int) = axis <= 0 ? axis : ndim(arr) - axis
+# Helper: convert Julia 1-based axes to Insight row-major axes.
+# With dim reversal, Julia dimension k maps to Insight axis ndim-k.
+function _julia_axis(arr::InsightArray, axis::Int)
+    n = ndim(arr)
+    axis == 0 && throw(ArgumentError("axis 0 is invalid for Julia bindings"))
+    julia_dim = axis > 0 ? axis : n + axis + 1
+    1 <= julia_dim <= n || throw(ArgumentError("axis $axis out of bounds for array with $n dimensions"))
+    return n - julia_dim
+end
+
+_julia_axes(arr::InsightArray, axes) = Int32[_julia_axis(arr, Int(axis)) for axis in axes]
 
 function cummax(x::InsightArray, axis::Int)::InsightArray
     ptr = ccall((:insight_jl_cummax, LIB_INSIGHT), Ptr{Cvoid},
@@ -1136,22 +1143,25 @@ end
 # ============================================================================
 
 function permute(x::InsightArray, axes::Vector{Int32})::InsightArray
+    insight_axes = _julia_axes(x, axes)
     ptr = ccall((:insight_jl_permute, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Ptr{Int32}, Int32),
-                x, axes, Int32(length(axes)))
+                x, insight_axes, Int32(length(insight_axes)))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
 function swapaxes(x::InsightArray, axis1::Int, axis2::Int)::InsightArray
     ptr = ccall((:insight_jl_swapaxes, LIB_INSIGHT), Ptr{Cvoid},
-                (Ptr{Cvoid}, Int32, Int32), x, Int32(axis1), Int32(axis2))
+                (Ptr{Cvoid}, Int32, Int32), x,
+                Int32(_julia_axis(x, axis1)), Int32(_julia_axis(x, axis2)))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
 function moveaxis(x::InsightArray, source::Int, destination::Int)::InsightArray
     ptr = ccall((:insight_jl_moveaxis, LIB_INSIGHT), Ptr{Cvoid},
-                (Ptr{Cvoid}, Int32, Int32), x, Int32(source),
-                Int32(destination))
+                (Ptr{Cvoid}, Int32, Int32), x,
+                Int32(_julia_axis(x, source)),
+                Int32(_julia_axis(x, destination)))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
@@ -1168,10 +1178,11 @@ function flipud(x::InsightArray)::InsightArray
 end
 
 function rot90(x::InsightArray; k::Int=1,
-               axes::Vector{Int32}=Int32[0, 1])::InsightArray
+               axes::Vector{Int32}=Int32[1, 2])::InsightArray
+    insight_axes = _julia_axes(x, axes)
     ptr = ccall((:insight_jl_rot90, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Int32, Ptr{Int32}, Int32),
-                x, Int32(k), axes, Int32(length(axes)))
+                x, Int32(k), insight_axes, Int32(length(insight_axes)))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
@@ -1181,11 +1192,12 @@ function diag_fn(x::InsightArray; k::Int=0)::InsightArray
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
-function diagonal(x::InsightArray; offset::Int=0, axis1::Int=0,
-                  axis2::Int=1)::InsightArray
+function diagonal(x::InsightArray; offset::Int=0, axis1::Int=1,
+                  axis2::Int=2)::InsightArray
     ptr = ccall((:insight_jl_diagonal, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Int32, Int32, Int32),
-                x, Int32(offset), Int32(axis1), Int32(axis2))
+                x, Int32(offset), Int32(_julia_axis(x, axis1)),
+                Int32(_julia_axis(x, axis2)))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
@@ -1240,7 +1252,8 @@ function topk(x::InsightArray, k::Int; axis::Int=-1, largest::Bool=true,
     ccall((:insight_jl_topk, LIB_INSIGHT), Cvoid,
           (Ptr{Cvoid}, Int64, Int32, Int32, Int32,
            Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}),
-          x, Int64(k), Int32(axis), largest ? Int32(1) : Int32(0),
+          x, Int64(k), Int32(_julia_axis(x, axis)),
+          largest ? Int32(1) : Int32(0),
           sorted ? Int32(1) : Int32(0), v_ref, i_ref)
     vals = InsightArray(v_ref[]); finalizer(_free, vals)
     idx = InsightArray(i_ref[]); finalizer(_free, idx)
@@ -1249,7 +1262,8 @@ end
 
 function gather(x::InsightArray, dim::Int, index::InsightArray)::InsightArray
     ptr = ccall((:insight_jl_gather, LIB_INSIGHT), Ptr{Cvoid},
-                (Ptr{Cvoid}, Int32, Ptr{Cvoid}), x, Int32(dim), index)
+                (Ptr{Cvoid}, Int32, Ptr{Cvoid}), x,
+                Int32(_julia_axis(x, dim)), index)
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
@@ -1257,7 +1271,7 @@ function scatter(x::InsightArray, dim::Int, index::InsightArray,
                  src::InsightArray)::InsightArray
     ptr = ccall((:insight_jl_scatter, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Int32, Ptr{Cvoid}, Ptr{Cvoid}),
-                x, Int32(dim), index, src)
+                x, Int32(_julia_axis(x, dim)), index, src)
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
@@ -1265,7 +1279,7 @@ function scatter_add(x::InsightArray, dim::Int, index::InsightArray,
                      src::InsightArray)::InsightArray
     ptr = ccall((:insight_jl_scatter_add, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Int32, Ptr{Cvoid}, Ptr{Cvoid}),
-                x, Int32(dim), index, src)
+                x, Int32(_julia_axis(x, dim)), index, src)
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
@@ -1274,7 +1288,7 @@ function scatter_reduce(x::InsightArray, dim::Int, index::InsightArray,
                         reduce::String="replace")::InsightArray
     ptr = ccall((:insight_jl_scatter_reduce, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Int32, Ptr{Cvoid}, Ptr{Cvoid}, Cstring),
-                x, Int32(dim), index, src, reduce)
+                x, Int32(_julia_axis(x, dim)), index, src, reduce)
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
@@ -1463,33 +1477,41 @@ end
 
 function rfft2(x::InsightArray; s::Vector{Int64}=Int64[],
                axes::Vector{Int32}=Int32[-2, -1])::InsightArray
+    insight_axes = _julia_axes(x, axes)
     ptr = ccall((:insight_jl_rfft2, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Ptr{Int64}, Int32, Ptr{Int32}, Int32),
-                x, s, Int32(length(s)), axes, Int32(length(axes)))
+                x, s, Int32(length(s)), insight_axes,
+                Int32(length(insight_axes)))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
 function irfft2(x::InsightArray; s::Vector{Int64}=Int64[],
                 axes::Vector{Int32}=Int32[-2, -1])::InsightArray
+    insight_axes = _julia_axes(x, axes)
     ptr = ccall((:insight_jl_irfft2, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Ptr{Int64}, Int32, Ptr{Int32}, Int32),
-                x, s, Int32(length(s)), axes, Int32(length(axes)))
+                x, s, Int32(length(s)), insight_axes,
+                Int32(length(insight_axes)))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
 function rfftn(x::InsightArray; s::Vector{Int64}=Int64[],
                axes::Vector{Int32}=Int32[])::InsightArray
+    insight_axes = _julia_axes(x, axes)
     ptr = ccall((:insight_jl_rfftn, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Ptr{Int64}, Int32, Ptr{Int32}, Int32),
-                x, s, Int32(length(s)), axes, Int32(length(axes)))
+                x, s, Int32(length(s)), insight_axes,
+                Int32(length(insight_axes)))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
 function irfftn(x::InsightArray; s::Vector{Int64}=Int64[],
                 axes::Vector{Int32}=Int32[])::InsightArray
+    insight_axes = _julia_axes(x, axes)
     ptr = ccall((:insight_jl_irfftn, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Ptr{Int64}, Int32, Ptr{Int32}, Int32),
-                x, s, Int32(length(s)), axes, Int32(length(axes)))
+                x, s, Int32(length(s)), insight_axes,
+                Int32(length(insight_axes)))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 

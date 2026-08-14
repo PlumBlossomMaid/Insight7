@@ -39,19 +39,19 @@ function moveaxis end
 """
     fliplr(x::InsightArray) -> InsightArray
 
-Flip an array left/right (along axis 1).
+Flip an array left/right along the second Julia dimension.
 """
 function fliplr end
 
 """
     flipud(x::InsightArray) -> InsightArray
 
-Flip an array up/down (along axis 0).
+Flip an array up/down along the first Julia dimension.
 """
 function flipud end
 
 """
-    rot90(x::InsightArray; k::Int=1, axes::Vector{Int32}=Int32[0, 1]) -> InsightArray
+    rot90(x::InsightArray; k::Int=1, axes::Vector{Int32}=Int32[1, 2]) -> InsightArray
 
 Rotate an array by 90 degrees in the plane specified by `axes`.
 """
@@ -65,7 +65,7 @@ Extract the k-th diagonal, or construct a diagonal array.
 function diag_fn end
 
 """
-    diagonal(x::InsightArray; offset::Int=0, axis1::Int=0, axis2::Int=1) -> InsightArray
+    diagonal(x::InsightArray; offset::Int=0, axis1::Int=1, axis2::Int=2) -> InsightArray
 
 Return the specified diagonals.
 """

@@ -36,17 +36,24 @@ check("transpose numel", Insight.numel(b) == 6)
 
 # permute
 a = Insight.to_array(Insight.ones(Int64[2, 3, 4], Insight.float64), Insight.GPUPlace(0))
-b = Insight.permute(a, Int32[2, 0, 1])
+b = Insight.permute(a, Int32[3, 1, 2])
 check("permute", Insight.numel(b) == 24)
+
+try
+    Insight.permute(a, Int32[2, 0, 1])
+    check("permute_axis0_invalid", false)
+catch e
+    check("permute_axis0_invalid", isa(e, ArgumentError))
+end
 
 # swapaxes
 a = Insight.to_array(Insight.ones(Int64[2, 3], Insight.float64), Insight.GPUPlace(0))
-b = Insight.swapaxes(a, 0, 1)
+b = Insight.swapaxes(a, 1, 2)
 check("swapaxes", Insight.numel(b) == 6)
 
 # moveaxis
 a = Insight.to_array(Insight.ones(Int64[2, 3, 4], Insight.float64), Insight.GPUPlace(0))
-b = Insight.moveaxis(a, 0, 2)
+b = Insight.moveaxis(a, 1, 3)
 check("moveaxis", Insight.numel(b) == 24)
 
 # fliplr

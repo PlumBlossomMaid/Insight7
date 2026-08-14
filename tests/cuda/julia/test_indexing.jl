@@ -50,21 +50,28 @@ a3 = Insight.to_array(Insight.from_data([10.0, 20.0, 30.0, 40.0]), Insight.GPUPl
 a3 = Insight.reshape(a3, [2, 2])
 idx3 = Insight.to_array(Insight.from_data([0, 1, 1, 0]), Insight.GPUPlace(0))
 idx3 = Insight.reshape(idx3, [2, 2])
-g = Insight.gather(a3, 0, idx3)
+g = Insight.gather(a3, 1, idx3)
 check("gather", Insight.numel(g) == 4)
+
+try
+    Insight.gather(a3, 0, idx3)
+    check("gather_axis0_invalid", false)
+catch e
+    check("gather_axis0_invalid", isa(e, ArgumentError))
+end
 
 # scatter
 a4 = Insight.to_array(Insight.zeros(Int64[4], Insight.float64), Insight.GPUPlace(0))
 idx4 = Insight.to_array(Insight.cast(Insight.from_data([0.0, 2.0]), Insight.int32), Insight.GPUPlace(0))
 src = Insight.to_array(Insight.from_data([10.0, 20.0]), Insight.GPUPlace(0))
-s = Insight.scatter(a4, 0, idx4, src)
+s = Insight.scatter(a4, 1, idx4, src)
 check("scatter", Insight.numel(s) == 4)
 
 # scatter_add
 a5 = Insight.to_array(Insight.zeros(Int64[4], Insight.float64), Insight.GPUPlace(0))
 idx5 = Insight.to_array(Insight.cast(Insight.from_data([0.0, 0.0, 2.0]), Insight.int32), Insight.GPUPlace(0))
 src5 = Insight.to_array(Insight.from_data([1.0, 2.0, 3.0]), Insight.GPUPlace(0))
-sa = Insight.scatter_add(a5, 0, idx5, src5)
+sa = Insight.scatter_add(a5, 1, idx5, src5)
 check("scatter_add", Insight.numel(sa) == 4)
 
 # interp
@@ -83,7 +90,7 @@ check("unique_counts", Insight.numel(result6.counts) >= 1)
 a7 = Insight.to_array(Insight.zeros(Int64[4], Insight.float64), Insight.GPUPlace(0))
 idx7 = Insight.to_array(Insight.cast(Insight.from_data([0.0, 0.0, 2.0]), Insight.int32), Insight.GPUPlace(0))
 src7 = Insight.to_array(Insight.from_data([1.0, 2.0, 3.0]), Insight.GPUPlace(0))
-sr = Insight.scatter_reduce(a7, 0, idx7, src7, reduce="add")
+sr = Insight.scatter_reduce(a7, 1, idx7, src7, reduce="add")
 check("scatter_reduce", Insight.numel(sr) == 4)
 
 # unique sorted
