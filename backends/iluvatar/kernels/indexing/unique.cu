@@ -78,6 +78,7 @@ static void allocate_gpu_output(InsightArray *out, int64_t ndim,
 
   // Preserve ref_count, update everything else
   out->data = data;
+  out->storage_nbytes = bytes;
   out->ndim = ndim;
   for (int i = 0; i < ndim; ++i) {
     out->dims[i] = dims[i];

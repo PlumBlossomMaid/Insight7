@@ -236,18 +236,19 @@ static Array from_array_impl(py::object obj) {
 }
 
 static py::array to_numpy(const Array &arr) {
-  Array cpu = arr.contiguous().to(CPUPlace());
-  DType dt = cpu.dtype();
+  auto *owner = new Array(arr.contiguous().to(CPUPlace()));
+  DType dt = owner->dtype();
   py::dtype np_dt = dtype_to_numpy(dt);
 
   std::vector<py::ssize_t> shape;
   std::vector<py::ssize_t> strides;
-  for (int i = 0; i < cpu.shape().ndim(); i++) {
-    shape.push_back(cpu.shape().dim(i));
-    strides.push_back(cpu.strides()[i] * dtype_size(dt));
+  for (int i = 0; i < owner->shape().ndim(); i++) {
+    shape.push_back(owner->shape().dim(i));
+    strides.push_back(owner->strides()[i] * dtype_size(dt));
   }
 
-  return py::array(np_dt, shape, strides, cpu.data());
+  py::capsule base(owner, [](void *ptr) { delete static_cast<Array *>(ptr); });
+  return py::array(np_dt, shape, strides, owner->data(), base);
 }
 
 // ============================================================================
