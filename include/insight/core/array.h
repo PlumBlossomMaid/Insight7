@@ -127,9 +127,13 @@ public:
 
   // ========== Data Access ==========
 
-  /// Raw pointer access (use with caution)
+  /// Raw pointer to the first logical element, including view offset
   void *data();
   const void *data() const;
+
+  /// Raw pointer to the shared base storage allocation
+  void *storage_data();
+  const void *storage_data() const;
 
   /// Typed raw pointer access
   template <typename T> T *data() { return static_cast<T *>(data()); }

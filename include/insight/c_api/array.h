@@ -87,9 +87,24 @@ C_Status insight_array_create_view(InsightArray *dst, const InsightArray *src,
 int64_t insight_array_numel(const InsightArray *array);
 
 /**
- * @brief Get the byte size of the Array's data.
+ * @brief Get the byte size of the Array's logical data.
  */
 size_t insight_array_nbytes(const InsightArray *array);
+
+/**
+ * @brief Get a pointer to the first logical element, including view offset.
+ */
+const void *insight_array_data(const InsightArray *array);
+
+/**
+ * @brief Get the shared base storage pointer.
+ */
+const void *insight_array_storage_data(const InsightArray *array);
+
+/**
+ * @brief Get the byte size of the shared base storage allocation.
+ */
+size_t insight_array_storage_nbytes(const InsightArray *array);
 
 /**
  * @brief Check if the Array is contiguous in memory.

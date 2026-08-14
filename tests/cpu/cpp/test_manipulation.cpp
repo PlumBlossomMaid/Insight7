@@ -150,6 +150,20 @@ TEST_F(ManipulationTest, SqueezeAxis) {
   EXPECT_EQ(b.shape(), Shape({1, 3, 4}));
 }
 
+TEST_F(ManipulationTest, ViewSharesBaseStorageMetadata) {
+  Array a({3, 4}, DType::F32);
+  fill_sequential<float>(a, 0);
+
+  Array view = a.slice(0, 1, 3);
+
+  EXPECT_EQ(view.storage_data(), a.storage_data());
+  EXPECT_NE(view.data(), a.data());
+  EXPECT_EQ(view.storage_nbytes(), a.storage_nbytes());
+  EXPECT_EQ(view.nbytes(), 8 * sizeof(float));
+  EXPECT_EQ(view.offset(), 4);
+  EXPECT_FLOAT_EQ(view.data<float>()[0], 4.0f);
+}
+
 TEST_F(ManipulationTest, Unsqueeze) {
   Array a({3, 4}, DType::F32);
   fill_sequential<float>(a, 0);

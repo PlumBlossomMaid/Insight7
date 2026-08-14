@@ -191,6 +191,24 @@ size_t insight_array_nbytes(const InsightArray *array) {
   return static_cast<size_t>(array->numel) * insight_dtype_size(array->dtype);
 }
 
+const void *insight_array_data(const InsightArray *array) {
+  if (!array || !array->data)
+    return nullptr;
+  size_t elem_size = insight_dtype_size(array->dtype);
+  return static_cast<const char *>(array->data) + array->offset * elem_size;
+}
+
+const void *insight_array_storage_data(const InsightArray *array) {
+  return array ? array->data : nullptr;
+}
+
+size_t insight_array_storage_nbytes(const InsightArray *array) {
+  if (!array)
+    return 0;
+  return array->storage_nbytes ? array->storage_nbytes
+                               : insight_array_nbytes(array);
+}
+
 int insight_array_is_contiguous(const InsightArray *array) {
   if (!array || array->ndim <= 0)
     return 0;
@@ -464,8 +482,7 @@ size_t Array::nbytes() const {
 
 size_t Array::storage_nbytes() const {
   INS_CHECK(defined(), "Array is not initialized");
-  return layout_.storage_nbytes ? layout_.storage_nbytes
-                                : insight_array_nbytes(&layout_);
+  return insight_array_storage_nbytes(&layout_);
 }
 
 // ========== Memory Layout ==========
@@ -483,20 +500,22 @@ Array Array::contiguous() const { return ins::contiguous(*this); }
 
 void *Array::data() {
   INS_CHECK(defined(), "Array is not initialized");
-  if (layout_.offset == 0) {
-    return layout_.data;
-  }
-  size_t elem_size = dtype_size(dtype());
-  return static_cast<char *>(layout_.data) + layout_.offset * elem_size;
+  return const_cast<void *>(insight_array_data(&layout_));
 }
 
 const void *Array::data() const {
   INS_CHECK(defined(), "Array is not initialized");
-  if (layout_.offset == 0) {
-    return layout_.data;
-  }
-  size_t elem_size = dtype_size(dtype());
-  return static_cast<const char *>(layout_.data) + layout_.offset * elem_size;
+  return insight_array_data(&layout_);
+}
+
+void *Array::storage_data() {
+  INS_CHECK(defined(), "Array is not initialized");
+  return layout_.data;
+}
+
+const void *Array::storage_data() const {
+  INS_CHECK(defined(), "Array is not initialized");
+  return insight_array_storage_data(&layout_);
 }
 
 InsightArray *Array::layout_ptr() { return &layout_; }
