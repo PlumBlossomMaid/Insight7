@@ -65,8 +65,8 @@ static C_Status do_cpu_fallback(const char *op_name, int32_t dtype,
   std::vector<InsightArray *> seen;
 
   auto transfer_nbytes = [](const InsightArray *arr, size_t *bytes) -> bool {
-    size_t logical = static_cast<size_t>(arr->numel) *
-                     insight_dtype_size(arr->dtype);
+    size_t logical =
+        static_cast<size_t>(arr->numel) * insight_dtype_size(arr->dtype);
     if (arr->storage_nbytes) {
       *bytes = arr->storage_nbytes;
       return true;
@@ -99,8 +99,8 @@ static C_Status do_cpu_fallback(const char *op_name, int32_t dtype,
         return;
       }
     }
-    transfers.push_back({arr, is_output, nullptr, nullptr,
-                         arr->device_type, arr->device_id, 0});
+    transfers.push_back({arr, is_output, nullptr, nullptr, arr->device_type,
+                         arr->device_id, 0});
     seen.push_back(arr);
   };
 
