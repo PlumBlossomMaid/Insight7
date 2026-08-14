@@ -13,6 +13,7 @@
 #include <complex>
 #include <cstdlib>
 #include <cstring>
+#include <insight/c_api/place.h>
 #include <vector>
 
 #ifdef __cplusplus
