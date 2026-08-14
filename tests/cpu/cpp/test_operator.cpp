@@ -494,3 +494,27 @@ TEST_F(OperatorTest, DivisionByScalarZero) {
   const double *data = b.data<double>();
   EXPECT_TRUE(std::isinf(data[0]));
 }
+
+TEST_F(OperatorTest, SchemaLaunchKeepsHostScalarsExplicit) {
+  Array out(Shape({3}), DType::F64);
+  double fill = 7.0;
+
+  OpRegistry::launch_schema(
+      "full", CPUPlace(), DType::F64,
+      {OpRegistry::array_arg(out.layout_ptr()), OpRegistry::scalar_arg(&fill)},
+      {OpRegistry::array_arg(out.layout_ptr())});
+
+  expect_array_eq(out, {7.0, 7.0, 7.0});
+}
+
+TEST_F(OperatorTest, SchemaLaunchRejectsCountMismatch) {
+  Array out(Shape({3}), DType::F64);
+  double fill = 7.0;
+
+  EXPECT_THROW(
+      OpRegistry::launch_schema("full", CPUPlace(), DType::F64,
+                                {OpRegistry::array_arg(out.layout_ptr()),
+                                 OpRegistry::scalar_arg(&fill)},
+                                {}),
+      Exception);
+}

@@ -6,6 +6,7 @@
 #include "insight/core/dtype.h"
 #include "insight/core/exception.h"
 #include "insight/core/place.h"
+#include <algorithm>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -21,6 +22,36 @@ namespace ins {
  */
 class OpRegistry {
 public:
+  enum class ArgKind { Array, HostScalar };
+
+  struct Arg {
+    void *ptr;
+    ArgKind kind;
+  };
+
+  static Arg array_arg(void *ptr) { return {ptr, ArgKind::Array}; }
+  static Arg array_arg(const void *ptr) {
+    return {const_cast<void *>(ptr), ArgKind::Array};
+  }
+
+  template <typename T> static Arg scalar_arg(T *ptr) {
+    return {static_cast<void *>(ptr), ArgKind::HostScalar};
+  }
+
+  static void handle_status(const std::string &op_name, const Place &place,
+                            C_Status status) {
+    if (status != C_SUCCESS) {
+      const char *error_msg = insight_get_last_error();
+      std::string msg = "Kernel '" + op_name + "' failed on " +
+                        place.to_string() + " with status " +
+                        std::to_string(status);
+      if (error_msg && error_msg[0] != '\0') {
+        msg += ": " + std::string(error_msg);
+      }
+      INS_THROW(msg);
+    }
+  }
+
   /**
    * @brief Launch a kernel.
    *
@@ -53,16 +84,37 @@ public:
         op_name.c_str(), static_cast<int32_t>(place.kind()),
         static_cast<int32_t>(dtype), in_ptrs.data(), out_ptrs.data());
 
-    if (status != C_SUCCESS) {
-      const char *error_msg = insight_get_last_error();
-      std::string msg = "Kernel '" + op_name + "' failed on " +
-                        place.to_string() + " with status " +
-                        std::to_string(status);
-      if (error_msg && error_msg[0] != '\0') {
-        msg += ": " + std::string(error_msg);
-      }
-      INS_THROW(msg);
+    handle_status(op_name, place, status);
+  }
+
+  static void launch_schema(const std::string &op_name, const Place &place,
+                            DType dtype, const std::vector<Arg> &inputs,
+                            const std::vector<Arg> &outputs) {
+    std::vector<void *> in_ptrs(inputs.size() + 1, nullptr);
+    std::vector<void *> out_ptrs(outputs.size() + 1, nullptr);
+    std::vector<InsightKernelArgKind> input_kinds(inputs.size());
+    std::vector<InsightKernelArgKind> output_kinds(outputs.size());
+
+    for (size_t i = 0; i < inputs.size(); ++i) {
+      in_ptrs[i] = inputs[i].ptr;
+      input_kinds[i] = inputs[i].kind == ArgKind::Array
+                           ? INSIGHT_KERNEL_ARG_ARRAY
+                           : INSIGHT_KERNEL_ARG_HOST_SCALAR;
     }
+    for (size_t i = 0; i < outputs.size(); ++i) {
+      out_ptrs[i] = outputs[i].ptr;
+      output_kinds[i] = outputs[i].kind == ArgKind::Array
+                            ? INSIGHT_KERNEL_ARG_ARRAY
+                            : INSIGHT_KERNEL_ARG_HOST_SCALAR;
+    }
+
+    C_Status status = insight_kernel_launch_schema(
+        op_name.c_str(), static_cast<int32_t>(place.kind()),
+        static_cast<int32_t>(dtype), in_ptrs.data(), input_kinds.data(),
+        static_cast<int>(input_kinds.size()), out_ptrs.data(),
+        output_kinds.data(), static_cast<int>(output_kinds.size()));
+
+    handle_status(op_name, place, status);
   }
 
   /**

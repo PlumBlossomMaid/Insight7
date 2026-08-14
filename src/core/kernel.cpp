@@ -6,6 +6,7 @@
 #include "insight/core/place.h"
 #include <algorithm>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <unordered_map>
@@ -34,8 +35,56 @@ static int count_ptrs(void **ptrs) {
 // CPU fallback with GPU→CPU data transfer
 // ============================================================================
 
+static bool is_array_kind(const InsightKernelArgKind *kinds, int count,
+                          int index) {
+  if (!kinds)
+    return true;
+  return index >= 0 && index < count &&
+         kinds[index] == INSIGHT_KERNEL_ARG_ARRAY;
+}
+
+static bool validate_arg_schema(const char *op_name, const char *side,
+                                void **args, const InsightKernelArgKind *kinds,
+                                int count) {
+  if (count < 0) {
+    kernel_error_message = std::string("insight_kernel_launch: negative ") +
+                           side + " count for '" + op_name + "'";
+    insight_set_last_error(kernel_error_message.c_str());
+    return false;
+  }
+  if (count > 0 && !kinds) {
+    kernel_error_message = std::string("insight_kernel_launch: missing ") +
+                           side + " schema for '" + op_name + "'";
+    insight_set_last_error(kernel_error_message.c_str());
+    return false;
+  }
+  int actual = count_ptrs(args);
+  if (actual != count) {
+    kernel_error_message = std::string("insight_kernel_launch: ") + side +
+                           " schema count mismatch for '" + op_name +
+                           "': expected " + std::to_string(count) + ", got " +
+                           std::to_string(actual);
+    insight_set_last_error(kernel_error_message.c_str());
+    return false;
+  }
+  for (int i = 0; i < count; ++i) {
+    if (kinds[i] != INSIGHT_KERNEL_ARG_ARRAY &&
+        kinds[i] != INSIGHT_KERNEL_ARG_HOST_SCALAR) {
+      kernel_error_message = std::string("insight_kernel_launch: invalid ") +
+                             side + " schema kind for '" + op_name + "'";
+      insight_set_last_error(kernel_error_message.c_str());
+      return false;
+    }
+  }
+  return true;
+}
+
 static C_Status do_cpu_fallback(const char *op_name, int32_t dtype,
-                                void **inputs, void **outputs) {
+                                void **inputs,
+                                const InsightKernelArgKind *input_kinds,
+                                int input_count, void **outputs,
+                                const InsightKernelArgKind *output_kinds,
+                                int output_count) {
   InsightKernel cpu_kernel =
       insight_find_kernel(op_name, INSIGHT_DEVICE_CPU, dtype);
   if (!cpu_kernel) {
@@ -47,8 +96,8 @@ static C_Status do_cpu_fallback(const char *op_name, int32_t dtype,
     return C_FAILED;
   }
 
-  int num_inputs = count_ptrs(inputs);
-  int num_outputs = count_ptrs(outputs);
+  int num_inputs = input_kinds ? input_count : count_ptrs(inputs);
+  int num_outputs = output_kinds ? output_count : count_ptrs(outputs);
 
   ins::Place cpu_place = ins::CPUPlace(0);
 
@@ -104,10 +153,14 @@ static C_Status do_cpu_fallback(const char *op_name, int32_t dtype,
     seen.push_back(arr);
   };
 
-  for (int i = 0; i < num_inputs; ++i)
-    consider(inputs[i], false);
-  for (int i = 0; i < num_outputs; ++i)
-    consider(outputs[i], true);
+  for (int i = 0; i < num_inputs; ++i) {
+    if (is_array_kind(input_kinds, input_count, i))
+      consider(inputs[i], false);
+  }
+  for (int i = 0; i < num_outputs; ++i) {
+    if (is_array_kind(output_kinds, output_count, i))
+      consider(outputs[i], true);
+  }
 
   for (auto &transfer : transfers) {
     InsightArray *a = transfer.arr;
@@ -234,8 +287,12 @@ InsightKernel insight_find_kernel(const char *op_name, int32_t device_type,
   return (it != g_kernel_registry.end()) ? it->second : nullptr;
 }
 
-C_Status insight_kernel_launch(const char *op_name, int32_t device_type,
-                               int32_t dtype, void **inputs, void **outputs) {
+static C_Status launch_kernel_common(const char *op_name, int32_t device_type,
+                                     int32_t dtype, void **inputs,
+                                     const InsightKernelArgKind *input_kinds,
+                                     int input_count, void **outputs,
+                                     const InsightKernelArgKind *output_kinds,
+                                     int output_count, bool has_schema) {
   if (!op_name) {
     kernel_error_message = "insight_kernel_launch: op_name is null";
     insight_set_last_error(kernel_error_message.c_str());
@@ -245,6 +302,12 @@ C_Status insight_kernel_launch(const char *op_name, int32_t device_type,
     kernel_error_message =
         std::string("insight_kernel_launch: null array for '") + op_name + "'";
     insight_set_last_error(kernel_error_message.c_str());
+    return C_FAILED;
+  }
+  if (has_schema && (!validate_arg_schema(op_name, "input", inputs, input_kinds,
+                                          input_count) ||
+                     !validate_arg_schema(op_name, "output", outputs,
+                                          output_kinds, output_count))) {
     return C_FAILED;
   }
 
@@ -260,8 +323,11 @@ C_Status insight_kernel_launch(const char *op_name, int32_t device_type,
 
   C_Status status = kernel(inputs, outputs);
 
-  if (status == C_FALLBACK && device_type == INSIGHT_DEVICE_GPU)
-    return do_cpu_fallback(op_name, dtype, inputs, outputs);
+  if (status == C_FALLBACK && device_type == INSIGHT_DEVICE_GPU) {
+    return do_cpu_fallback(
+        op_name, dtype, inputs, has_schema ? input_kinds : nullptr, input_count,
+        outputs, has_schema ? output_kinds : nullptr, output_count);
+  }
 
   if (status != C_SUCCESS && status != C_FALLBACK) {
     kernel_error_message =
@@ -274,6 +340,23 @@ C_Status insight_kernel_launch(const char *op_name, int32_t device_type,
     insight_set_last_error(kernel_error_message.c_str());
   }
   return status;
+}
+
+C_Status insight_kernel_launch(const char *op_name, int32_t device_type,
+                               int32_t dtype, void **inputs, void **outputs) {
+  return launch_kernel_common(op_name, device_type, dtype, inputs, nullptr, 0,
+                              outputs, nullptr, 0, false);
+}
+
+C_Status insight_kernel_launch_schema(const char *op_name, int32_t device_type,
+                                      int32_t dtype, void **inputs,
+                                      const InsightKernelArgKind *input_kinds,
+                                      int input_count, void **outputs,
+                                      const InsightKernelArgKind *output_kinds,
+                                      int output_count) {
+  return launch_kernel_common(op_name, device_type, dtype, inputs, input_kinds,
+                              input_count, outputs, output_kinds, output_count,
+                              true);
 }
 
 int insight_has_kernel(const char *op_name, int32_t device_type,
