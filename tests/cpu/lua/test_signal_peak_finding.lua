@@ -29,13 +29,13 @@ describe("Signal Peak Finding CPU Tests", function()
 
   it("argrelmax_order2", function()
     local data = ins.from_table({ 0.0, 1.0, 3.0, 2.0, 1.0, 5.0, 2.0, 1.0, 0.0 })
-    local result = ins.signal.argrelmax(data, 0, 2)
+    local result = ins.signal.argrelmax(data, 1, 2)
     assert.is_not_nil(result)
   end)
 
   it("argrelmin_order2", function()
     local data = ins.from_table({ 5.0, 3.0, 1.0, 2.0, 4.0, 0.0, 3.0, 4.0, 5.0 })
-    local result = ins.signal.argrelmin(data, 0, 2)
+    local result = ins.signal.argrelmin(data, 1, 2)
     assert.is_not_nil(result)
   end)
 

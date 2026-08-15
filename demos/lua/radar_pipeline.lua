@@ -142,7 +142,7 @@ end
 -- ============================================================
 local function init_cache(device)
   if device == "gpu" and ins.has_device("gpu") then
-    ins.load_backend("cuda")
+    ins.load_backend("rocm")
     _PLACE = ins.GPUPlace(0)
   else
     _PLACE = ins.CPUPlace()
@@ -427,7 +427,7 @@ if args.info then
   )
   -- Try loading GPU backend for info display (works even with --device cpu)
   if not ins.has_device("gpu") then
-    pcall(ins.load_backend, "cuda")
+    pcall(ins.load_backend, "rocm")
   end
   if ins.has_device("gpu") then
     local gpu_total, gpu_free = ins.device_memory_info(1, 0)

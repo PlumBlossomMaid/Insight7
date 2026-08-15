@@ -89,7 +89,7 @@ try
     # 4 sensors, 32 samples
     x_data = [sin(2 * pi * r * c / 128) for r in 1:4, c in 1:32]
     x_arr = Insight.from_data(vec(collect(x_data)), Insight.float64)
-    x_2d = Insight.reshape(x_arr, Int64[4, 32])
+    x_2d = Insight.reshape(x_arr, Int64[32, 4])
     sv = Insight.from_data([1.0, 1.0, 1.0, 1.0], Insight.float64)
     result = Insight.mvdr(x_2d, sv)
     check("mvdr", Insight.numel(result) > 0)
@@ -102,7 +102,7 @@ try
     # 4 sensors, 32 samples
     x_data = [sin(2 * pi * r * c / 128) for r in 1:4, c in 1:32]
     x_arr = Insight.from_data(vec(collect(x_data)), Insight.float64)
-    x_2d = Insight.reshape(x_arr, Int64[4, 32])
+    x_2d = Insight.reshape(x_arr, Int64[32, 4])
     sv2 = Insight.from_data([1.0, 0.5, 0.5, 1.0], Insight.float64)
     result2 = Insight.mvdr(x_2d, sv2)
     check("mvdr_steering", Insight.numel(result2) > 0)

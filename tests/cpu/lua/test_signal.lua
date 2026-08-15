@@ -39,7 +39,7 @@ describe("Signal CPU Tests", function()
       { 0.0, 1.5707963267948966, 3.141592653589793, 4.71238898038469 },
       { 0.1, 1.5707963267948966, 3.2, 3.3 },
     })
-    local u = ins.unwrap(a, 1)
+    local u = ins.unwrap(a, 2)
     assert.is_not_nil(u)
     assert.are.equal(8, u.numel)
   end)
@@ -49,7 +49,7 @@ describe("Signal CPU Tests", function()
       { 0.0, 1.5707963267948966, 3.141592653589793, 4.71238898038469 },
       { 0.1, 1.5707963267948966, 3.2, 3.3 },
     })
-    local u = ins.unwrap(a, 0)
+    local u = ins.unwrap(a, 1)
     assert.is_not_nil(u)
     assert.are.equal(8, u.numel)
   end)

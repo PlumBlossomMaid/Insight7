@@ -44,7 +44,7 @@ function init_cache(device)
     global _S_TX, _TEMPLATE, _HAMMING, _SLOW_TIMES, _SIG_POWER, _NOISE_SIGMA, _DOPPLER_BINS, _RANGE_BINS, _PLACE
 
     if device == "gpu" && Insight.has_device(Int64(1))
-        Insight.load_backend("cuda")
+        Insight.load_backend("rocm")
         _PLACE = Insight.GPUPlace(0)
     else
         _PLACE = Insight.CPUPlace()
@@ -182,7 +182,7 @@ end
 
 function run_frame(delays, dopplers, _device, seed; noise_r=nothing, noise_i=nothing, timer=false, prof=nothing)
     if _device == "gpu" && Insight.has_device(Int64(1))
-        Insight.load_backend("cuda")
+        Insight.load_backend("rocm")
         Insight.set_device(Insight.GPUPlace(0))
     else
         Insight.set_device(Insight.CPUPlace())
@@ -201,7 +201,7 @@ function run_frame(delays, dopplers, _device, seed; noise_r=nothing, noise_i=not
     t2 = time()
 
     if prof !== nothing; Insight.profiler_begin_event(prof, "doppler"); end
-    mean_pc = Insight.mean(pc, axis=0, keepdims=true)
+    mean_pc = Insight.mean(pc, axis=1, keepdims=true)
     pc_ac = pc - mean_pc
     windowed = pc_ac * _HAMMING
     spec = Insight.signal.pulse_doppler(windowed, "", Int64(N_PULSES))

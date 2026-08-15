@@ -69,30 +69,30 @@ end)
 --- Gather values along an axis by index.
 -- @tparam Array x Input array.
 -- @tparam Array indices Indices to gather.
--- @int[opt=0] axis Axis along which to gather.
+-- @int[opt=1] axis Axis along which to gather.
 -- @treturn Array Gathered values.
 M.gather = _wrap({ "x", "indices", "axis" }, function(x, indices, axis)
-  return native.gather(x, indices, axis or 0)
+  return native.gather(x, axis == nil and 1 or axis, indices)
 end)
 
 --- Scatter values into an array by index.
 -- @tparam Array x Input array.
 -- @tparam Array indices Indices at which to scatter.
 -- @tparam Array src Source values to scatter.
--- @int[opt=0] axis Axis along which to scatter.
+-- @int[opt=1] axis Axis along which to scatter.
 -- @treturn Array Updated array.
 M.scatter = _wrap({ "x", "indices", "src", "axis" }, function(x, indices, src, axis)
-  return native.scatter(x, indices, src, axis or 0)
+  return native.scatter(x, axis == nil and 1 or axis, indices, src)
 end)
 
 --- Scatter-add values into an array by index.
 -- @tparam Array x Input array.
 -- @tparam Array indices Indices at which to add.
 -- @tparam Array src Source values to add.
--- @int[opt=0] axis Axis along which to scatter-add.
+-- @int[opt=1] axis Axis along which to scatter-add.
 -- @treturn Array Updated array.
 M.scatter_add = _wrap({ "x", "indices", "src", "axis" }, function(x, indices, src, axis)
-  return native.scatter_add(x, indices, src, axis or 0)
+  return native.scatter_add(x, axis == nil and 1 or axis, indices, src)
 end)
 
 --- Scatter with reduction into an array by index.
@@ -100,10 +100,10 @@ end)
 -- @tparam Array indices Indices at which to reduce.
 -- @tparam Array src Source values.
 -- @string reduce Reduction type ("add", "mul", "mean", "amax", "amin").
--- @int[opt=0] axis Axis along which to scatter-reduce.
+-- @int[opt=1] axis Axis along which to scatter-reduce.
 -- @treturn Array Updated array.
 M.scatter_reduce = _wrap({ "x", "indices", "src", "reduce", "axis" }, function(x, indices, src, reduce, axis)
-  return native.scatter_reduce(x, indices, src, reduce, axis or 0)
+  return native.scatter_reduce(x, axis == nil and 1 or axis, indices, src, reduce)
 end)
 
 --- 1-D linear interpolation.
