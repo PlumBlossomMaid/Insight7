@@ -194,9 +194,9 @@ static C_Status unique_impl(InsightArray *x, void **outputs,
     delete[] sorted_values;
     return status;
   }
-  cudaError_t output_err = cudaMemcpy(
-      out_values->data, sorted_values, unique_count * sizeof(T),
-      cudaMemcpyHostToDevice);
+  cudaError_t output_err =
+      cudaMemcpy(out_values->data, sorted_values, unique_count * sizeof(T),
+                 cudaMemcpyHostToDevice);
   if (output_err != cudaSuccess) {
     gpu_set_last_error(cudaGetErrorString(output_err));
     delete[] x_data;
@@ -214,9 +214,9 @@ static C_Status unique_impl(InsightArray *x, void **outputs,
       delete[] sorted_values;
       return status;
     }
-    output_err = cudaMemcpy(out_indices->data, first_occ.data(),
-                            unique_count * sizeof(int64_t),
-                            cudaMemcpyHostToDevice);
+    output_err =
+        cudaMemcpy(out_indices->data, first_occ.data(),
+                   unique_count * sizeof(int64_t), cudaMemcpyHostToDevice);
     if (output_err != cudaSuccess) {
       gpu_set_last_error(cudaGetErrorString(output_err));
       delete[] x_data;
@@ -252,9 +252,9 @@ static C_Status unique_impl(InsightArray *x, void **outputs,
       delete[] sorted_values;
       return status;
     }
-    output_err = cudaMemcpy(out_counts->data, counts.data(),
-                            unique_count * sizeof(int64_t),
-                            cudaMemcpyHostToDevice);
+    output_err =
+        cudaMemcpy(out_counts->data, counts.data(),
+                   unique_count * sizeof(int64_t), cudaMemcpyHostToDevice);
     if (output_err != cudaSuccess) {
       gpu_set_last_error(cudaGetErrorString(output_err));
       delete[] x_data;
