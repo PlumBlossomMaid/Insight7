@@ -72,7 +72,8 @@ __global__ void ca_cfar_1d_f16(const uint16_t *src, uint16_t *th, bool *det,
   int64_t right_end = min(n, i + g + r + 1);
   int64_t count = (left_end - left_start) + (right_end - right_start);
   if (count <= 0) {
-    th[i] = *(uint16_t *)&__float2half(0.0f);
+    __half zero_h = __float2half(0.0f);
+    th[i] = *(uint16_t *)&zero_h;
     det[i] = false;
     return;
   }
@@ -99,7 +100,8 @@ __global__ void ca_cfar_1d_bf16(const uint16_t *src, uint16_t *th, bool *det,
   int64_t right_end = min(n, i + g + r + 1);
   int64_t count = (left_end - left_start) + (right_end - right_start);
   if (count <= 0) {
-    th[i] = *(uint16_t *)&__float2bfloat16(0.0f);
+    __nv_bfloat16 zero_bf = __float2bfloat16(0.0f);
+    th[i] = *(uint16_t *)&zero_bf;
     det[i] = false;
     return;
   }
@@ -213,7 +215,8 @@ __global__ void ca_cfar_2d_f16(const uint16_t *src, uint16_t *th, bool *det,
 
   int64_t idx = row * cols + col;
   if (ref_count <= 0) {
-    th[idx] = *(uint16_t *)&__float2half(0.0f);
+    __half zero_h = __float2half(0.0f);
+    th[idx] = *(uint16_t *)&zero_h;
     det[idx] = false;
     return;
   }
@@ -252,7 +255,8 @@ __global__ void ca_cfar_2d_bf16(const uint16_t *src, uint16_t *th, bool *det,
 
   int64_t idx = row * cols + col;
   if (ref_count <= 0) {
-    th[idx] = *(uint16_t *)&__float2bfloat16(0.0f);
+    __nv_bfloat16 zero_bf = __float2bfloat16(0.0f);
+    th[idx] = *(uint16_t *)&zero_bf;
     det[idx] = false;
     return;
   }

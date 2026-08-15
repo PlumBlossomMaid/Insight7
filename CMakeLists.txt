@@ -13,9 +13,12 @@ endif()
 # CUDA will be enabled later if available and requested
 project(insight VERSION 1.0.0 LANGUAGES CXX)
 
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
 # ========== Options ==========
 option(INSIGHT_BUILD_TESTS "Build unit tests" ON)
-option(INSIGHT_WITH_CUDA "Enable CUDA backend" ON)
+option(INSIGHT_WITH_CUDA "Enable CUDA backend" OFF)
+option(INSIGHT_WITH_ROCM "Enable ROCm/HIP backend" ON)
 option(INSIGHT_DYNAMIC_CPU_BACKEND "CPU backend is dynamically loaded" ON)
 option(INSIGHT_DYNAMIC_GPU_BACKEND "GPU backend is dynamically loaded" ON)
 
@@ -29,6 +32,17 @@ if(INSIGHT_WITH_CUDA)
     else()
         message(WARNING "CUDA compiler not found, disabling CUDA backend")
         set(INSIGHT_WITH_CUDA OFF)
+    endif()
+endif()
+
+# ========== ROCm/HIP language support (optional) ==========
+if(INSIGHT_WITH_ROCM)
+    find_program(ROCM_HIPCC hipcc HINTS /opt/rocm/bin)
+    if(ROCM_HIPCC)
+        message(STATUS "ROCm/HIP backend enabled: ${ROCM_HIPCC}")
+    else()
+        message(WARNING "ROCm HIP compiler not found, disabling ROCm backend")
+        set(INSIGHT_WITH_ROCM OFF)
     endif()
 endif()
 
@@ -426,6 +440,14 @@ endif()
 # ========== CPU Backend (always dynamic) ==========
 add_subdirectory(backends/cpu)
 
+# ========== HIP backend (ROCm-only GPU slot) ==========
+if(INSIGHT_WITH_ROCM)
+    add_subdirectory(backends/rocm)
+    target_compile_definitions(insight_core PUBLIC INSIGHT_WITH_ROCM)
+else()
+    message(STATUS "ROCm/HIP backend disabled by user option")
+endif()
+
 # ========== CUDA Backend ==========
 if(INSIGHT_WITH_CUDA)
     if(INSIGHT_USE_THRUST)
@@ -498,6 +520,7 @@ message(STATUS "  FFTW3:     ${INSIGHT_USE_FFTW3}")
 message(STATUS "  SndFile:   ${INSIGHT_USE_SNDFILE}")
 message(STATUS "  Matplot:   ${INSIGHT_USE_MATPLOT}")
 message(STATUS "  CUDA:      ${INSIGHT_WITH_CUDA}")
+message(STATUS "  ROCm/HIP:  ${INSIGHT_WITH_ROCM}")
 message(STATUS "  IXUCA:     ${INSIGHT_WITH_ILUVATAR}")
 message(STATUS "  Thrust:    ${INSIGHT_USE_THRUST}")
 message(STATUS "  Tests:     ${INSIGHT_BUILD_TESTS}")

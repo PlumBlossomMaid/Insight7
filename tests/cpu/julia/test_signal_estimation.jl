@@ -45,7 +45,7 @@ check("set_F", Insight.numel(kf.F) == 4)
 
 # set H
 H = Insight.from_data([1.0, 0.0], Insight.float64)
-H = Insight.reshape(H, Int64[1, 2])
+H = Insight.reshape(H, Int64[2, 1])
 kf.H = H
 check("set_H", Insight.numel(kf.H) == 2)
 
@@ -55,7 +55,7 @@ F = Insight.from_data([1.0, 1.0, 0.0, 1.0], Insight.float64)
 F = Insight.reshape(F, Int64[2, 2])
 kf2.F = F
 H = Insight.from_data([1.0, 0.0], Insight.float64)
-H = Insight.reshape(H, Int64[1, 2])
+H = Insight.reshape(H, Int64[2, 1])
 kf2.H = H
 # Set initial covariance and noise matrices
 P = Insight.from_data([1.0, 0.0, 0.0, 1.0], Insight.float64)

@@ -14,14 +14,27 @@
 #include <cuda_runtime.h>
 #include <vector>
 
-static void allocate_gpu_output(InsightArray *out, int64_t ndim,
-                                const int64_t *dims, int64_t numel) {
+static C_Status allocate_gpu_output(InsightArray *out, int64_t ndim,
+                                    const int64_t *dims, int64_t numel,
+                                    int32_t device_id) {
+  cudaError_t device_err = cudaSetDevice(device_id);
+  if (device_err != cudaSuccess) {
+    gpu_set_last_error(cudaGetErrorString(device_err));
+    return C_FAILED;
+  }
+
   size_t bytes = numel * sizeof(int64_t);
   void *data = nullptr;
   if (bytes > 0) {
-    cudaMalloc(&data, bytes);
+    cudaGetLastError();
+    cudaError_t err = cudaMalloc(&data, bytes);
+    if (err != cudaSuccess) {
+      gpu_set_last_error(cudaGetErrorString(err));
+      return C_FAILED;
+    }
   }
   out->data = data;
+  out->storage_nbytes = bytes;
   out->ndim = ndim;
   for (int i = 0; i < ndim; ++i) {
     out->dims[i] = dims[i];
@@ -37,22 +50,35 @@ static void allocate_gpu_output(InsightArray *out, int64_t ndim,
   out->offset = 0;
   out->is_view = 0;
   out->device_type = INSIGHT_DEVICE_GPU;
-  out->device_id = 0;
+  out->device_id = device_id;
   if (!out->ref_count) {
     out->ref_count = new int32_t;
     if (out->ref_count)
       *out->ref_count = 1;
   }
+  return C_SUCCESS;
 }
 
 template <typename T>
-static void nonzero_impl(InsightArray *x, InsightArray *out) {
+static C_Status nonzero_impl(InsightArray *x, InsightArray *out) {
+  cudaError_t device_err = cudaSetDevice(x->device_id);
+  if (device_err != cudaSuccess) {
+    gpu_set_last_error(cudaGetErrorString(device_err));
+    return C_FAILED;
+  }
+
   int64_t total = x->numel;
   int64_t ndim = x->ndim;
 
   // Copy input to CPU
   T *host_data = new T[total];
-  cudaMemcpy(host_data, x->data, total * sizeof(T), cudaMemcpyDeviceToHost);
+  cudaError_t copy_err =
+      cudaMemcpy(host_data, x->data, total * sizeof(T), cudaMemcpyDeviceToHost);
+  if (copy_err != cudaSuccess) {
+    gpu_set_last_error(cudaGetErrorString(copy_err));
+    delete[] host_data;
+    return C_FAILED;
+  }
 
   // Copy dims and strides to CPU
   int64_t *dims = new int64_t[ndim];
@@ -80,13 +106,20 @@ static void nonzero_impl(InsightArray *x, InsightArray *out) {
 
   // Allocate output
   int64_t out_dims[2] = {ndim, nz_count};
-  allocate_gpu_output(out, 2, out_dims, ndim * nz_count);
+  C_Status status =
+      allocate_gpu_output(out, 2, out_dims, ndim * nz_count, x->device_id);
+  if (status != C_SUCCESS) {
+    delete[] host_data;
+    delete[] dims;
+    delete[] strides;
+    return status;
+  }
 
   if (nz_count == 0) {
     delete[] host_data;
     delete[] dims;
     delete[] strides;
-    return;
+    return C_SUCCESS;
   }
 
   // Fill indices on CPU
@@ -111,14 +144,23 @@ static void nonzero_impl(InsightArray *x, InsightArray *out) {
     }
   }
 
-  // Copy indices to GPU
-  cudaMemcpy(out->data, host_indices, ndim * nz_count * sizeof(int64_t),
-             cudaMemcpyHostToDevice);
+  cudaError_t output_err =
+      cudaMemcpy(out->data, host_indices, ndim * nz_count * sizeof(int64_t),
+                 cudaMemcpyHostToDevice);
+  if (output_err != cudaSuccess) {
+    gpu_set_last_error(cudaGetErrorString(output_err));
+    delete[] host_data;
+    delete[] dims;
+    delete[] strides;
+    delete[] host_indices;
+    return C_FAILED;
+  }
 
   delete[] host_data;
   delete[] dims;
   delete[] strides;
   delete[] host_indices;
+  return C_SUCCESS;
 }
 
 extern "C" {
@@ -134,44 +176,31 @@ C_Status nonzero_kernel_gpu(void **inputs, void **outputs) {
 
   switch (x->dtype) {
   case INSIGHT_DTYPE_BOOL:
-    nonzero_impl<bool>(x, out);
-    break;
+    return nonzero_impl<bool>(x, out);
   case INSIGHT_DTYPE_U8:
-    nonzero_impl<uint8_t>(x, out);
-    break;
+    return nonzero_impl<uint8_t>(x, out);
   case INSIGHT_DTYPE_I8:
-    nonzero_impl<int8_t>(x, out);
-    break;
+    return nonzero_impl<int8_t>(x, out);
   case INSIGHT_DTYPE_I16:
-    nonzero_impl<int16_t>(x, out);
-    break;
+    return nonzero_impl<int16_t>(x, out);
   case INSIGHT_DTYPE_I32:
-    nonzero_impl<int32_t>(x, out);
-    break;
+    return nonzero_impl<int32_t>(x, out);
   case INSIGHT_DTYPE_I64:
-    nonzero_impl<int64_t>(x, out);
-    break;
+    return nonzero_impl<int64_t>(x, out);
   case INSIGHT_DTYPE_U16:
-    nonzero_impl<uint16_t>(x, out);
-    break;
+    return nonzero_impl<uint16_t>(x, out);
   case INSIGHT_DTYPE_U32:
-    nonzero_impl<uint32_t>(x, out);
-    break;
+    return nonzero_impl<uint32_t>(x, out);
   case INSIGHT_DTYPE_U64:
-    nonzero_impl<uint64_t>(x, out);
-    break;
+    return nonzero_impl<uint64_t>(x, out);
   case INSIGHT_DTYPE_F32:
-    nonzero_impl<float>(x, out);
-    break;
+    return nonzero_impl<float>(x, out);
   case INSIGHT_DTYPE_F64:
-    nonzero_impl<double>(x, out);
-    break;
+    return nonzero_impl<double>(x, out);
   default:
     gpu_set_last_error("nonzero: unsupported dtype");
     return C_FAILED;
   }
-
-  return C_SUCCESS;
 }
 
 } // extern "C"

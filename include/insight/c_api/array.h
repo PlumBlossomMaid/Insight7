@@ -1,6 +1,7 @@
 // include/insight/c_api/array.h
 #pragma once
 #include "insight/c_api/dtype.h"
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -12,22 +13,23 @@ extern "C" {
 /**
  * @brief Array metadata and lifecycle management.
  *
- * Data pointer and memory management are handled externally via Place.
- * This structure only manages metadata and reference counting for shared
- * data ownership across multiple Array instances.
+ * Data allocation and deallocation are owned by the C++ Array wrapper through
+ * Place. Views share the same data pointer and reference counter; only shape,
+ * strides, and offset differ.
  */
 typedef struct {
-  void *data;                        // Data pointer (owned externally)
+  void *data;                        // Base storage pointer shared by views
   int64_t dims[INSIGHT_MAX_NDIM];    // Dimension sizes
   int64_t strides[INSIGHT_MAX_NDIM]; // Strides for each dimension
   int32_t ndim;                      // Number of dimensions
-  int64_t numel;                     // Total number of elements
+  int64_t numel;                     // Total number of logical elements
   int32_t dtype;                     // InsightDType enum value
   int32_t device_type;               // INSIGHT_DEVICE_CPU or INSIGHT_DEVICE_GPU
   int32_t device_id;                 // Physical device ID
   int64_t offset;                    // Element offset for views
-  int32_t is_view;                   // 0 = owns data, 1 = view
-  int32_t *ref_count;                // Reference counter (shared across views)
+  int32_t is_view;                   // 0 = root array, 1 = view
+  int32_t *ref_count;                // Atomic reference counter shared by views
+  size_t storage_nbytes;             // Byte size of the base storage allocation
 } InsightArray;
 
 /**
@@ -54,8 +56,7 @@ C_Status insight_array_create(InsightArray *array, void *data,
  * reference.
  *
  * Decrements the reference count. If it reaches zero, the reference counter
- * is freed. The caller is responsible for deallocating the data pointer
- * (via Place::deallocate) before calling this function.
+ * is freed and the caller can deallocate data using storage_nbytes and place.
  *
  * @param array Pointer to the Array to destroy
  * @return C_SUCCESS on success
@@ -65,8 +66,8 @@ C_Status insight_array_destroy(InsightArray *array);
 /**
  * @brief Create a view of an existing Array.
  *
- * Shares the same data pointer and reference count. No data copy is made.
- * The parent Array must outlive all views created from it.
+ * Shares the same data pointer, storage_nbytes, and reference count. No data
+ * copy is made. The shared reference counter keeps parent storage alive.
  *
  * @param dst        Pointer to uninitialized InsightArray for the view
  * @param src        Parent Array to create a view from
@@ -86,9 +87,24 @@ C_Status insight_array_create_view(InsightArray *dst, const InsightArray *src,
 int64_t insight_array_numel(const InsightArray *array);
 
 /**
- * @brief Get the byte size of the Array's data.
+ * @brief Get the byte size of the Array's logical data.
  */
 size_t insight_array_nbytes(const InsightArray *array);
+
+/**
+ * @brief Get a pointer to the first logical element, including view offset.
+ */
+const void *insight_array_data(const InsightArray *array);
+
+/**
+ * @brief Get the shared base storage pointer.
+ */
+const void *insight_array_storage_data(const InsightArray *array);
+
+/**
+ * @brief Get the byte size of the shared base storage allocation.
+ */
+size_t insight_array_storage_nbytes(const InsightArray *array);
 
 /**
  * @brief Check if the Array is contiguous in memory.

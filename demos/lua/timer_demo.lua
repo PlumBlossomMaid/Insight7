@@ -26,7 +26,7 @@ test_cpu()
 -- GPU Timer (if available)
 local gpu_ok, gpu_avail = pcall(ins.has_device, "gpu")
 if gpu_avail then
-  pcall(ins.load_backend, "cuda")
+  pcall(ins.load_backend, "rocm")
   local gpu_t = ins.Timer(1, 0)
   gpu_t:start()
   local a = ins.ones({ 256, 256 }, ins.float32, ins.GPUPlace(0))

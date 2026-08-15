@@ -20,6 +20,26 @@
 #include <cstring>
 #include <numeric>
 
+namespace {
+
+int32_t ref_count_increment(int32_t *ref_count) {
+#if defined(__GNUC__) || defined(__clang__)
+  return __atomic_add_fetch(ref_count, 1, __ATOMIC_ACQ_REL);
+#else
+  return ++(*ref_count);
+#endif
+}
+
+int32_t ref_count_decrement(int32_t *ref_count) {
+#if defined(__GNUC__) || defined(__clang__)
+  return __atomic_sub_fetch(ref_count, 1, __ATOMIC_ACQ_REL);
+#else
+  return --(*ref_count);
+#endif
+}
+
+} // namespace
+
 // ========================================================================
 // C API Implementations
 // ========================================================================
@@ -89,6 +109,7 @@ C_Status insight_array_create(InsightArray *array, void *data,
 
   // Initialize reference count
   array->ref_count = new int32_t(1);
+  array->storage_nbytes = insight_array_nbytes(array);
 
   return C_SUCCESS;
 }
@@ -99,7 +120,7 @@ C_Status insight_array_destroy(InsightArray *array) {
         "insight_array_destroy: array must be non-null with valid ref_count");
     return C_FAILED;
   }
-  int32_t remaining = --(*array->ref_count);
+  int32_t remaining = ref_count_decrement(array->ref_count);
   if (remaining == 0) {
     delete array->ref_count;
     array->ref_count = nullptr;
@@ -136,13 +157,14 @@ C_Status insight_array_create_view(InsightArray *dst, const InsightArray *src,
   std::memset(dst, 0, sizeof(InsightArray));
   dst->data = src->data;
   dst->ref_count = src->ref_count;
-  ++(*dst->ref_count);
+  ref_count_increment(dst->ref_count);
   dst->is_view = 1;
   dst->offset = offset;
   dst->ndim = ndim;
   dst->dtype = src->dtype;
   dst->device_type = src->device_type;
   dst->device_id = src->device_id;
+  dst->storage_nbytes = src->storage_nbytes;
 
   dst->numel = 1;
   for (int32_t i = 0; i < ndim; ++i) {
@@ -169,6 +191,24 @@ size_t insight_array_nbytes(const InsightArray *array) {
   return static_cast<size_t>(array->numel) * insight_dtype_size(array->dtype);
 }
 
+const void *insight_array_data(const InsightArray *array) {
+  if (!array || !array->data)
+    return nullptr;
+  size_t elem_size = insight_dtype_size(array->dtype);
+  return static_cast<const char *>(array->data) + array->offset * elem_size;
+}
+
+const void *insight_array_storage_data(const InsightArray *array) {
+  return array ? array->data : nullptr;
+}
+
+size_t insight_array_storage_nbytes(const InsightArray *array) {
+  if (!array)
+    return 0;
+  return array->storage_nbytes ? array->storage_nbytes
+                               : insight_array_nbytes(array);
+}
+
 int insight_array_is_contiguous(const InsightArray *array) {
   if (!array || array->ndim <= 0)
     return 0;
@@ -188,6 +228,7 @@ char *insight_array_tostring(const InsightArray *array) {
     // Build a non-const copy so to_string can copy-to-CPU
     InsightArray tmp = *array;
     ins::Array cpp_arr(&tmp);
+    tmp.ref_count = nullptr;
     std::string s = ins::to_string(cpp_arr);
     char *result = static_cast<char *>(std::malloc(s.size() + 1));
     if (!result)
@@ -206,6 +247,32 @@ char *insight_array_tostring(const InsightArray *array) {
 // ========================================================================
 
 namespace ins {
+
+namespace {
+
+size_t storage_nbytes_or_logical(const InsightArray &layout) {
+  return layout.storage_nbytes ? layout.storage_nbytes
+                               : insight_array_nbytes(&layout);
+}
+
+void release_layout_storage(InsightArray &layout, Place &place) {
+  if (!layout.ref_count)
+    return;
+
+  int32_t *ref_count = layout.ref_count;
+  void *data = layout.data;
+  size_t bytes = storage_nbytes_or_logical(layout);
+  int32_t remaining = ref_count_decrement(ref_count);
+  if (remaining == 0) {
+    delete ref_count;
+    if (data) {
+      place.deallocate(data, bytes);
+    }
+  }
+  std::memset(&layout, 0, sizeof(layout));
+}
+
+} // namespace
 
 // ========== Constructors ==========
 
@@ -239,11 +306,19 @@ Array::Array(const Shape &shape, DType dtype, const Place &place)
   compute_strides();
 }
 
+Array::Array(const Array &other)
+    : layout_(other.layout_), shape_(other.shape_), place_(other.place_),
+      strides_(other.strides_) {
+  if (layout_.ref_count) {
+    ref_count_increment(layout_.ref_count);
+  }
+}
+
 Array::Array(InsightArray *layout) {
   // Copy layout content
   layout_ = *layout;
   if (layout_.ref_count) {
-    ++(*layout_.ref_count);
+    ref_count_increment(layout_.ref_count);
   }
 
   // Build shape_ from layout
@@ -323,17 +398,7 @@ Array::Array(const Array &parent, const Shape &view_shape,
                             view_shape.ndim(), strides_arr);
 }
 
-Array::~Array() {
-  if (layout_.ref_count) {
-    bool is_last = (*layout_.ref_count == 1);
-    void *data = layout_.data;
-    size_t bytes = layout_.numel * insight_dtype_size(layout_.dtype);
-    insight_array_destroy(&layout_);
-    if (is_last && data) {
-      place_.deallocate(data, bytes);
-    }
-  }
-}
+Array::~Array() { release_layout_storage(layout_, place_); }
 
 // ========== Assignment ==========
 
@@ -350,17 +415,9 @@ Array &Array::operator=(const Array &other) {
 
   // Rebind (non-view, different shape/dtype, or uninitialized)
   if (other.layout_.ref_count) {
-    ++(*other.layout_.ref_count);
+    ref_count_increment(other.layout_.ref_count);
   }
-  if (layout_.ref_count) {
-    bool is_last = (*layout_.ref_count == 1);
-    void *data = layout_.data;
-    size_t bytes = layout_.numel * insight_dtype_size(layout_.dtype);
-    insight_array_destroy(&layout_);
-    if (is_last && data) {
-      place_.deallocate(data, bytes);
-    }
-  }
+  release_layout_storage(layout_, place_);
   layout_ = other.layout_;
   shape_ = other.shape_;
   place_ = other.place_;
@@ -381,16 +438,7 @@ Array::Array(Array &&other) noexcept
 
 Array &Array::operator=(Array &&other) noexcept {
   if (this != &other) {
-    // Release old shared data (without destroying C++ members).
-    if (layout_.ref_count) {
-      bool is_last = (*layout_.ref_count == 1);
-      void *data = layout_.data;
-      size_t bytes = layout_.numel * insight_dtype_size(layout_.dtype);
-      insight_array_destroy(&layout_);
-      if (is_last && data) {
-        place_.deallocate(data, bytes);
-      }
-    }
+    release_layout_storage(layout_, place_);
 
     layout_ = other.layout_;
     shape_ = std::move(other.shape_);
@@ -432,6 +480,11 @@ size_t Array::nbytes() const {
   return insight_array_nbytes(&layout_);
 }
 
+size_t Array::storage_nbytes() const {
+  INS_CHECK(defined(), "Array is not initialized");
+  return insight_array_storage_nbytes(&layout_);
+}
+
 // ========== Memory Layout ==========
 
 bool Array::is_contiguous() const {
@@ -447,20 +500,22 @@ Array Array::contiguous() const { return ins::contiguous(*this); }
 
 void *Array::data() {
   INS_CHECK(defined(), "Array is not initialized");
-  if (layout_.offset == 0) {
-    return layout_.data;
-  }
-  size_t elem_size = dtype_size(dtype());
-  return static_cast<char *>(layout_.data) + layout_.offset * elem_size;
+  return const_cast<void *>(insight_array_data(&layout_));
 }
 
 const void *Array::data() const {
   INS_CHECK(defined(), "Array is not initialized");
-  if (layout_.offset == 0) {
-    return layout_.data;
-  }
-  size_t elem_size = dtype_size(dtype());
-  return static_cast<const char *>(layout_.data) + layout_.offset * elem_size;
+  return insight_array_data(&layout_);
+}
+
+void *Array::storage_data() {
+  INS_CHECK(defined(), "Array is not initialized");
+  return layout_.data;
+}
+
+const void *Array::storage_data() const {
+  INS_CHECK(defined(), "Array is not initialized");
+  return insight_array_storage_data(&layout_);
 }
 
 InsightArray *Array::layout_ptr() { return &layout_; }
@@ -842,7 +897,7 @@ Array Array::view(const Shape &new_shape) const {
 
   result.layout_ = layout_;
   if (result.layout_.ref_count) {
-    ++(*result.layout_.ref_count);
+    ref_count_increment(result.layout_.ref_count);
   }
 
   result.shape_ = new_shape;
@@ -873,7 +928,7 @@ Array Array::view(DType new_dtype) const {
 
   result.layout_ = layout_;
   if (result.layout_.ref_count) {
-    ++(*result.layout_.ref_count);
+    ref_count_increment(result.layout_.ref_count);
   }
 
   result.layout_.dtype = static_cast<int32_t>(new_dtype);
@@ -903,7 +958,7 @@ Array Array::view(const Shape &new_shape, DType new_dtype) const {
 
   result.layout_ = source.layout_;
   if (result.layout_.ref_count) {
-    ++(*result.layout_.ref_count);
+    ref_count_increment(result.layout_.ref_count);
   }
 
   result.layout_.ndim = new_shape.ndim();

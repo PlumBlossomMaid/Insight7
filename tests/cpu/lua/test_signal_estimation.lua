@@ -11,7 +11,7 @@ describe("Signal Estimation CPU Tests", function()
 
   -- Helper: wrap 2D table into 3D (points=1) unsqueezed array
   local function mat2d(tbl)
-    return ins.from_table(tbl):unsqueeze(0)
+    return ins.from_table(tbl):unsqueeze(1)
   end
 
   -- Helper: wrap 1D table into 3D [1, n, 1] array

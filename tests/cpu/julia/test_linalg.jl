@@ -146,7 +146,7 @@ end
 # lstsq
 try
     a7 = Insight.from_data([1.0, 1.0, 1.0, 2.0, 1.0, 3.0])
-    a7 = Insight.reshape(a7, [3, 2])
+    a7 = Insight.reshape(a7, [2, 3])
     b7 = Insight.from_data([1.0, 2.0, 2.0])
     local x = Insight.lstsq(a7, b7)
     check("lstsq", Insight.numel(x) == 2)

@@ -40,7 +40,7 @@ local _SLOW_TIMES = nil
 
 local function init_cache(device)
   if device == "gpu" and ins.has_device("gpu") then
-    ins.load_backend("cuda")
+    ins.load_backend("rocm")
     _PLACE = ins.GPUPlace(0)
   else
     _PLACE = ins.CPUPlace()
@@ -227,7 +227,7 @@ end
 -- ============================================================
 local function run_frame(delays, dopplers, device, seed, external_noise_r, external_noise_i, prof)
   if device == "gpu" and ins.has_device("gpu") then
-    ins.load_backend("cuda")
+    ins.load_backend("rocm")
     ins.set_device(ins.GPUPlace(0))
   else
     ins.set_device(ins.CPUPlace())
@@ -260,7 +260,7 @@ local function run_frame(delays, dopplers, device, seed, external_noise_r, exter
   if prof then
     prof:begin_event("doppler")
   end
-  local mean_pc = ins.mean(pc, 0, true)
+  local mean_pc = ins.mean(pc, 1, true)
   local pc_ac = pc - mean_pc
   local spec = ins.signal.pulse_doppler(pc_ac * _HAMMING, "", N_PULSES)
   local shifted = spec / N_PULSES
@@ -399,7 +399,7 @@ if args.info then
   )
   -- Try loading GPU backend for info display (works even with --device cpu)
   if not ins.has_device("gpu") then
-    pcall(ins.load_backend, "cuda")
+    pcall(ins.load_backend, "rocm")
   end
   if ins.has_device("gpu") then
     local gpu_total, gpu_free = ins.device_memory_info(1, 0)

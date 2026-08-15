@@ -30,7 +30,7 @@ check("sum", Insight.numel(s) == 1)
 
 # sum_axis
 b = Insight.to_array(Insight.from_data(Float64[1 2 3; 4 5 6]), Insight.GPUPlace(0))
-s = Insight.sum(b, axis=0)
+s = Insight.sum(b, axis=1)
 check("sum_axis", Insight.numel(s) == 3)
 
 # mean
@@ -65,10 +65,10 @@ check("argmin", Insight.numel(m) == 1)
 
 # cummax
 m2 = Insight.to_array(Insight.from_data(Float32[1 2 3; 4 5 6]), Insight.GPUPlace(0))
-check("cummax", Insight.cummax(m2, 0).ptr != C_NULL)
+check("cummax", Insight.cummax(m2, 1).ptr != C_NULL)
 
 # cummin
-check("cummin", Insight.cummin(m2, 0).ptr != C_NULL)
+check("cummin", Insight.cummin(m2, 1).ptr != C_NULL)
 
 # count_nonzero
 check("count_nonzero", Insight.count_nonzero(m2).ptr != C_NULL)

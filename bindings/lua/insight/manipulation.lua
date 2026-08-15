@@ -12,27 +12,27 @@ local _wrap = require("insight._wrap")
 
 --- Concatenate arrays along an axis.
 -- @tparam table arrays List of arrays to concatenate.
--- @int[opt=0] axis Axis along which to concatenate.
+-- @int[opt=1] axis Axis along which to concatenate.
 -- @treturn Array Concatenated array.
 M.concat = _wrap({ "arrays", "axis" }, function(arrays, axis)
-  return native.concat(arrays, axis or 0)
+  return native.concat(arrays, axis == nil and 1 or axis)
 end)
 
 --- Stack arrays along a new axis.
 -- @tparam table arrays List of arrays to stack.
--- @int[opt=0] axis Axis along which to stack.
+-- @int[opt=1] axis Axis along which to stack.
 -- @treturn Array Stacked array.
 M.stack = _wrap({ "arrays", "axis" }, function(arrays, axis)
-  return native.stack(arrays, axis or 0)
+  return native.stack(arrays, axis == nil and 1 or axis)
 end)
 
 --- Split an array into sub-arrays.
 -- @tparam Array x Input array.
 -- @int sections Number of equal sections to split into.
--- @int[opt=0] axis Axis along which to split.
+-- @int[opt=1] axis Axis along which to split.
 -- @treturn table List of sub-arrays.
 M.split = _wrap({ "x", "sections", "axis" }, function(x, sections, axis)
-  return native.split(x, sections, axis or 0)
+  return native.split(x, sections, axis == nil and 1 or axis)
 end)
 
 --- Construct an array by tiling.
@@ -135,10 +135,10 @@ end)
 --- Rotate array by 90 degrees in the plane specified by axes.
 -- @tparam Array x Input array.
 -- @int[opt=1] k Number of 90-degree rotations.
--- @tparam[opt={0,1}] table axes The two axes that define the plane of rotation.
+-- @tparam[opt={1,2}] table axes The two axes that define the plane of rotation.
 -- @treturn Array Rotated array.
 M.rot90 = _wrap({ "x", "k", "axes" }, function(x, k, axes)
-  return native.rot90(x, k or 1, axes or { 0, 1 })
+  return native.rot90(x, k or 1, axes or { 1, 2 })
 end)
 
 --- Extract diagonal or construct a diagonal array.
@@ -152,11 +152,11 @@ end)
 --- Return specified diagonals.
 -- @tparam Array x Input array.
 -- @int[opt=0] offset Diagonal offset.
--- @int[opt=0] axis1 First axis for the 2-D sub-arrays.
--- @int[opt=1] axis2 Second axis for the 2-D sub-arrays.
+-- @int[opt=1] axis1 First axis for the 2-D sub-arrays.
+-- @int[opt=2] axis2 Second axis for the 2-D sub-arrays.
 -- @treturn Array Diagonal values.
 M.diagonal = _wrap({ "x", "offset", "axis1", "axis2" }, function(x, offset, axis1, axis2)
-  return native.diagonal(x, offset or 0, axis1 or 0, axis2 or 1)
+  return native.diagonal(x, offset or 0, axis1 == nil and 1 or axis1, axis2 == nil and 2 or axis2)
 end)
 
 --- Lower triangular part of an array.

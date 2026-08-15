@@ -68,14 +68,8 @@ public:
   explicit Array(std::complex<float> value);
   explicit Array(std::complex<double> value);
 
-  // copy constructor
-  Array(const Array &other)
-      : layout_(other.layout_), shape_(other.shape_), place_(other.place_),
-        strides_(other.strides_) {
-    if (layout_.ref_count) {
-      ++(*layout_.ref_count);
-    }
-  }
+  /// Copy constructor
+  Array(const Array &other);
 
   /// Move constructor
   Array(Array &&other) noexcept;
@@ -117,8 +111,11 @@ public:
   /// Return the total number of elements
   int64_t numel() const;
 
-  /// Return the total number of bytes (numel * dtype size)
+  /// Return the total number of bytes (logical numel * dtype size)
   size_t nbytes() const;
+
+  /// Return the byte size of the shared base storage allocation
+  size_t storage_nbytes() const;
 
   // ========== Memory Layout ==========
 
@@ -130,9 +127,13 @@ public:
 
   // ========== Data Access ==========
 
-  /// Raw pointer access (use with caution)
+  /// Raw pointer to the first logical element, including view offset
   void *data();
   const void *data() const;
+
+  /// Raw pointer to the shared base storage allocation
+  void *storage_data();
+  const void *storage_data() const;
 
   /// Typed raw pointer access
   template <typename T> T *data() { return static_cast<T *>(data()); }

@@ -13,6 +13,7 @@
 #include <complex>
 #include <cstdlib>
 #include <cstring>
+#include <insight/c_api/place.h>
 #include <vector>
 
 #ifdef __cplusplus
@@ -55,6 +56,7 @@ static void *allocate_output(InsightArray *out, size_t elem_size, int32_t dtype,
   }
 
   out->data = data;
+  out->storage_nbytes = bytes;
   out->ndim = 1;
   out->dims[0] = numel;
   out->numel = numel;
@@ -62,6 +64,8 @@ static void *allocate_output(InsightArray *out, size_t elem_size, int32_t dtype,
   out->strides[0] = 1;
   out->offset = 0;
   out->is_view = 0;
+  out->device_type = INSIGHT_DEVICE_CPU;
+  out->device_id = 0;
 
   if (!out->ref_count) {
     out->ref_count = new int32_t;

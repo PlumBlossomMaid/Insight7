@@ -69,6 +69,7 @@ static void *allocate_output(InsightArray *out, size_t elem_size, int32_t dtype,
   }
 
   out->data = data;
+  out->storage_nbytes = bytes;
   out->ndim = ndim;
   for (int i = 0; i < ndim; ++i) {
     out->dims[i] = dims[i];

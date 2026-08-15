@@ -25,9 +25,15 @@
 #include <cuda_runtime.h>
 #include <vector>
 
-static void allocate_gpu_output(InsightArray *out, int64_t ndim,
-                                const int64_t *dims, int64_t numel,
-                                int32_t dtype) {
+static C_Status allocate_gpu_output(InsightArray *out, int64_t ndim,
+                                    const int64_t *dims, int64_t numel,
+                                    int32_t dtype, int32_t device_id) {
+  cudaError_t device_err = cudaSetDevice(device_id);
+  if (device_err != cudaSuccess) {
+    gpu_set_last_error(cudaGetErrorString(device_err));
+    return C_FAILED;
+  }
+
   int32_t elem_size = 4; // default
   switch (dtype) {
   case INSIGHT_DTYPE_BOOL:
@@ -72,12 +78,13 @@ static void allocate_gpu_output(InsightArray *out, int64_t ndim,
     cudaError_t err = cudaMalloc(&data, bytes);
     if (err != cudaSuccess) {
       gpu_set_last_error(cudaGetErrorString(err));
-      data = nullptr;
+      return C_FAILED;
     }
   }
 
   // Preserve ref_count, update everything else
   out->data = data;
+  out->storage_nbytes = bytes;
   out->ndim = ndim;
   for (int i = 0; i < ndim; ++i) {
     out->dims[i] = dims[i];
@@ -93,24 +100,37 @@ static void allocate_gpu_output(InsightArray *out, int64_t ndim,
   out->offset = 0;
   out->is_view = 0;
   out->device_type = INSIGHT_DEVICE_GPU;
-  out->device_id = 0;
+  out->device_id = device_id;
   out->ref_count = saved_ref;
   if (!out->ref_count) {
     out->ref_count = new int32_t;
     if (out->ref_count)
       *out->ref_count = 1;
   }
+  return C_SUCCESS;
 }
 
 template <typename T>
 static C_Status unique_impl(InsightArray *x, void **outputs,
                             bool return_indices, bool return_inverse,
                             bool return_counts) {
+  cudaError_t device_err = cudaSetDevice(x->device_id);
+  if (device_err != cudaSuccess) {
+    gpu_set_last_error(cudaGetErrorString(device_err));
+    return C_FAILED;
+  }
+
   int64_t n = x->numel;
 
   // Copy input to CPU
   T *x_data = new T[n];
-  cudaMemcpy(x_data, x->data, n * sizeof(T), cudaMemcpyDeviceToHost);
+  cudaError_t copy_err =
+      cudaMemcpy(x_data, x->data, n * sizeof(T), cudaMemcpyDeviceToHost);
+  if (copy_err != cudaSuccess) {
+    gpu_set_last_error(cudaGetErrorString(copy_err));
+    delete[] x_data;
+    return C_FAILED;
+  }
 
   // Sort pairs (value, original_index)
   std::vector<std::pair<T, int64_t>> pairs(n);
@@ -167,31 +187,80 @@ static C_Status unique_impl(InsightArray *x, void **outputs,
   // outputs[0] = unique values
   InsightArray *out_values = static_cast<InsightArray *>(outputs[0]);
   int64_t out_dims[1] = {unique_count};
-  allocate_gpu_output(out_values, 1, out_dims, unique_count, x->dtype);
-  cudaMemcpy(out_values->data, sorted_values, unique_count * sizeof(T),
-             cudaMemcpyHostToDevice);
+  C_Status status = allocate_gpu_output(out_values, 1, out_dims, unique_count,
+                                        x->dtype, x->device_id);
+  if (status != C_SUCCESS) {
+    delete[] x_data;
+    delete[] sorted_values;
+    return status;
+  }
+  cudaError_t output_err =
+      cudaMemcpy(out_values->data, sorted_values, unique_count * sizeof(T),
+                 cudaMemcpyHostToDevice);
+  if (output_err != cudaSuccess) {
+    gpu_set_last_error(cudaGetErrorString(output_err));
+    delete[] x_data;
+    delete[] sorted_values;
+    return C_FAILED;
+  }
 
   int out_idx = 1;
   if (return_indices) {
     InsightArray *out_indices = static_cast<InsightArray *>(outputs[out_idx++]);
-    allocate_gpu_output(out_indices, 1, out_dims, unique_count,
-                        INSIGHT_DTYPE_I64);
-    cudaMemcpy(out_indices->data, first_occ.data(),
-               unique_count * sizeof(int64_t), cudaMemcpyHostToDevice);
+    status = allocate_gpu_output(out_indices, 1, out_dims, unique_count,
+                                 INSIGHT_DTYPE_I64, x->device_id);
+    if (status != C_SUCCESS) {
+      delete[] x_data;
+      delete[] sorted_values;
+      return status;
+    }
+    output_err =
+        cudaMemcpy(out_indices->data, first_occ.data(),
+                   unique_count * sizeof(int64_t), cudaMemcpyHostToDevice);
+    if (output_err != cudaSuccess) {
+      gpu_set_last_error(cudaGetErrorString(output_err));
+      delete[] x_data;
+      delete[] sorted_values;
+      return C_FAILED;
+    }
   }
   if (return_inverse) {
     InsightArray *out_inverse = static_cast<InsightArray *>(outputs[out_idx++]);
     int64_t inv_dims[1] = {n};
-    allocate_gpu_output(out_inverse, 1, inv_dims, n, INSIGHT_DTYPE_I64);
-    cudaMemcpy(out_inverse->data, inverse.data(), n * sizeof(int64_t),
-               cudaMemcpyHostToDevice);
+    status = allocate_gpu_output(out_inverse, 1, inv_dims, n, INSIGHT_DTYPE_I64,
+                                 x->device_id);
+    if (status != C_SUCCESS) {
+      delete[] x_data;
+      delete[] sorted_values;
+      return status;
+    }
+    output_err = cudaMemcpy(out_inverse->data, inverse.data(),
+                            n * sizeof(int64_t), cudaMemcpyHostToDevice);
+    if (output_err != cudaSuccess) {
+      gpu_set_last_error(cudaGetErrorString(output_err));
+      delete[] x_data;
+      delete[] sorted_values;
+      return C_FAILED;
+    }
   }
   if (return_counts) {
     InsightArray *out_counts = static_cast<InsightArray *>(outputs[out_idx++]);
-    allocate_gpu_output(out_counts, 1, out_dims, unique_count,
-                        INSIGHT_DTYPE_I64);
-    cudaMemcpy(out_counts->data, counts.data(), unique_count * sizeof(int64_t),
-               cudaMemcpyHostToDevice);
+    status = allocate_gpu_output(out_counts, 1, out_dims, unique_count,
+                                 INSIGHT_DTYPE_I64, x->device_id);
+    if (status != C_SUCCESS) {
+      delete[] x_data;
+      delete[] sorted_values;
+      return status;
+    }
+    output_err =
+        cudaMemcpy(out_counts->data, counts.data(),
+                   unique_count * sizeof(int64_t), cudaMemcpyHostToDevice);
+    if (output_err != cudaSuccess) {
+      gpu_set_last_error(cudaGetErrorString(output_err));
+      delete[] x_data;
+      delete[] sorted_values;
+      return C_FAILED;
+    }
   }
 
   delete[] x_data;

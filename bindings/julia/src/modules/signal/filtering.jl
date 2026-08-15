@@ -31,7 +31,8 @@ Remove a trend from the data along the given axis.
 function detrend(data::InsightArray; axis::Int=-1,
                  type::String="linear")::InsightArray
     ptr = ccall((:insight_jl_detrend, LIB_INSIGHT), Ptr{Cvoid},
-                (Ptr{Cvoid}, Int32, Cstring), data, Int32(axis), type)
+                (Ptr{Cvoid}, Int32, Cstring), data,
+                Int32(_julia_axis(data, axis)), type)
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
@@ -54,7 +55,8 @@ Apply an FIR filter to a signal.
 function firfilter(b::InsightArray, x::InsightArray;
                    axis::Int=-1)::InsightArray
     ptr = ccall((:insight_jl_firfilter, LIB_INSIGHT), Ptr{Cvoid},
-                (Ptr{Cvoid}, Ptr{Cvoid}, Int32), b, x, Int32(axis))
+                (Ptr{Cvoid}, Ptr{Cvoid}, Int32), b, x,
+                Int32(_julia_axis(x, axis)))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
@@ -67,7 +69,7 @@ function lfilter(b::InsightArray, a::InsightArray, x::InsightArray;
                  axis::Int=-1)::InsightArray
     ptr = ccall((:insight_jl_lfilter, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Int32),
-                b, a, x, Int32(axis))
+                b, a, x, Int32(_julia_axis(x, axis)))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
@@ -91,7 +93,7 @@ function filtfilt(b::InsightArray, a::InsightArray, x::InsightArray;
                   axis::Int=-1)::InsightArray
     ptr = ccall((:insight_jl_filtfilt, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Int32),
-                b, a, x, Int32(axis))
+                b, a, x, Int32(_julia_axis(x, axis)))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
@@ -104,7 +106,8 @@ function decimate(x::InsightArray, q::Int; axis::Int=-1,
                   zero_phase::Bool=true)::InsightArray
     ptr = ccall((:insight_jl_decimate, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Int64, Int32, Int32),
-                x, Int64(q), Int32(axis), zero_phase ? Int32(1) : Int32(0))
+                x, Int64(q), Int32(_julia_axis(x, axis)),
+                zero_phase ? Int32(1) : Int32(0))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
@@ -115,7 +118,8 @@ Resample a signal to a given number of samples using FFT.
 """
 function resample(x::InsightArray, num::Int; axis::Int=-1)::InsightArray
     ptr = ccall((:insight_jl_resample, LIB_INSIGHT), Ptr{Cvoid},
-                (Ptr{Cvoid}, Int64, Int32), x, Int64(num), Int32(axis))
+                (Ptr{Cvoid}, Int64, Int32), x, Int64(num),
+                Int32(_julia_axis(x, axis)))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
@@ -127,7 +131,8 @@ Resample a signal using polyphase filtering.
 function resample_poly(x::InsightArray, up::Int, down::Int;
                        axis::Int=-1)::InsightArray
     ptr = ccall((:insight_jl_resample_poly, LIB_INSIGHT), Ptr{Cvoid},
-                (Ptr{Cvoid}, Int64, Int64, Int32), x, Int64(up), Int64(down), Int32(axis))
+                (Ptr{Cvoid}, Int64, Int64, Int32), x, Int64(up),
+                Int64(down), Int32(_julia_axis(x, axis)))
     arr = InsightArray(ptr); finalizer(_free, arr); return arr
 end
 
@@ -155,7 +160,7 @@ function firfilter_zi_state(b::InsightArray, x::InsightArray, zi::InsightArray;
     ccall((:insight_jl_firfilter_zi_state, LIB_INSIGHT), Cvoid,
           (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}, Int32,
            Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}),
-          b, x, zi, Int32(axis), y_ref, zf_ref)
+          b, x, zi, Int32(_julia_axis(x, axis)), y_ref, zf_ref)
     y_arr = InsightArray(y_ref[]); finalizer(_free, y_arr)
     zf_arr = InsightArray(zf_ref[]); finalizer(_free, zf_arr)
     return (y=y_arr, zf=zf_arr)
