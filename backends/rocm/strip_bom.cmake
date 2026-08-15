@@ -1,0 +1,6 @@
+if(NOT DEFINED INPUT OR NOT DEFINED OUTPUT)
+    message(FATAL_ERROR "INPUT and OUTPUT are required")
+endif()
+file(READ "${INPUT}" CONTENT HEX)
+string(REGEX REPLACE "^EFBBBF" "" CONTENT "${CONTENT}")
+file(WRITE "${OUTPUT}" "${CONTENT}" CODE)
