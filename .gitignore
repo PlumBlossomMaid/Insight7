@@ -74,7 +74,8 @@ Desktop.ini
 .qwen/settings.local.json
 
 # Doxygen output
-docs/
+/docs/html/
+/docs/latex/
 
 # Generated images / animation frames
 *.png

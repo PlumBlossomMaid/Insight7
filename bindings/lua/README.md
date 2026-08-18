@@ -242,8 +242,8 @@ local row = a[1]              -- partial indexing → shape (3,)
 local val = a[1][2]           -- scalar extraction
 
 -- Device management
-local a_gpu = a:to(1)         -- CPU → GPU (0=CPU, 1=GPU)
-local a_cpu = a_gpu:to(0)     -- GPU → CPU
+local a_gpu = a:to(ins.GPUPlace(0)) -- cpu:0 → gpu:0, active backend selected by init/env
+local a_cpu = a_gpu:to(ins.CPUPlace()) -- gpu:0 → cpu:0
 
 -- Reduction
 local s = ins.sum(c)
@@ -323,8 +323,8 @@ ins.int8, ins.int16, ins.int32, ins.int64
 ins.uint8, ins.uint16, ins.uint32, ins.uint64
 ins.bool, ins.complex64, ins.complex128
 
-ins.CPUPlace()       -- CPU device
-ins.GPUPlace(0)      -- GPU device 0
+ins.CPUPlace()       -- public CPU place (cpu:0)
+ins.GPUPlace(0)      -- public GPU place (gpu:0, active backend selected by init/env)
 ```
 
 ### Array Properties
@@ -411,13 +411,14 @@ local eq = (a == b)   -- elementwise equality
 ### GPU Support
 
 ```lua
--- Transfer arrays between devices
+-- Transfer arrays between public devices
+-- Concrete GPU backend is selected by INSIGHT_GPU_BACKEND or initialization.
 local a_cpu = ins.zeros({100, 100}, ins.float32)
-local a_gpu = a_cpu:to(ins.GPUPlace(0))   -- CPU -> GPU
-local a_back = a_gpu:to(ins.CPUPlace())   -- GPU -> CPU
+local a_gpu = a_cpu:to(ins.GPUPlace(0))   -- cpu:0 -> gpu:0
+local a_back = a_gpu:to(ins.CPUPlace())   -- gpu:0 -> cpu:0
 
--- Operations auto-dispatch to the correct backend
-local c = ins.matmul(a_gpu, a_gpu)  -- runs on GPU
+-- Operations auto-dispatch to the active backend
+local c = ins.matmul(a_gpu, a_gpu)  -- runs on active GPU backend
 ```
 
 ## LDoc Documentation

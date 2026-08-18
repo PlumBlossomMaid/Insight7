@@ -1,6 +1,6 @@
 # Insight Architecture
 
-This document is the working contract for the current Insight7 architecture pass. It is deliberately written before large code movement so future agents can make local changes without rediscovering the project direction.
+This document is the repository-tracked architecture contract for Insight7. It records the current design decisions after the Array/core/backend refactor so future work can continue from shared source-controlled context instead of local notes.
 
 ## Goals
 
@@ -102,9 +102,9 @@ Required principles:
 
 ## SDAA Backend Direction
 
-Tecorigin SDAA should be added as one active GPU backend implementation, not as a third public device kind.
+Tecorigin SDAA is implemented as one active GPU backend implementation, not as a third public device kind. The current runtime backend covers device discovery, memory/copy, stream/event hooks, diagnostics, profiler plumbing, kernel registration, and structured CPU fallback.
 
-Expected layout:
+Current layout:
 
 ```text
 backends/sdaa/
@@ -156,7 +156,7 @@ Initial SDAA operator priority:
 6. matmul/dot via Tecoblas
 7. FFT/signal functionality only after primitive correctness is established
 
-Avoid porting the entire current CUDA kernel tree to SDAA manually. The first SDAA milestone should prove the backend contract, tensor iterator, and generated operator path.
+Avoid porting the entire current CUDA kernel tree to SDAA manually. The first SDAA milestone should prove the backend contract, ArrayIterator, and generated operator path.
 
 ## Array Protocol
 
@@ -168,7 +168,7 @@ Array
   └─ Storage: data pointer, byte size, owning place, deleter, reference count
 ```
 
-The current `InsightArray` combines layout, data pointer, device fields, view state, and manual refcount. The refactor should separate these ideas while keeping the C ABI source-compatible during the transition.
+The current `InsightArray` remains C ABI-compatible while the C++ layer exposes explicit storage metadata and lifetime tests. A complete `Storage` object split is intentionally deferred until dynamic-output kernels share one centralized ownership creation path.
 
 ### Required Semantics
 
@@ -191,7 +191,7 @@ The current `InsightArray` combines layout, data pointer, device fields, view st
 
 ## DType Protocol
 
-The current enum is useful for built-in fast paths, but the refactor should treat dtype as a descriptor concept:
+The enum remains useful for built-in fast paths, and the refactor treats dtype behavior as descriptor-style metadata:
 
 ```text
 DTypeId       compact enum for built-ins and ABI dispatch
@@ -246,7 +246,7 @@ Initial iterator users:
 
 The current kernel ABI passes null-terminated `void**` inputs/outputs, with scalar parameters mixed into the same channel. This is too implicit.
 
-The refactor should introduce an op schema layer:
+The refactor introduced an op schema layer for schema-aware launch and fallback:
 
 ```text
 OpSchema
@@ -295,32 +295,36 @@ Insight should use Lua for build-time code generation of repetitive operator glu
 
 Generation should happen at configure/build/developer time, not at user runtime.
 
-Expected layout:
+Current layout:
 
 ```text
 tools/codegen/
   gen.lua
   schema/
-    elementwise.lua
-    unary.lua
-    reduction.lua
     cast.lua
+    creation.lua
+    elementwise.lua
+    reduction.lua
+    unary.lua
   templates/
+    kernel_plan.lua
+    manifest.lua
     op_header.lua
-    op_frontend_cpp.lua
-    cpu_iterator_kernel.lua
-    cuda_iterator_kernel.lua
-    sdaa_iterator_kernel.lua
-    binding_python.lua
-    binding_lua.lua
-    binding_julia.lua
+    source_manifest.lua
 
-generated/
-  include/insight/generated/
-  src/generated/
-  backends/cpu/generated/
-  backends/cuda/generated/
-  backends/sdaa/generated/
+include/insight/generated/
+  kernel_plan.h
+  source_manifest.h
+  cast_ops.h
+  creation_ops.h
+  elementwise_ops.h
+  reduction_ops.h
+  unary_ops.h
+
+docs/
+  op_manifest.md
+  kernel_plan.md
+  source_manifest.md
 ```
 
 Example schema style:
@@ -334,19 +338,18 @@ op {
   promote = "numeric",
   broadcast = true,
   dtypes = { "bool", "i32", "i64", "f32", "f64", "c32", "c64" },
-  cpu = { expr = "a + b" },
-  gpu = { expr = "a + b" },
-  sdaa = { strategy = "iterator" },
+  host = { expr = "a + b" },
+  device = { expr = "a + b" },
 }
 ```
 
 Generator responsibilities:
 
-- Emit frontend declarations and repetitive dispatch boilerplate.
+- Emit deterministic operator manifests and kernel/source plans.
+- Emit frontend declarations and repetitive dispatch boilerplate as the generated surface grows.
 - Emit op schema metadata for runtime inspection.
-- Emit CPU iterator kernels for simple elementwise/cast/reduction patterns.
-- Emit CUDA/HIP-style iterator kernels where this is cheaper than maintaining handwritten kernels.
-- Emit SDAA wrappers that can choose generated iterator kernels, Tecoblas/Tecodnn/Tecocustom calls, or structured fallback.
+- Emit host iterator kernels for simple elementwise/cast/reduction patterns.
+- Emit backend-neutral device iterator metadata that CUDA/HIP/SDAA/IXUCA adapters can consume.
 - Emit binding glue where all languages should expose the same operator set.
 - Keep generated files deterministic and reviewable.
 
@@ -493,6 +496,25 @@ Insight should feel like a language-neutral NumPy/CuPy core rather than a Python
 - Fix Python NumPy/CUDA interop around lifetime and stream semantics.
 - Add round-trip tests with NumPy and CuPy.
 - Define the correct public interop behavior for non-CUDA GPU backends.
+
+## Implementation Progress And Remaining Work
+
+Completed in the current feature branch:
+
+- Public `cpu:0` / `gpu:0` device model with active GPU backend diagnostics.
+- IXUCA naming cleanup and SDAA runtime backend skeleton.
+- OpSchema, ArrayIterator, axis helpers, dtype metadata, and schema-aware CPU fallback.
+- Lua codegen pilot with deterministic operator/source/kernel manifests and backend-neutral `host` / `device` adapters.
+- Python NumPy/DLPack-facing interop entry points and binding lifetime tests.
+- Documentation moved into git-tracked `docs/` and binding READMEs so platform work does not depend on local notes.
+
+Still intentionally open:
+
+- Full `Storage` object split after dynamic-output kernel ownership is centralized.
+- More generated host/device kernel source emission beyond metadata manifests.
+- Native CUDA/ROCm validation on machines with those runtimes.
+- Windows CUDA fixes discovered by the next validation pass.
+- Julia validation on a machine with a working Julia runtime.
 
 ## Acceptance Criteria
 

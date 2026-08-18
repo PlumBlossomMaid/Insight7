@@ -1,7 +1,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![C++](https://img.shields.io/badge/C++-17/20-blue.svg)](https://isocpp.org/)
 [![CUDA](https://img.shields.io/badge/CUDA-11.7%2B-green.svg)](https://developer.nvidia.com/cuda-toolkit)
-[![Tests](https://img.shields.io/badge/tests-1140%2B%20passed-brightgreen.svg)](tests/)
+[![Tests](https://img.shields.io/badge/tests-1324%20passed-brightgreen.svg)](tests/)
 
 [![EN](https://img.shields.io/badge/lang-EN-red.svg)](README.md)
 [![简体中文](https://img.shields.io/badge/lang-简体中文-blue.svg)](README.zh-CN.md)
@@ -9,48 +9,67 @@
 
 # Insight
 
-**輕量級、工業級張量計算框架，專為訊號處理與 GPU 加速設計。**
+**輕量級、工業級 C++ Array 計算框架，專注訊號處理與 GPU 加速。**
 
-Insight 是一個 C++ 張量庫，設計理念深受 **PaddlePaddle**（算子註冊機制、裝置 HAL）、**Torch7**（簡潔的 C API、TH/THC 架構精神）和 **NumPy/CuPy**（Python 端 API 習慣）啟發。提供 CPU/GPU 統一計算、零拷貝視圖、動態算子派發和完整的訊號處理支援。
+Insight 是一個語言無關的 Array 函式庫，設計理念來自 **PaddlePaddle**（算子註冊、後端 HAL、公開裝置行為）、**Torch7**（乾淨 C API、TH/THC 精神）以及 **NumPy/CuPy**（陣列語義、strided view、互操作與 GPU 執行模型）。使用者側裝置模型保持簡單：`cpu:0` / `gpu:0`；CUDA、ROCm、IXUCA、SDAA 等具體 GPU 後端由初始化階段選擇，並只在診斷或明確後端選擇時暴露。
+
+## 設計方向
+
+Insight 的目標是成為語言無關的 NumPy/CuPy 核心，而不是 Python 優先再補繫結的函式庫。核心契約如下：
+
+- **Array，不是 Tensor** -- 核心物件是 `ins::Array`，專注數值陣列、訊號處理和後端執行，不引入 autograd。
+- **公開裝置簡單穩定** -- 使用者選擇 `cpu:0` 或 `gpu:0`；`cuda`、`rocm`、`ixuca`、`sdaa` 是診斷和明確選擇用的後端名，不是公開 place 字串。
+- **單一活躍 GPU 後端** -- 一個行程只選擇一個 GPU 實作掛在 `gpu:*` 後面，可透過 `INSIGHT_GPU_BACKEND` 或 init options 指定。
+- **顯式協定** -- Array storage/layout、dtype promotion、OpSchema、ArrayIterator、結構化 fallback、互操作都要顯式建模，不再靠 raw pointer 猜測。
+- **Lua 程式碼生成** -- 重複的算子 schema/dispatch metadata 由 Lua 生成，schema 使用後端無關的 `host` / `device` adapter，由 CUDA/ROCm/SDAA 等後端消費。
+- **跨語言一致性** -- C++、Python、Lua、Julia 共用 C++/C ABI 核心，語言差異（索引、axis、shape 約定）在繫結邊界處理。
+
+完整架構契約見 [`docs/architecture.md`](docs/architecture.md)，Windows CUDA 繼續適配見 [`docs/windows-cuda.md`](docs/windows-cuda.md)。
 
 ## 特性
 
-- **統一 API** -- `insight::Array` 無縫在 `CPUPlace` / `GPUPlace` 間切換
-- **零拷貝視圖** -- 透過 `strides` + `offset` 實現 `reshape`、`transpose`、`slice`
-- **動態算子註冊** -- `ops()["add"][CPU][F32](args)` 派發（Paddle 風格）
-- **裝置 HAL** -- 透過 `Device` 基底類別 + `extern "C"` 工廠實現 ABI 穩定的外掛系統
-- **訊號處理** -- 89 個函數，涵蓋 14 個子模組（窗函數、波形產生、B 樣條、濾波器設計、卷積、濾波、頻譜分析、小波、聲學、雷達、解調、峰值偵測、參數估計、I/O），全部配有 CPU 與 CUDA 後端 kernel
-- **半精度支援** -- fp16/bf16 支援，透過 `half_utils.h` / `half_utils.cuh` 實現，116 個 kernel 檔案包含半精度覆蓋
-- **語言繫結** -- Python（pybind11）、Lua（sol2）、Julia（ccall），按模組拆分的 wrapper，訊號子命名空間
-- **現代 C++** -- C++17/20，OpenMP 平行，FFTW3，OpenBLAS，cuBLAS，cuFFT
-- **無自動微分** -- 保持函式庫輕量、專注
+- **統一 API** -- `ins::Array` 在目前 `CPUPlace()` / `GPUPlace(0)` 上執行，公開裝置字串為 `cpu:0` / `gpu:0`。
+- **後端選擇** -- CUDA、ROCm、IXUCA、SDAA 和未來 GPU 外掛都掛在統一 GPU place 後面；用 `INSIGHT_GPU_BACKEND=cuda|rocm|ixuca|sdaa` 強制選擇。
+- **零拷貝視圖** -- `reshape`、`transpose`、slice、partial indexing 共用 storage、strides、offset。
+- **結構化調度** -- OpSchema 和 schema-aware kernel launch 顯式區分 scalar attrs、arrays、fallback、writeback。
+- **ArrayIterator** -- broadcast、contiguous fast path、非連續 strides、offset、reduction 統一表達，供 kernel 複用。
+- **裝置 HAL** -- ABI 穩定外掛系統，覆蓋 allocation、copy、stream、event、profiler、diagnostics、kernel registration。
+- **訊號處理** -- 89 個函數，覆蓋 14 個子模組：窗函數、波形、B 樣條、濾波器設計、卷積、濾波、頻譜、小波、聲學、雷達、解調、峰值偵測、估計、I/O。
+- **半精度支援** -- fp16/bf16 透過 `half_utils.h` / `half_utils.cuh` 支援，在可用 CPU/GPU 路徑覆蓋。
+- **語言繫結** -- Python（pybind11）、Lua（sol2）、Julia（ccall），按模組拆分 wrapper 和 signal 子命名空間。
+- **互操作** -- Python NumPy protocol 與 DLPack 方向屬於核心設計，host/device copy 語義保持顯式。
+- **無自動微分** -- 保持輕量，聚焦陣列計算。
 
 ## 架構
 
 ```
 insight/
 ├── include/insight/
-│   ├── core/           # Array, Shape, Strides, DType, Place
+│   ├── core/           # Array, Shape, Strides, DType, Place, OpSchema, ArrayIterator
 │   ├── ops/            # 前端 API（elementwise, fft, signal, linalg 等）
 │   ├── io/             # I/O（csv, print, sndfile）
-│   ├── c_api/          # C ABI 介面（array, kernel, dtype, place）
-│   └── plugin/         # 算子註冊 + 裝置 HAL
+│   ├── c_api/          # C ABI（array, kernel, dtype, place, profiler）
+│   └── generated/      # Lua 生成的算子 manifest 和 schema metadata
 ├── src/
-│   ├── core/           # Array 實作、記憶體管理
+│   ├── core/           # Array 實作、記憶體、schema launch、device init
 │   ├── ops/            # 前端算子邏輯
 │   └── internal/       # 內部工具
 ├── backends/
-│   ├── cpu/kernels/    # CPU kernel（OpenMP + FFTW + OpenBLAS）
-│   └── cuda/kernels/   # CUDA kernel（cuBLAS + cuFFT + Thrust）
+│   ├── cpu/            # CPU runtime + kernels（OpenMP + FFTW + OpenBLAS）
+│   ├── cuda/           # CUDA 後端（cuBLAS + cuFFT + Thrust）
+│   ├── rocm/           # ROCm/HIP 後端（環境可用時）
+│   ├── ixuca/          # IXUCA 後端
+│   └── sdaa/           # Tecorigin SDAA runtime 後端
 ├── bindings/
-│   ├── python/insight/ # pybind11 繫結（按模組拆分的 wrapper）
-│   ├── lua/insight/    # sol2 繫結（雙呼叫約定）
+│   ├── python/insight/ # pybind11 繫結（按模組拆分）
+│   ├── lua/insight/    # sol2 繫結（dual calling convention）
 │   └── julia/          # ccall 繫結（Insight.jl）
+├── tools/codegen/      # Lua 5.1 相容的後端無關生成器
 ├── tests/
-│   ├── cpu/            # CPU 測試（630+ 測試，27 個套件）
-│   ├── cuda/           # CUDA 測試（510+ 測試，23 個套件）
+│   ├── cpu/            # CPU 測試
+│   ├── cuda/           # CUDA/SDAA 相容 GPU 測試
 │   └── python_align/   # NumPy 精度對齊測試
-└── demos/              # 範例程式（C++, Python, Lua, Julia）
+└── demos/              # C++ / Python / Lua / Julia 範例
 ```
 
 ## 快速開始
@@ -66,36 +85,56 @@ mkdir build && cd build
 cmake .. \
     -DCMAKE_BUILD_TYPE=Release \
     -DINSIGHT_WITH_CUDA=ON \
+    -DINSIGHT_WITH_ROCM=OFF \
+    -DINSIGHT_WITH_SDAA=OFF \
     -DINSIGHT_USE_FFTW3=ON \
     -DINSIGHT_USE_OPENBLAS=ON
 cmake --build . -j$(nproc)
 ```
 
-**Windows (MSVC)：**
+執行時選擇 GPU 後端：
+
+```bash
+export INSIGHT_GPU_BACKEND=cuda   # 也可以是 rocm, ixuca, sdaa
+```
+
+**Windows CUDA（MSVC + Ninja）：**
 
 ```powershell
-# 前置要求：Visual Studio 2022+（C++ 工作負載）、CMake 3.15+、Ninja
-# 透過 vcpkg 安裝依賴（建議）：
-#   vcpkg install fftw3:x64-windows openblas:x64-windows
-# 或從 https://github.com/OpenMathLib/OpenBLAS/releases 下載 OpenBLAS
-#   解壓縮至如 C:\deps\OpenBLAS-0.3.33-x64
-
-# 開啟 VS 開發者命令提示字元（x64）
-# 請根據你的 Visual Studio 安裝路徑調整：
+# 前置要求：Visual Studio 2022+ C++ workload、CMake、Ninja、CUDA Toolkit 11.7+
 call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvarsall.bat" x64
+$env:CUDA_PATH = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.3"
+$env:PATH = "$env:CUDA_PATH\bin;$env:PATH"
 
-git clone https://github.com/PlumBlossomMaid/Insight7.git
-cd Insight7
-cmake -S . -B build -G Ninja ^
+cmake -S . -B build-cuda-win -G Ninja ^
     -DCMAKE_C_COMPILER=cl.exe ^
     -DCMAKE_CXX_COMPILER=cl.exe ^
     -DCMAKE_BUILD_TYPE=Release ^
     -DINSIGHT_WITH_CUDA=ON ^
-    -DCMAKE_PREFIX_PATH="C:/deps/OpenBLAS-0.3.33-x64;E:/vcpkg/installed/x64-windows"
-cmake --build build -j %NUMBER_OF_PROCESSORS%
+    -DINSIGHT_WITH_ROCM=OFF ^
+    -DINSIGHT_WITH_SDAA=OFF ^
+    -DINSIGHT_BUILD_TESTS=ON ^
+    -DCMAKE_CUDA_ARCHITECTURES="75;80;86;89" ^
+    -DCMAKE_PREFIX_PATH="C:/vcpkg/installed/x64-windows"
+cmake --build build-cuda-win -j %NUMBER_OF_PROCESSORS%
+
+$env:INSIGHT_GPU_BACKEND = "cuda"
+$env:PATH = "$PWD\build-cuda-win\backends\cpu;$PWD\build-cuda-win\backends\cuda;$env:CUDA_PATH\bin;$env:PATH"
+ctest --test-dir build-cuda-win -R "GPU|CUDA" --output-on-failure -j 8
 ```
 
+更多 Windows CUDA 適配細節見 [`docs/windows-cuda.md`](docs/windows-cuda.md)。
+
 > **注意：** 如需繪圖功能，請安裝 [gnuplot](http://www.gnuplot.info/) 並確保其在系統 `PATH` 中。
+
+### Lua Codegen
+
+```bash
+cmake --build build --target insight_codegen
+lua tools/codegen/gen.lua build/generated/codegen
+```
+
+生成器相容 Lua 5.1、5.2、5.3、5.4 和 LuaJIT。輸出是確定性的，會生成 `include/insight/generated/` 和 `docs/` 下的 manifest；schema 只使用後端無關的 `host` / `device` adapter，不把 CUDA/ROCm/SDAA 寫死在 IR 裡。
 
 ### 安裝語言繫結
 
@@ -106,10 +145,6 @@ pip install .
 
 **Lua**（透過 luarocks，需先完成 CMake 建置）：
 ```bash
-# Lua 5.3
-luarocks make bindings/lua/insight-1.0-1.rockspec LUA_DIR=/usr --local
-
-# LuaJIT
 luarocks make bindings/lua/insight-1.0-1.rockspec --local
 ```
 
@@ -125,21 +160,17 @@ using Insight
 
 ```cpp
 #include "insight/insight.h"
-using namespace insight;
+using namespace ins;
 
 int main() {
-    // 建立陣列（有 GPU 時自動選擇）
-    Array a = ones({1000, 1000}, F32);
-    Array b = randn({1000, 1000}, F32);
+    init();
+    set_device(GPUPlace(0));  // 公開 place: gpu:0，具體後端由 init/env 選擇
 
-    // 矩陣乘法
+    Array a = ones({1000, 1000}, DType::F32);
+    Array b = randn({1000, 1000}, DType::F32);
     Array c = matmul(a, b);
 
-    // NumPy 風格部分索引
-    Array row = c.at({0});     // shape (1000,)
-    Array val = c.at({0, 0});  // 標量
-
-    // 訊號處理
+    Array row = c.at({0});
     Array w = signal::hann(256);
 }
 ```
@@ -149,46 +180,31 @@ int main() {
 ```python
 import insight as ins
 
-# 有 GPU 時自動選擇（PaddlePaddle 行為）
-print(ins.get_device())  # GPUPlace(0)
+print(ins.get_device())               # "gpu:0" or "cpu:0"
+print(ins.active_gpu_backend_name())  # "cuda", "sdaa", ... when GPU is active
 
 a = ins.rand([1000, 1000])
 b = ins.randn([1000, 1000])
+c = a @ b
 
-# 運算子：+, -, *, /, //, %, **, @
-c = a @ b                # 矩陣乘法
-d = a ** 2               # 逐元素冪
-e = a // 3.0             # 地板除
-
-# NumPy 風格索引
-row = a[1]               # 部分索引 → shape (1000,)
-val = a[1, 2]            # 標量提取
-sub = a[1:, ::2]         # 混合切片
-
-# 訊號處理
+row = a[1]
+sub = a[1:, ::2]
 w = ins.signal.hann(256)
-f, Pxx = ins.signal.welch(x, fs=1000)
 ```
 
 ### Lua
 
 ```lua
 local ins = require("insight")
--- 後端自動偵測，有 GPU 時自動選擇
 
 print(ins.get_device())       -- "gpu:0" 或 "cpu:0"
-print(ins.gpu_version())      -- GPU runtime 版本，無 GPU 時為 0
+print(ins.gpu_version())      -- active GPU runtime 版本，無 GPU 時為 0
 
 local a = ins.rand({1000, 1000})
 local b = ins.randn({1000, 1000})
 local c = ins.matmul(a, b)
-
--- 1-based 索引（Lua 約定）
-local row = a[1]              -- 部分索引 → shape (1000,)
-
--- 雙呼叫約定
-local w = ins.signal.hann(256)
-local w2 = ins.signal.hann{n=256}
+local row = a[1]
+local w = ins.signal.hann{n=256}
 ```
 
 ### Julia
@@ -196,35 +212,13 @@ local w2 = ins.signal.hann{n=256}
 ```julia
 using Insight
 
-dt, id = Insight.get_device()  # (1, 0) 表示 GPU
+dt, id = Insight.get_device()  # public kind id + device id；GPU 表示 gpu:0
 
 a = Insight.rand(Int64[1000, 1000], Insight.float32)
 b = Insight.randn(Int64[1000, 1000], Insight.float32)
 c = Insight.matmul(a, b)
-
--- 1-based 索引（Julia 約定）
-row = a[1]                     -- 部分索引 → shape (1000,)
-val = a[1, 2]                  -- 標量提取
+row = a[1]
 ```
-
-## GPU 效能基準（A800-SXM4-80GB）
-
-在百度 AI Studio 上測試，24 核 CPU + NVIDIA A800-SXM4-80GB：
-
-| 測試 | CPU (24核) | GPU (A800) | 加速比 |
-|------|-----------|------------|--------|
-| add (2000萬元素) | 226ms | 601μs | **376x** |
-| mul (2000萬元素) | 229ms | 609μs | **376x** |
-| sin (2000萬元素) | 278ms | 771μs | **361x** |
-| sum (2000萬元素) | 26ms | 8.8μs | **2,962x** |
-| max (2000萬元素) | 42ms | 8.4μs | **4,976x** |
-| matmul 256×256 | 19ms | 38μs | **503x** |
-| matmul 1024×1024 | 3.6s | 110μs | **32,348x** |
-| rfft2 512×512 | 4.5ms | 1.2ms | **3.7x** |
-| randn (2000萬) | 766ms | 82ms | **9.4x** |
-| sort (200萬) | 206ms | 187ms | **1.1x** |
-
-> GPU 擅長大規模平行運算。小規模 FFT 和 SVD 有 kernel launch 開銷，CPU 更優。框架自動選擇最佳裝置。
 
 ## 依賴
 
@@ -232,37 +226,39 @@ val = a[1, 2]                  -- 標量提取
 |------|------|------|------|
 | CMake | 3.15+ | 是 | 建置系統 |
 | C++17 編譯器 | -- | 是 | GCC 9+, Clang 12+, MSVC 2019+ |
-| CUDA | 11.7+ | 否 | 可選 GPU 後端 |
+| CUDA | 11.7+ | 否 | 可選 active GPU backend |
+| ROCm/HIP | -- | 否 | 可選 active GPU backend |
+| SDAA runtime | -- | 否 | 可選 active GPU backend |
 | OpenBLAS | 任意 | 否 | CPU 線性代數 |
 | FFTW3 | 3.3+ | 否 | CPU FFT |
 | OpenMP | -- | 否 | CPU 多執行緒 |
-| Thrust | 捆綁 | 否 | CUDA 排序/去重 |
 | GoogleTest | 自動 | -- | 自動取得 |
+| Lua | 5.1+ / LuaJIT | 否 | 僅 developer codegen target 需要 |
 
 ## 測試狀態
 
-**1140+ 測試全部通過** -- CPU（630+, 27 個套件）與 CUDA（510+, 23 個套件），另有 384 個精度對齊測試
+目前 feature branch 最新本地驗證：
 
-### 語言繫結測試
+| Suite | Result | Notes |
+|-------|--------|-------|
+| Full available C++ tests | 1324 / 1324 passed | CPU 加目前可用 GPU/SDAA-compatible suites |
+| SDAA validation build | 1324 / 1324 passed | 結構化 fallback 與 runtime backend validation |
+| Lua codegen | generated 23 ops | 已用本機 Lua interpreter 驗證 |
 
-| 語言 | 測試框架 | 測試數 |
-|------|---------|--------|
-| Python | pytest | 76 基礎 + 54 數值 + 384 對齊 |
-| Lua | busted | 208 |
-| Julia | Test stdlib | 74 |
+CUDA、ROCm、Julia 應在有對應 runtime 的機器上繼續驗證。Windows CUDA 繼續適配請按 [`docs/windows-cuda.md`](docs/windows-cuda.md) 執行。
 
-## 範例程式
+## Demos
 
-`demos/` 目錄下提供 4 種語言、6 個場景的範例程式：
+`demos/` 提供 C++、Python、Lua、Julia radar/signal 工作流，通用 CLI flags：
 
-| 範例 | C++ | Python | Lua | Julia |
-|------|-----|--------|-----|-------|
-| basic_ops | ✅ | ✅ | ✅ | ✅ |
-| fft_demo | ✅ | ✅ | ✅ | ✅ |
-| gpu_transfer | ✅ | ✅ | ✅ | ✅ |
-| linalg_demo | ✅ | ✅ | ✅ | ✅ |
-| radar_task1 | ✅ | ✅ | ✅ | ✅ |
-| sndfile_demo | ✅ | ✅ | ✅ | ✅ |
+```bash
+--device cpu|gpu|all
+--seed N
+--iterations N
+--timer
+--profiler
+--info
+```
 
 ## 授權條款
 
@@ -276,3 +272,4 @@ val = a[1, 2]                  -- 標量提取
 1. 程式碼遵循 `.clang-format` 風格
 2. 所有現有測試通過
 3. 新功能包含對應測試
+4. 未來工作依賴的架構/建置決策必須提交到倉庫文件

@@ -192,8 +192,8 @@ python -m pytest tests/bindings/ -v
 import insight as ins
 
 # Backend auto-detected (GPU when available, PaddlePaddle behavior)
-print(ins.get_device())   # GPUPlace(0) or CPUPlace()
-print(ins.gpu_version())  # GPU runtime version, 0 if no GPU
+print(ins.get_device())               # "gpu:0" or "cpu:0"
+print(ins.active_gpu_backend_name())  # "cuda", "sdaa", ... when GPU is active
 
 # --- Array Creation ---
 a = ins.zeros([2, 3], ins.float32)
@@ -289,8 +289,8 @@ ins.int8, ins.int16, ins.int32, ins.int64
 ins.uint8, ins.uint16, ins.uint32, ins.uint64
 ins.bool, ins.complex64, ins.complex128
 
-ins.CPUPlace()       # CPU device
-ins.GPUPlace(0)      # GPU device 0
+ins.CPUPlace()       # public CPU place (cpu:0)
+ins.GPUPlace(0)      # public GPU place (gpu:0, active backend selected by init/env)
 ```
 
 ### Array Properties
@@ -385,13 +385,14 @@ Signal submodules: `windows`, `waveforms`, `bsplines`, `filter_design`, `convolu
 ## GPU Support
 
 ```python
-# Transfer arrays between devices
+# Transfer arrays between public devices
+# Concrete GPU backend is selected by INSIGHT_GPU_BACKEND or initialization.
 a_cpu = ins.zeros([100, 100], ins.float32)
-a_gpu = a_cpu.to(ins.GPUPlace(0))   # CPU -> GPU
-a_back = a_gpu.to(ins.CPUPlace())   # GPU -> CPU
+a_gpu = a_cpu.to(ins.GPUPlace(0))   # cpu:0 -> gpu:0
+a_back = a_gpu.to(ins.CPUPlace())   # gpu:0 -> cpu:0
 
-# Operations auto-dispatch to the correct backend
-c = ins.matmul(a_gpu, a_gpu)  # runs on GPU
+# Operations auto-dispatch to the active backend
+c = ins.matmul(a_gpu, a_gpu)  # runs on active GPU backend
 ```
 
 ## License
