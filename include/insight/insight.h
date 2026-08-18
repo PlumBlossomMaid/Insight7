@@ -4,9 +4,11 @@
 // Core components
 #include "insight/core/array.h"
 #include "insight/core/dtype.h"
+#include "insight/core/op_schema.h"
 #include "insight/core/place.h"
 #include "insight/core/shape.h"
 #include "insight/core/slice.h"
+#include "insight/core/array_iterator.h"
 
 // Operations
 #include "insight/ops/broadcast.h"

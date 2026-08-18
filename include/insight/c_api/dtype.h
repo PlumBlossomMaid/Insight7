@@ -38,8 +38,28 @@ typedef enum {
   INSIGHT_DTYPE_COUNT
 } InsightDType;
 
+typedef enum {
+  INSIGHT_DTYPE_KIND_UNKNOWN = 0,
+  INSIGHT_DTYPE_KIND_BOOL,
+  INSIGHT_DTYPE_KIND_UINT,
+  INSIGHT_DTYPE_KIND_INT,
+  INSIGHT_DTYPE_KIND_FLOAT,
+  INSIGHT_DTYPE_KIND_COMPLEX
+} InsightDTypeKind;
+
+typedef enum {
+  INSIGHT_DTYPE_FLAG_NONE = 0,
+  INSIGHT_DTYPE_FLAG_BUILTIN = 1u << 0,
+  INSIGHT_DTYPE_FLAG_NUMERIC = 1u << 1,
+  INSIGHT_DTYPE_FLAG_EXPERIMENTAL = 1u << 2
+} InsightDTypeFlag;
+
 const char *insight_dtype_name(int32_t dtype);
 int32_t insight_dtype_size(int32_t dtype);
+int32_t insight_dtype_alignment(int32_t dtype);
+int32_t insight_dtype_kind(int32_t dtype);
+uint32_t insight_dtype_flags(int32_t dtype);
+int32_t insight_dtype_promotion_rank(int32_t dtype);
 int insight_dtype_is_float(int32_t dtype);
 int insight_dtype_is_int(int32_t dtype);
 int insight_dtype_is_complex(int32_t dtype);

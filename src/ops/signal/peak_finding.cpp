@@ -1,5 +1,6 @@
 // src/ops/signal/peak_finding.cpp
 #include "insight/ops/signal/peak_finding.h"
+#include "insight/core/axis.h"
 #include "insight/core/exception.h"
 #include "insight/ops/creation.h"
 #include "insight/ops/elementwise.h"
@@ -85,9 +86,7 @@ void build_neighbors(const Array &data, int axis, int64_t shift,
 
 Array boolrelextrema(const Array &data, const std::string &comparator, int axis,
                      int order, const std::string &mode) {
-  int ndim = data.shape().ndim();
-  if (axis < 0)
-    axis += ndim;
+  int axis_norm = normalize_axis(axis, data.shape().ndim(), "boolrelextrema");
 
   // Start with all true
   Array results = ones(data.shape(), DType::BOOL, data.place());
@@ -95,7 +94,7 @@ Array boolrelextrema(const Array &data, const std::string &comparator, int axis,
   for (int64_t shift = 1; shift <= order; ++shift) {
     // Build neighbor arrays with clip-mode boundary handling
     Array right, left;
-    build_neighbors(data, axis, shift, right, left);
+    build_neighbors(data, axis_norm, shift, right, left);
 
     // Compare center with both neighbors
     Array cmp_right, cmp_left;
@@ -139,8 +138,7 @@ std::vector<Array> argrelextrema(const Array &data,
 
   // Convert flat indices to multi-dimensional indices
   int ndim = data.shape().ndim();
-  if (axis < 0)
-    axis += ndim;
+  axis = normalize_axis(axis, ndim, "argrelextrema");
 
   int64_t axis_stride = 1;
   for (int d = axis + 1; d < ndim; ++d) {

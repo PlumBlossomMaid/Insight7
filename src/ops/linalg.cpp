@@ -9,22 +9,21 @@
 
 #include "insight/ops/linalg.h"
 #include "insight/core/op_registry.h"
+#include "insight/core/op_schema.h"
 #include "insight/ops/broadcast.h"
 #include "insight/ops/creation.h"
 #include "insight/ops/elementwise.h"
 #include "insight/ops/reduction.h"
 #include "insight/utils/promotion.h"
 #include <cmath>
+#include <string>
+#include <vector>
 
 namespace ins {
 
 // ============================================================================
 // Helper functions
 // ============================================================================
-
-static DeviceKind get_device_kind(const Place &place) {
-  return place.is_cpu() ? DeviceKind::CPU : DeviceKind::GPU;
-}
 
 static DType get_working_dtype(DType dtype) {
   if (is_integer(dtype) || dtype == DType::BOOL) {
@@ -65,6 +64,73 @@ static Array to_original_dtype(const Array &x, DType original_dtype) {
     return x;
   }
   return x.to(original_dtype);
+}
+
+static OpSchema linalg_schema(const char *name, size_t input_count,
+                              size_t output_count = 1) {
+  std::vector<OpArgumentSchema> inputs;
+  inputs.reserve(input_count);
+  for (size_t i = 0; i < input_count; ++i) {
+    inputs.push_back({"x" + std::to_string(i), OpArgumentKind::Array,
+                      OpArgumentAccess::ReadOnly});
+  }
+
+  std::vector<OpArgumentSchema> outputs;
+  outputs.reserve(output_count);
+  for (size_t i = 0; i < output_count; ++i) {
+    outputs.push_back({output_count == 1 ? "out" : "out" + std::to_string(i),
+                       OpArgumentKind::Array, OpArgumentAccess::WriteOnly});
+  }
+
+  return OpSchema(name, OpKind::Linalg, inputs, outputs)
+      .promotion(OpPromotionRule::Identity)
+      .fallback(OpFallbackRule::StructuredCpu);
+}
+
+static ArrayIterator linalg_iterator(const char *name,
+                                     const std::vector<Array> &inputs,
+                                     const std::vector<Array> &outputs) {
+  OpSchema schema = linalg_schema(name, inputs.size(), outputs.size());
+  return schema.make_transform_iterator(inputs, outputs);
+}
+
+static ArrayIterator linalg_iterator(const char *name,
+                                     const std::vector<Array> &inputs,
+                                     const Array &output) {
+  return linalg_iterator(name, inputs, std::vector<Array>{output});
+}
+
+static void launch_linalg(const char *name, const Place &place, DType dtype,
+                          const std::vector<Array> &inputs,
+                          const std::vector<Array> &outputs,
+                          std::vector<OpRegistry::Arg> scalars = {}) {
+  ArrayIterator iter = linalg_iterator(name, inputs, outputs);
+  auto arrays = iter.arrays();
+
+  std::vector<OpRegistry::Arg> launch_inputs;
+  launch_inputs.reserve(outputs.size() + inputs.size() + scalars.size());
+  for (size_t i = inputs.size(); i < arrays.size(); ++i) {
+    launch_inputs.push_back(OpRegistry::array_arg(arrays[i].layout_ptr()));
+  }
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    launch_inputs.push_back(OpRegistry::array_arg(arrays[i].layout_ptr()));
+  }
+  launch_inputs.insert(launch_inputs.end(), scalars.begin(), scalars.end());
+
+  std::vector<OpRegistry::Arg> launch_outputs;
+  launch_outputs.reserve(outputs.size());
+  for (size_t i = inputs.size(); i < arrays.size(); ++i) {
+    launch_outputs.push_back(OpRegistry::array_arg(arrays[i].layout_ptr()));
+  }
+
+  OpRegistry::launch_schema(name, place, dtype, launch_inputs, launch_outputs);
+}
+
+static void launch_linalg(const char *name, const Place &place, DType dtype,
+                          const std::vector<Array> &inputs,
+                          const Array &output,
+                          std::vector<OpRegistry::Arg> scalars = {}) {
+  launch_linalg(name, place, dtype, inputs, std::vector<Array>{output}, scalars);
 }
 
 // ============================================================================
@@ -175,10 +241,8 @@ Array matmul(const Array &a, const Array &b) {
   }
 
   Array result(out_shape, working_dtype, a_work.place());
-
-  ops().launch("matmul", a_work.place(), working_dtype,
-               {result.layout_ptr(), a_work.layout_ptr(), b_work.layout_ptr()},
-               {result.layout_ptr()});
+  launch_linalg("matmul", a_work.place(), working_dtype, {a_work, b_work},
+                result);
 
   return to_original_dtype(result, a.dtype());
 }
@@ -201,10 +265,7 @@ Array dot(const Array &a, const Array &b) {
   }
 
   Array result(Shape({}), working_dtype, a_work.place());
-
-  ops().launch("dot", a_work.place(), working_dtype,
-               {result.layout_ptr(), a_work.layout_ptr(), b_work.layout_ptr()},
-               {result.layout_ptr()});
+  launch_linalg("dot", a_work.place(), working_dtype, {a_work, b_work}, result);
 
   return to_original_dtype(result, a.dtype());
 }
@@ -227,10 +288,8 @@ Array outer(const Array &a, const Array &b) {
 
   Shape out_shape({a_work.numel(), b_work.numel()});
   Array result(out_shape, working_dtype, a_work.place());
-
-  ops().launch("outer", a_work.place(), working_dtype,
-               {result.layout_ptr(), a_work.layout_ptr(), b_work.layout_ptr()},
-               {result.layout_ptr()});
+  launch_linalg("outer", a_work.place(), working_dtype, {a_work, b_work},
+                result);
 
   return to_original_dtype(result, a.dtype());
 }
@@ -246,9 +305,7 @@ Array trace(const Array &x) {
   Array work = to_working_dtype(x_2d, working_dtype);
 
   Array result(Shape({}), working_dtype, work.place());
-
-  ops().launch("trace", work.place(), working_dtype,
-               {result.layout_ptr(), work.layout_ptr()}, {result.layout_ptr()});
+  launch_linalg("trace", work.place(), working_dtype, {work}, result);
 
   return to_original_dtype(result, x.dtype());
 }
@@ -264,12 +321,8 @@ Array norm(const Array &x, double ord) {
   Array work = to_working_dtype(x, working_dtype);
 
   Array result(Shape({}), working_dtype, work.place());
-
-  OpRegistry::launch_schema("norm", work.place(), working_dtype,
-                            {OpRegistry::array_arg(result.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr()),
-                             OpRegistry::scalar_arg(&ord)},
-                            {OpRegistry::array_arg(result.layout_ptr())});
+  launch_linalg("norm", work.place(), working_dtype, {work}, result,
+                {OpRegistry::scalar_arg(&ord)});
 
   return to_original_dtype(result, x.dtype());
 }
@@ -285,9 +338,7 @@ Array det(const Array &x) {
   Array work = to_working_dtype(x_2d, working_dtype);
 
   Array result(Shape({}), working_dtype, work.place());
-
-  ops().launch("det", work.place(), working_dtype,
-               {result.layout_ptr(), work.layout_ptr()}, {result.layout_ptr()});
+  launch_linalg("det", work.place(), working_dtype, {work}, result);
 
   return to_original_dtype(result, x.dtype());
 }
@@ -304,10 +355,7 @@ std::pair<Array, Array> slogdet(const Array &x) {
 
   Array sign(Shape({}), working_dtype, work.place());
   Array logdet(Shape({}), DType::F64, work.place()); // logdet always double
-
-  ops().launch("slogdet", work.place(), working_dtype,
-               {sign.layout_ptr(), logdet.layout_ptr(), work.layout_ptr()},
-               {sign.layout_ptr(), logdet.layout_ptr()});
+  launch_linalg("slogdet", work.place(), working_dtype, {work}, {sign, logdet});
 
   return {to_original_dtype(sign, x.dtype()), logdet};
 }
@@ -323,12 +371,8 @@ Array cond(const Array &x, double p) {
   Array work = to_working_dtype(x_2d, working_dtype);
 
   Array result(Shape({}), working_dtype, work.place());
-
-  OpRegistry::launch_schema("cond", work.place(), working_dtype,
-                            {OpRegistry::array_arg(result.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr()),
-                             OpRegistry::scalar_arg(&p)},
-                            {OpRegistry::array_arg(result.layout_ptr())});
+  launch_linalg("cond", work.place(), working_dtype, {work}, result,
+                {OpRegistry::scalar_arg(&p)});
 
   return to_original_dtype(result, x.dtype());
 }
@@ -344,12 +388,8 @@ Array matrix_rank(const Array &x, double tol) {
   Array work = to_working_dtype(x_2d, working_dtype);
 
   Array result(Shape({}), DType::I64, work.place());
-
-  OpRegistry::launch_schema("matrix_rank", work.place(), working_dtype,
-                            {OpRegistry::array_arg(result.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr()),
-                             OpRegistry::scalar_arg(&tol)},
-                            {OpRegistry::array_arg(result.layout_ptr())});
+  launch_linalg("matrix_rank", work.place(), working_dtype, {work}, result,
+                {OpRegistry::scalar_arg(&tol)});
 
   return result; // rank is int64, no dtype conversion needed
 }
@@ -365,9 +405,7 @@ Array inv(const Array &x) {
   Array work = to_working_dtype(x_2d, working_dtype);
 
   Array result(work.shape(), working_dtype, work.place());
-
-  ops().launch("inv", work.place(), working_dtype,
-               {result.layout_ptr(), work.layout_ptr()}, {result.layout_ptr()});
+  launch_linalg("inv", work.place(), working_dtype, {work}, result);
 
   return to_original_dtype(result, x.dtype());
 }
@@ -386,12 +424,8 @@ Array pinv(const Array &x, double rcond) {
   int64_t m = work.shape().dim(0);
   int64_t n = work.shape().dim(1);
   Array result(Shape({n, m}), working_dtype, work.place());
-
-  OpRegistry::launch_schema("pinv", work.place(), working_dtype,
-                            {OpRegistry::array_arg(result.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr()),
-                             OpRegistry::scalar_arg(&rcond)},
-                            {OpRegistry::array_arg(result.layout_ptr())});
+  launch_linalg("pinv", work.place(), working_dtype, {work}, result,
+                {OpRegistry::scalar_arg(&rcond)});
 
   return to_original_dtype(result, x.dtype());
 }
@@ -417,10 +451,8 @@ Array matrix_power(const Array &x, int n) {
   Array work = to_working_dtype(x_2d, working_dtype);
 
   Array result(work.shape(), working_dtype, work.place());
-
-  ops().launch("matrix_power", work.place(), working_dtype,
-               {result.layout_ptr(), work.layout_ptr(), &n},
-               {result.layout_ptr()});
+  launch_linalg("matrix_power", work.place(), working_dtype, {work}, result,
+                {OpRegistry::scalar_arg(&n)});
 
   return to_original_dtype(result, x.dtype());
 }
@@ -439,14 +471,8 @@ std::tuple<Array, Array> lu(const Array &x, bool pivot) {
   Array pivots(Shape({work.shape().dim(0)}), DType::I32, work.place());
 
   int pivot_flag = pivot ? 1 : 0;
-
-  OpRegistry::launch_schema("lu", work.place(), working_dtype,
-                            {OpRegistry::array_arg(LU.layout_ptr()),
-                             OpRegistry::array_arg(pivots.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr()),
-                             OpRegistry::scalar_arg(&pivot_flag)},
-                            {OpRegistry::array_arg(LU.layout_ptr()),
-                             OpRegistry::array_arg(pivots.layout_ptr())});
+  launch_linalg("lu", work.place(), working_dtype, {work}, {LU, pivots},
+                {OpRegistry::scalar_arg(&pivot_flag)});
 
   return {to_original_dtype(LU, x.dtype()), pivots};
 }
@@ -468,15 +494,8 @@ std::tuple<Array, Array, Array> lu_unpack(const Array &LU,
   Array L(Shape({n, n}), working_dtype, work.place());
   Array U(Shape({n, n}), working_dtype, work.place());
 
-  OpRegistry::launch_schema("lu_unpack", work.place(), working_dtype,
-                            {OpRegistry::array_arg(P.layout_ptr()),
-                             OpRegistry::array_arg(L.layout_ptr()),
-                             OpRegistry::array_arg(U.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr()),
-                             OpRegistry::array_arg(pivots.layout_ptr())},
-                            {OpRegistry::array_arg(P.layout_ptr()),
-                             OpRegistry::array_arg(L.layout_ptr()),
-                             OpRegistry::array_arg(U.layout_ptr())});
+  launch_linalg("lu_unpack", work.place(), working_dtype, {work, pivots},
+                {P, L, U});
 
   return {to_original_dtype(P, LU.dtype()), to_original_dtype(L, LU.dtype()),
           to_original_dtype(U, LU.dtype())};
@@ -508,13 +527,8 @@ std::tuple<Array, Array> qr(const Array &x, const std::string &mode) {
     R = Array(Shape({k, n}), working_dtype, work.place());
   }
 
-  OpRegistry::launch_schema("qr", work.place(), working_dtype,
-                            {OpRegistry::array_arg(Q.layout_ptr()),
-                             OpRegistry::array_arg(R.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr()),
-                             OpRegistry::scalar_arg(&mode_code)},
-                            {OpRegistry::array_arg(Q.layout_ptr()),
-                             OpRegistry::array_arg(R.layout_ptr())});
+  launch_linalg("qr", work.place(), working_dtype, {work}, {Q, R},
+                {OpRegistry::scalar_arg(&mode_code)});
 
   return {to_original_dtype(Q, x.dtype()), to_original_dtype(R, x.dtype())};
 }
@@ -545,13 +559,8 @@ std::tuple<Array, Array> lq(const Array &x, const std::string &mode) {
     Q = Array(Shape({n, k}), working_dtype, work.place());
   }
 
-  OpRegistry::launch_schema("lq", work.place(), working_dtype,
-                            {OpRegistry::array_arg(L.layout_ptr()),
-                             OpRegistry::array_arg(Q.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr()),
-                             OpRegistry::scalar_arg(&mode_code)},
-                            {OpRegistry::array_arg(L.layout_ptr()),
-                             OpRegistry::array_arg(Q.layout_ptr())});
+  launch_linalg("lq", work.place(), working_dtype, {work}, {L, Q},
+                {OpRegistry::scalar_arg(&mode_code)});
 
   return {to_original_dtype(L, x.dtype()), to_original_dtype(Q, x.dtype())};
 }
@@ -569,12 +578,8 @@ Array cholesky(const Array &x, bool lower) {
   Array result(work.shape(), working_dtype, work.place());
 
   int lower_flag = lower ? 1 : 0;
-
-  OpRegistry::launch_schema("cholesky", work.place(), working_dtype,
-                            {OpRegistry::array_arg(result.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr()),
-                             OpRegistry::scalar_arg(&lower_flag)},
-                            {OpRegistry::array_arg(result.layout_ptr())});
+  launch_linalg("cholesky", work.place(), working_dtype, {work}, result,
+                {OpRegistry::scalar_arg(&lower_flag)});
 
   return to_original_dtype(result, x.dtype());
 }
@@ -597,13 +602,9 @@ Array cholesky_solve(const Array &A, const Array &B, bool lower) {
   Array result(B_work.shape(), working_dtype, A_work.place());
 
   int lower_flag = lower ? 1 : 0;
-
-  OpRegistry::launch_schema("cholesky_solve", A_work.place(), working_dtype,
-                            {OpRegistry::array_arg(result.layout_ptr()),
-                             OpRegistry::array_arg(A_work.layout_ptr()),
-                             OpRegistry::array_arg(B_work.layout_ptr()),
-                             OpRegistry::scalar_arg(&lower_flag)},
-                            {OpRegistry::array_arg(result.layout_ptr())});
+  launch_linalg("cholesky_solve", A_work.place(), working_dtype,
+                {A_work, B_work}, result,
+                {OpRegistry::scalar_arg(&lower_flag)});
 
   return to_original_dtype(result, B.dtype());
 }
@@ -636,15 +637,8 @@ std::tuple<Array, Array, Array> svd(const Array &x, bool full_matrices) {
     VT = Array(Shape({min_mn, n}), working_dtype, work.place());
   }
 
-  OpRegistry::launch_schema("svd", work.place(), working_dtype,
-                            {OpRegistry::array_arg(U.layout_ptr()),
-                             OpRegistry::array_arg(S.layout_ptr()),
-                             OpRegistry::array_arg(VT.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr()),
-                             OpRegistry::scalar_arg(&full_flag)},
-                            {OpRegistry::array_arg(U.layout_ptr()),
-                             OpRegistry::array_arg(S.layout_ptr()),
-                             OpRegistry::array_arg(VT.layout_ptr())});
+  launch_linalg("svd", work.place(), working_dtype, {work}, {U, S, VT},
+                {OpRegistry::scalar_arg(&full_flag)});
 
   return {to_original_dtype(U, x.dtype()), to_original_dtype(S, x.dtype()),
           to_original_dtype(VT, x.dtype())};
@@ -665,11 +659,7 @@ Array svdvals(const Array &x) {
   int min_mn = std::min(m, n);
 
   Array result(Shape({min_mn}), working_dtype, work.place());
-
-  OpRegistry::launch_schema("svdvals", work.place(), working_dtype,
-                            {OpRegistry::array_arg(result.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr())},
-                            {OpRegistry::array_arg(result.layout_ptr())});
+  launch_linalg("svdvals", work.place(), working_dtype, {work}, result);
 
   return to_original_dtype(result, x.dtype());
 }
@@ -690,13 +680,8 @@ std::tuple<Array, Array> eig(const Array &x) {
   DType complex_dtype = (working_dtype == DType::F32) ? DType::C32 : DType::C64;
   Array eigenvalues(Shape({n}), complex_dtype, work.place());
   Array eigenvectors(Shape({n, n}), complex_dtype, work.place());
-
-  OpRegistry::launch_schema("eig", work.place(), working_dtype,
-                            {OpRegistry::array_arg(eigenvalues.layout_ptr()),
-                             OpRegistry::array_arg(eigenvectors.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr())},
-                            {OpRegistry::array_arg(eigenvalues.layout_ptr()),
-                             OpRegistry::array_arg(eigenvectors.layout_ptr())});
+  launch_linalg("eig", work.place(), working_dtype, {work},
+                {eigenvalues, eigenvectors});
 
   return {eigenvalues, eigenvectors};
 }
@@ -715,11 +700,7 @@ Array eigvals(const Array &x) {
 
   DType complex_dtype = (working_dtype == DType::F32) ? DType::C32 : DType::C64;
   Array result(Shape({n}), complex_dtype, work.place());
-
-  OpRegistry::launch_schema("eigvals", work.place(), working_dtype,
-                            {OpRegistry::array_arg(result.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr())},
-                            {OpRegistry::array_arg(result.layout_ptr())});
+  launch_linalg("eigvals", work.place(), working_dtype, {work}, result);
 
   return result;
 }
@@ -740,14 +721,9 @@ std::tuple<Array, Array> eigh(const Array &x, const std::string &uplo) {
   Array eigenvectors(work.shape(), working_dtype, work.place());
 
   int uplo_code = (uplo == "L") ? 0 : 1;
-
-  OpRegistry::launch_schema("eigh", work.place(), working_dtype,
-                            {OpRegistry::array_arg(eigenvalues.layout_ptr()),
-                             OpRegistry::array_arg(eigenvectors.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr()),
-                             OpRegistry::scalar_arg(&uplo_code)},
-                            {OpRegistry::array_arg(eigenvalues.layout_ptr()),
-                             OpRegistry::array_arg(eigenvectors.layout_ptr())});
+  launch_linalg("eigh", work.place(), working_dtype, {work},
+                {eigenvalues, eigenvectors},
+                {OpRegistry::scalar_arg(&uplo_code)});
 
   return {to_original_dtype(eigenvalues, x.dtype()),
           to_original_dtype(eigenvectors, x.dtype())};
@@ -768,12 +744,8 @@ Array eigvalsh(const Array &x, const std::string &uplo) {
   Array result(Shape({n}), working_dtype, work.place());
 
   int uplo_code = (uplo == "L") ? 0 : 1;
-
-  OpRegistry::launch_schema("eigvalsh", work.place(), working_dtype,
-                            {OpRegistry::array_arg(result.layout_ptr()),
-                             OpRegistry::array_arg(work.layout_ptr()),
-                             OpRegistry::scalar_arg(&uplo_code)},
-                            {OpRegistry::array_arg(result.layout_ptr())});
+  launch_linalg("eigvalsh", work.place(), working_dtype, {work}, result,
+                {OpRegistry::scalar_arg(&uplo_code)});
 
   return to_original_dtype(result, x.dtype());
 }
@@ -794,10 +766,8 @@ Array solve(const Array &A, const Array &B) {
   }
 
   Array result(B_work.shape(), working_dtype, A_work.place());
-
-  ops().launch("solve", A_work.place(), working_dtype,
-               {result.layout_ptr(), A_work.layout_ptr(), B_work.layout_ptr()},
-               {result.layout_ptr()});
+  launch_linalg("solve", A_work.place(), working_dtype, {A_work, B_work},
+                result);
 
   return to_original_dtype(result, B.dtype());
 }
@@ -826,13 +796,8 @@ Array lstsq(const Array &A, const Array &B, double rcond) {
   Shape out_shape =
       (B_work.shape().ndim() == 1) ? Shape({n}) : Shape({n, nrhs});
   Array result(out_shape, working_dtype, A_work.place());
-
-  OpRegistry::launch_schema("lstsq", A_work.place(), working_dtype,
-                            {OpRegistry::array_arg(result.layout_ptr()),
-                             OpRegistry::array_arg(A_work.layout_ptr()),
-                             OpRegistry::array_arg(B_work.layout_ptr()),
-                             OpRegistry::scalar_arg(&rcond)},
-                            {OpRegistry::array_arg(result.layout_ptr())});
+  launch_linalg("lstsq", A_work.place(), working_dtype, {A_work, B_work},
+                result, {OpRegistry::scalar_arg(&rcond)});
 
   return to_original_dtype(result, B.dtype());
 }
@@ -857,14 +822,10 @@ Array solve_triangular(const Array &A, const Array &B, bool lower,
 
   int lower_flag = lower ? 1 : 0;
   int unit_flag = unit_diag ? 1 : 0;
-
-  OpRegistry::launch_schema("solve_triangular", A_work.place(), working_dtype,
-                            {OpRegistry::array_arg(result.layout_ptr()),
-                             OpRegistry::array_arg(A_work.layout_ptr()),
-                             OpRegistry::array_arg(B_work.layout_ptr()),
-                             OpRegistry::scalar_arg(&lower_flag),
-                             OpRegistry::scalar_arg(&unit_flag)},
-                            {OpRegistry::array_arg(result.layout_ptr())});
+  launch_linalg("solve_triangular", A_work.place(), working_dtype,
+                {A_work, B_work}, result,
+                {OpRegistry::scalar_arg(&lower_flag),
+                 OpRegistry::scalar_arg(&unit_flag)});
 
   return to_original_dtype(result, B.dtype());
 }

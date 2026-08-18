@@ -8,8 +8,10 @@
  */
 
 #include "insight/ops/fft.h"
+#include "insight/core/axis.h"
 #include "insight/core/exception.h"
 #include "insight/core/op_registry.h"
+#include "insight/core/op_schema.h"
 #include "insight/core/slice.h"
 #include "insight/ops/complex.h"
 #include "insight/ops/creation.h"
@@ -51,11 +53,34 @@ static std::string code_to_norm(int code) {
 }
 
 // ============================================================================
-// Helper: Get device kind
+// FFT Kernel Launch
 // ============================================================================
 
-static DeviceKind get_device_kind(const Place &place) {
-  return place.is_cpu() ? DeviceKind::CPU : DeviceKind::GPU;
+static OpSchema fft_schema(const char *name) {
+  return OpSchema(name, OpKind::Fft,
+                  {{"x", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}},
+                  {{"out", OpArgumentKind::Array,
+                    OpArgumentAccess::WriteOnly}})
+      .promotion(OpPromotionRule::Identity)
+      .fallback(OpFallbackRule::StructuredCpu);
+}
+
+static void launch_fft_kernel(const char *name, const Array &input,
+                              Array &result, int64_t fft_len,
+                              int64_t batch_size, int inverse,
+                              int real_input, int norm_code) {
+  OpSchema schema = fft_schema(name);
+  ArrayIterator iter = schema.make_transform_iterator({input}, {result});
+  auto arrays = iter.arrays();
+
+  OpRegistry::launch_schema(
+      name, input.place(), input.dtype(),
+      {OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::scalar_arg(&fft_len), OpRegistry::scalar_arg(&batch_size),
+       OpRegistry::scalar_arg(&inverse), OpRegistry::scalar_arg(&real_input),
+       OpRegistry::scalar_arg(&norm_code)},
+      {OpRegistry::array_arg(arrays[1].layout_ptr())});
 }
 
 // ============================================================================
@@ -98,11 +123,7 @@ static FFTPlan prepare_fft(const Array &x, int n, int axis, bool inverse,
   int ndim = x.shape().ndim();
   plan.fft_ndim = ndim;
 
-  plan.transformed_axis = axis;
-  if (plan.transformed_axis < 0)
-    plan.transformed_axis += plan.fft_ndim;
-  INS_CHECK(plan.transformed_axis >= 0 && plan.transformed_axis < plan.fft_ndim,
-            "prepare_fft: axis out of range");
+  plan.transformed_axis = normalize_axis(axis, plan.fft_ndim, "prepare_fft");
 
   int64_t current_len = x.shape().dim(plan.transformed_axis);
   plan.fft_len = (n > 0) ? n : current_len;
@@ -283,10 +304,8 @@ Array fft(const Array &x, int n, int axis, const std::string &norm) {
   Array result = create_output(plan, input, n);
 
   int norm_code = plan.norm_code;
-  ops().launch("fft", x.place(), plan.dtype,
-               {result.layout_ptr(), input.layout_ptr(), &plan.fft_len,
-                &plan.batch_size, &plan.inverse, &plan.real_input, &norm_code},
-               {result.layout_ptr()});
+  launch_fft_kernel("fft", input, result, plan.fft_len, plan.batch_size,
+                    plan.inverse, plan.real_input, norm_code);
 
   if (!plan.inv_perm.empty()) {
     result = result.transpose(plan.inv_perm);
@@ -313,10 +332,8 @@ Array ifft(const Array &x, int n, int axis, const std::string &norm) {
   Array result = create_output(plan, input, n);
 
   int norm_code = plan.norm_code;
-  ops().launch("fft", x.place(), plan.dtype,
-               {result.layout_ptr(), input.layout_ptr(), &plan.fft_len,
-                &plan.batch_size, &plan.inverse, &plan.real_input, &norm_code},
-               {result.layout_ptr()});
+  launch_fft_kernel("fft", input, result, plan.fft_len, plan.batch_size,
+                    plan.inverse, plan.real_input, norm_code);
 
   if (!plan.inv_perm.empty()) {
     result = result.transpose(plan.inv_perm);
@@ -339,10 +356,8 @@ Array rfft(const Array &x, int n, int axis, const std::string &norm) {
   Array result = create_output(plan, input, n);
 
   int norm_code = plan.norm_code;
-  ops().launch("rfft", x.place(), plan.dtype,
-               {result.layout_ptr(), input.layout_ptr(), &plan.fft_len,
-                &plan.batch_size, &plan.inverse, &plan.real_input, &norm_code},
-               {result.layout_ptr()});
+  launch_fft_kernel("rfft", input, result, plan.fft_len, plan.batch_size,
+                    plan.inverse, plan.real_input, norm_code);
 
   if (!plan.inv_perm.empty()) {
     result = result.transpose(plan.inv_perm);
@@ -378,10 +393,8 @@ Array irfft(const Array &x, int n, int axis, const std::string &norm) {
   Array result = create_output(plan, input, n);
 
   int norm_code = plan.norm_code;
-  ops().launch("irfft", x.place(), plan.dtype,
-               {result.layout_ptr(), input.layout_ptr(), &out_len,
-                &plan.batch_size, &plan.inverse, &plan.real_input, &norm_code},
-               {result.layout_ptr()});
+  launch_fft_kernel("irfft", input, result, out_len, plan.batch_size,
+                    plan.inverse, plan.real_input, norm_code);
 
   if (!plan.inv_perm.empty()) {
     result = result.transpose(plan.inv_perm);
@@ -704,10 +717,7 @@ Array fftshift(const Array &x, int axis) {
     return result;
   }
 
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "fftshift: axis out of range");
+  int ax = normalize_axis(axis, ndim, "fftshift");
 
   int64_t n = x.shape().dim(ax);
   int64_t mid = n / 2;
@@ -733,10 +743,7 @@ Array ifftshift(const Array &x, int axis) {
     return result;
   }
 
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "ifftshift: axis out of range");
+  int ax = normalize_axis(axis, ndim, "ifftshift");
 
   int64_t n = x.shape().dim(ax);
   int64_t mid = (n + 1) / 2; // Ceiling division for odd lengths

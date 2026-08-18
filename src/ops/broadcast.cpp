@@ -90,26 +90,26 @@ Array broadcast_to(const Array &x, const Shape &target_shape) {
   return Array(x, target_shape, new_strides, x.offset());
 }
 
-std::vector<Array> broadcast_arrays(const std::vector<Array> &tensors) {
-  INS_CHECK(!tensors.empty(), "broadcast_arrays: input list cannot be empty");
+std::vector<Array> broadcast_arrays(const std::vector<Array> &arrays) {
+  INS_CHECK(!arrays.empty(), "broadcast_arrays: input list cannot be empty");
 
-  // Check all tensors are defined
-  for (size_t i = 0; i < tensors.size(); ++i) {
-    INS_CHECK(tensors[i].defined(), "broadcast_arrays: tensor ", i,
+  // Check all arrays are defined
+  for (size_t i = 0; i < arrays.size(); ++i) {
+    INS_CHECK(arrays[i].defined(), "broadcast_arrays: array ", i,
               " is undefined");
   }
 
   // Compute common shape by broadcasting all input shapes
-  Shape common = tensors[0].shape();
-  for (size_t i = 1; i < tensors.size(); ++i) {
-    common = broadcast_shape_impl(common, tensors[i].shape());
+  Shape common = arrays[0].shape();
+  for (size_t i = 1; i < arrays.size(); ++i) {
+    common = broadcast_shape_impl(common, arrays[i].shape());
   }
 
-  // Broadcast each tensor to the common shape
+  // Broadcast each array to the common shape
   std::vector<Array> result;
-  result.reserve(tensors.size());
-  for (const auto &t : tensors) {
-    result.push_back(broadcast_to(t, common));
+  result.reserve(arrays.size());
+  for (const auto &array : arrays) {
+    result.push_back(broadcast_to(array, common));
   }
 
   return result;

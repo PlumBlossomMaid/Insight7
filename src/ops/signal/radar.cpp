@@ -2,6 +2,7 @@
 #include "insight/ops/signal/radar.h"
 #include "insight/core/exception.h"
 #include "insight/core/op_registry.h"
+#include "insight/core/op_schema.h"
 #include "insight/ops/cast.h"
 #include "insight/ops/complex.h"
 #include "insight/ops/creation.h"
@@ -18,6 +19,8 @@
 #include <cmath>
 #include <complex>
 #include <numeric>
+#include <string>
+#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -25,6 +28,61 @@
 
 namespace ins {
 namespace signal {
+
+namespace {
+
+static OpSchema signal_schema(const char *name, size_t input_count,
+                              size_t output_count = 1) {
+  std::vector<OpArgumentSchema> inputs;
+  inputs.reserve(input_count);
+  for (size_t i = 0; i < input_count; ++i) {
+    inputs.push_back({"x" + std::to_string(i), OpArgumentKind::Array,
+                      OpArgumentAccess::ReadOnly});
+  }
+
+  std::vector<OpArgumentSchema> outputs;
+  outputs.reserve(output_count);
+  for (size_t i = 0; i < output_count; ++i) {
+    outputs.push_back({output_count == 1 ? "out" : "out" + std::to_string(i),
+                       OpArgumentKind::Array, OpArgumentAccess::WriteOnly});
+  }
+
+  return OpSchema(name, OpKind::Signal, inputs, outputs)
+      .promotion(OpPromotionRule::Identity)
+      .fallback(OpFallbackRule::StructuredCpu);
+}
+
+static void launch_signal_kernel(const char *name, const Place &place,
+                                 DType dtype,
+                                 const std::vector<Array> &inputs,
+                                 const std::vector<Array> &outputs) {
+  OpSchema schema = signal_schema(name, inputs.size(), outputs.size());
+  ArrayIterator iter = schema.make_transform_iterator(inputs, outputs);
+  auto arrays = iter.arrays();
+
+  std::vector<OpRegistry::Arg> launch_inputs;
+  launch_inputs.reserve(inputs.size());
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    launch_inputs.push_back(OpRegistry::array_arg(arrays[i].layout_ptr()));
+  }
+
+  std::vector<OpRegistry::Arg> launch_outputs;
+  launch_outputs.reserve(outputs.size());
+  for (size_t i = inputs.size(); i < arrays.size(); ++i) {
+    launch_outputs.push_back(OpRegistry::array_arg(arrays[i].layout_ptr()));
+  }
+
+  OpRegistry::launch_schema(name, place, dtype, launch_inputs, launch_outputs);
+}
+
+static void launch_signal_kernel(const char *name, const Place &place,
+                                 DType dtype,
+                                 const std::vector<Array> &inputs,
+                                 const Array &output) {
+  launch_signal_kernel(name, place, dtype, inputs, std::vector<Array>{output});
+}
+
+} // namespace
 
 // ============================================================================
 // pulse_compression — batched FFT-based pulse compression (GPU optimized)
@@ -234,10 +292,9 @@ std::pair<Array, Array> ca_cfar(const Array &data,
   Array detections = zeros(data_cpu.shape(), DType::BOOL, cpu);
 
   // Dispatch to backend kernel
-  ops().launch("ca_cfar", cpu, work_dtype,
-               {(void *)data_cpu.layout_ptr(), (void *)alpha_arr.layout_ptr(),
-                (void *)gc_arr.layout_ptr(), (void *)rc_arr.layout_ptr()},
-               {threshold.layout_ptr(), detections.layout_ptr()});
+  launch_signal_kernel("ca_cfar", cpu, work_dtype,
+                       {data_cpu, alpha_arr, gc_arr, rc_arr},
+                       {threshold, detections});
 
   if (data.place().kind() != DeviceKind::CPU) {
     threshold = threshold.to(data.place());
@@ -355,10 +412,8 @@ Array ambgfun(const Array &x, double fs, double prf, const Array &y,
   Array result({doppler_len, delay_len}, DType::F64, cpu);
 
   // Dispatch to backend kernel
-  ops().launch("ambgfun", cpu, DType::F64,
-               {(void *)x_cpx.layout_ptr(), (void *)y_cpx.layout_ptr(),
-                (void *)params.layout_ptr()},
-               {result.layout_ptr()});
+  launch_signal_kernel("ambgfun", cpu, DType::F64, {x_cpx, y_cpx, params},
+                       result);
 
   // Extract 1D cut if requested
   if (cut == "delay") {

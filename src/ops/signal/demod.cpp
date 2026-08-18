@@ -1,5 +1,6 @@
 // src/ops/signal/demod.cpp
 #include "insight/ops/signal/demod.h"
+#include "insight/core/axis.h"
 #include "insight/core/exception.h"
 #include "insight/ops/complex.h"
 #include "insight/ops/creation.h"
@@ -68,18 +69,16 @@ Array fm_demod(const Array &x, int axis) {
   INS_CHECK(x.dtype() == DType::C32 || x.dtype() == DType::C64,
             "fm_demod: input must be complex-valued");
 
-  int ndim = x.shape().ndim();
-  if (axis < 0)
-    axis += ndim;
+  int ax = normalize_axis(axis, x.shape().ndim(), "fm_demod");
 
   // Compute angle(x) = atan2(imag, real)
   Array x_angle = complex_angle(x);
 
   // Unwrap along axis
-  Array x_unwrapped = unwrap(x_angle, axis);
+  Array x_unwrapped = unwrap(x_angle, ax);
 
   // Diff along axis
-  Array result = diff(x_unwrapped, 1, axis);
+  Array result = diff(x_unwrapped, 1, ax);
 
   return result;
 }

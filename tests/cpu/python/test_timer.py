@@ -48,7 +48,7 @@ def test_timer_invalid_place():
 
 @pytest.mark.skipif(not ins.has_device("gpu"), reason="GPU not available")
 def test_timer_gpu():
-    ins.load_backend("cuda")
+    ins.init()
     t = ins.Timer((1, 0))
     t.start()
     a = ins.ones([256, 256], dtype=ins.float32, place=ins.GPUPlace(0))

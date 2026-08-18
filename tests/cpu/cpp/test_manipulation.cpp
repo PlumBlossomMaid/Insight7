@@ -148,6 +148,11 @@ TEST_F(ManipulationTest, SqueezeAxis) {
 
   Array b = squeeze(a, 2); // squeeze axis 2 (size 1)
   EXPECT_EQ(b.shape(), Shape({1, 3, 4}));
+
+  Array c = squeeze(a, -2);
+  EXPECT_EQ(c.shape(), Shape({1, 3, 4}));
+
+  EXPECT_THROW(squeeze(a, 4), ins::Exception);
 }
 
 TEST_F(ManipulationTest, ViewSharesBaseStorageMetadata) {
@@ -173,6 +178,11 @@ TEST_F(ManipulationTest, Unsqueeze) {
 
   Array c = unsqueeze(a, -1);
   EXPECT_EQ(c.shape(), Shape({3, 4, 1}));
+
+  Array d = unsqueeze(a, -3);
+  EXPECT_EQ(d.shape(), Shape({1, 3, 4}));
+
+  EXPECT_THROW(unsqueeze(a, 3), ins::Exception);
 }
 
 // ========== transpose / permute / swapaxes / moveaxis ==========
@@ -199,6 +209,11 @@ TEST_F(ManipulationTest, Swapaxes) {
 
   Array b = swapaxes(a, 0, 2);
   EXPECT_EQ(b.shape(), Shape({4, 3, 2}));
+
+  Array c = swapaxes(a, -1, 0);
+  EXPECT_EQ(c.shape(), Shape({4, 3, 2}));
+
+  EXPECT_THROW(swapaxes(a, 0, 3), ins::Exception);
 }
 
 TEST_F(ManipulationTest, Moveaxis) {
@@ -206,6 +221,11 @@ TEST_F(ManipulationTest, Moveaxis) {
 
   Array b = moveaxis(a, 0, 2);
   EXPECT_EQ(b.shape(), Shape({3, 4, 2}));
+
+  Array c = moveaxis(a, -1, 0);
+  EXPECT_EQ(c.shape(), Shape({4, 2, 3}));
+
+  EXPECT_THROW(moveaxis(a, -4, 0), ins::Exception);
 }
 
 // ========== flip / fliplr / flipud ==========
@@ -276,6 +296,10 @@ TEST_F(ManipulationTest, ConcatAxis1) {
   Array c = concat({a, b}, 1);
   EXPECT_EQ(c.shape(), Shape({2, 4}));
   expect_float_equal<float>(c, {0, 1, 4, 5, 2, 3, 6, 7});
+
+  Array d = concat({a, b}, -1);
+  EXPECT_EQ(d.shape(), Shape({2, 4}));
+  expect_float_equal<float>(d, {0, 1, 4, 5, 2, 3, 6, 7});
 }
 
 TEST_F(ManipulationTest, ConcatSingle) {

@@ -8,53 +8,66 @@
  */
 
 #include "insight/ops/manipulation.h"
+#include "insight/core/axis.h"
 #include "insight/core/exception.h"
 #include "insight/core/op_registry.h"
+#include "insight/core/op_schema.h"
 #include "insight/ops/creation.h"
 #include "insight/ops/elementwise.h"
 
 namespace ins {
 
-static DeviceKind get_device_kind(const Place &place) {
-  return place.is_cpu() ? DeviceKind::CPU : DeviceKind::GPU;
-}
-
 // ============================================================================
 // Helper: launch manipulation kernel
 // ============================================================================
 
-template <typename T>
-static void add_kernel_arg(std::vector<void *> &inputs, const T &arg) {
-  if constexpr (std::is_pointer_v<std::decay_t<T>>) {
-    inputs.push_back(const_cast<void *>(static_cast<const void *>(arg)));
-  } else if constexpr (std::is_same_v<std::decay_t<T>, std::nullptr_t>) {
-    inputs.push_back(nullptr);
-  } else {
-    inputs.push_back(const_cast<void *>(static_cast<const void *>(&arg)));
-  }
+static void add_kernel_arg(std::vector<OpRegistry::Arg> &inputs,
+                           std::nullptr_t) {
+  inputs.push_back({nullptr, OpRegistry::ArgKind::HostScalar});
 }
 
-/**
- * @brief Launch a manipulation kernel with common parameter pattern.
- *
- * @tparam Args Parameter pack types
- * @param kernel_name Kernel name to launch
- * @param x Input array
- * @param result Output array (pre-allocated)
- * @param extra_args Additional kernel arguments
- */
+template <typename T>
+static void add_kernel_arg(std::vector<OpRegistry::Arg> &inputs, T *arg) {
+  inputs.push_back(OpRegistry::scalar_arg(arg));
+}
+
+template <typename T>
+static void add_kernel_arg(std::vector<OpRegistry::Arg> &inputs,
+                           const T &arg) {
+  inputs.push_back({const_cast<void *>(static_cast<const void *>(&arg)),
+                    OpRegistry::ArgKind::HostScalar});
+}
+
+static OpSchema manipulation_schema(const char *name, size_t input_count = 1) {
+  std::vector<OpArgumentSchema> inputs;
+  inputs.reserve(input_count);
+  for (size_t i = 0; i < input_count; ++i) {
+    inputs.push_back({input_count == 1 ? "x" : "x" + std::to_string(i),
+                      OpArgumentKind::Array, OpArgumentAccess::ReadOnly});
+  }
+  return OpSchema(name, OpKind::Manipulation, inputs,
+                  {{"out", OpArgumentKind::Array,
+                    OpArgumentAccess::WriteOnly}})
+      .promotion(OpPromotionRule::Identity)
+      .fallback(OpFallbackRule::StructuredCpu);
+}
+
 template <typename... Args>
 static void launch_manipulation_kernel(const char *kernel_name, const Array &x,
                                        Array &result, Args &&...extra_args) {
-  std::vector<void *> inputs;
-  inputs.push_back(result.layout_ptr());
-  inputs.push_back(
-      const_cast<void *>(static_cast<const void *>(x.layout_ptr())));
+  OpSchema schema = manipulation_schema(kernel_name);
+  ArrayIterator iter = schema.make_transform_iterator({x}, {result});
+  auto arrays = iter.arrays();
+
+  std::vector<OpRegistry::Arg> inputs;
+  inputs.push_back(OpRegistry::array_arg(arrays[1].layout_ptr()));
+  inputs.push_back(OpRegistry::array_arg(arrays[0].layout_ptr()));
 
   (add_kernel_arg(inputs, extra_args), ...);
 
-  ops().launch(kernel_name, x.place(), x.dtype(), inputs,
-               {result.layout_ptr()});
+  OpRegistry::launch_schema(
+      kernel_name, x.place(), x.dtype(), inputs,
+      {OpRegistry::array_arg(arrays[1].layout_ptr())});
 }
 
 // ============================================================================
@@ -94,12 +107,8 @@ Array permute(const Array &x, const std::vector<int> &axes) {
 Array swapaxes(const Array &x, int axis1, int axis2) {
   Shape shape = x.shape();
   int ndim = shape.ndim();
-  if (axis1 < 0)
-    axis1 += ndim;
-  if (axis2 < 0)
-    axis2 += ndim;
-  INS_CHECK(axis1 >= 0 && axis1 < ndim, "swapaxes: axis1 out of range");
-  INS_CHECK(axis2 >= 0 && axis2 < ndim, "swapaxes: axis2 out of range");
+  axis1 = normalize_axis(axis1, ndim, "swapaxes(axis1)");
+  axis2 = normalize_axis(axis2, ndim, "swapaxes(axis2)");
 
   std::vector<int> perm(ndim);
   for (int i = 0; i < ndim; ++i)
@@ -111,13 +120,8 @@ Array swapaxes(const Array &x, int axis1, int axis2) {
 Array moveaxis(const Array &x, int source, int destination) {
   Shape shape = x.shape();
   int ndim = shape.ndim();
-  if (source < 0)
-    source += ndim;
-  if (destination < 0)
-    destination += ndim;
-  INS_CHECK(source >= 0 && source < ndim, "moveaxis: source out of range");
-  INS_CHECK(destination >= 0 && destination < ndim,
-            "moveaxis: destination out of range");
+  source = normalize_axis(source, ndim, "moveaxis(source)");
+  destination = normalize_axis(destination, ndim, "moveaxis(destination)");
 
   if (source == destination)
     return x;
@@ -145,17 +149,11 @@ Array flip(const Array &x, std::optional<int> axis) {
     return result;
   }
 
-  int ax = axis.value();
-  int ndim = x.shape().ndim();
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "flip: axis out of range");
+  int ax = normalize_axis(axis.value(), x.shape().ndim(), "flip");
 
   Array result(x.shape(), x.dtype(), x.place());
 
-  ops().launch("flip", x.place(), x.dtype(),
-               {(void *)result.layout_ptr(), (void *)x.layout_ptr(), &ax},
-               {(void *)result.layout_ptr()});
+  launch_manipulation_kernel("flip", x, result, ax);
 
   return result;
 }
@@ -165,14 +163,8 @@ Array rot90(const Array &x, int k, const std::vector<int> &axes) {
   INS_CHECK(axes.size() == 2, "rot90: axes must have exactly 2 elements");
 
   int ndim = x.shape().ndim();
-  int axis1 = axes[0];
-  int axis2 = axes[1];
-  if (axis1 < 0)
-    axis1 += ndim;
-  if (axis2 < 0)
-    axis2 += ndim;
-  INS_CHECK(axis1 >= 0 && axis1 < ndim, "rot90: axis1 out of range");
-  INS_CHECK(axis2 >= 0 && axis2 < ndim, "rot90: axis2 out of range");
+  int axis1 = normalize_axis(axes[0], ndim, "rot90(axis1)");
+  int axis2 = normalize_axis(axes[1], ndim, "rot90(axis2)");
   INS_CHECK(axis1 != axis2, "rot90: axes must be different");
 
   // Normalize k to [0, 3]
@@ -201,87 +193,84 @@ Array rot90(const Array &x, int k, const std::vector<int> &axes) {
 // Joining
 // ============================================================================
 
-Array concat(const std::vector<Array> &tensors, int axis) {
-  if (tensors.empty())
-    INS_THROW("concat: no tensors provided");
-  if (tensors.size() == 1)
-    return tensors[0];
+Array concat(const std::vector<Array> &input_arrays, int axis) {
+  if (input_arrays.empty())
+    INS_THROW("concat: no arrays provided");
+  if (input_arrays.size() == 1)
+    return input_arrays[0];
 
-  const Shape &first_shape = tensors[0].shape();
+  const Shape &first_shape = input_arrays[0].shape();
   int ndim = first_shape.ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "concat: axis out of range");
+  int ax = normalize_axis(axis, ndim, "concat");
 
   // Check compatibility and compute output shape
-  DType dtype = tensors[0].dtype();
-  Place place = tensors[0].place();
+  DType dtype = input_arrays[0].dtype();
+  Place place = input_arrays[0].place();
   std::vector<int64_t> out_dims = first_shape.dims();
   int64_t concat_size = 0;
 
-  for (const auto &t : tensors) {
-    INS_CHECK(t.dtype() == dtype, "concat: dtype mismatch");
-    INS_CHECK(t.place() == place, "concat: device mismatch");
-    INS_CHECK(t.shape().ndim() == ndim, "concat: dimension mismatch");
+  for (const auto &array : input_arrays) {
+    INS_CHECK(array.dtype() == dtype, "concat: dtype mismatch");
+    INS_CHECK(array.place() == place, "concat: device mismatch");
+    INS_CHECK(array.shape().ndim() == ndim, "concat: dimension mismatch");
     for (int i = 0; i < ndim; ++i) {
       if (i != ax) {
-        INS_CHECK(t.shape().dim(i) == out_dims[i],
+        INS_CHECK(array.shape().dim(i) == out_dims[i],
                   "concat: shape mismatch at dimension ", i);
       }
     }
-    concat_size += t.shape().dim(ax);
+    concat_size += array.shape().dim(ax);
   }
   out_dims[ax] = concat_size;
   Shape out_shape(out_dims);
 
   Array result(out_shape, dtype, place);
+  OpSchema schema = manipulation_schema("concat", input_arrays.size());
+  ArrayIterator iter = schema.make_transform_iterator(input_arrays, {result});
+  auto iter_arrays = iter.arrays();
 
-  // Prepare inputs: [output, num_inputs, tensor0, tensor1, ..., tensorN, axis]
-  std::vector<void *> inputs;
+  std::vector<OpRegistry::Arg> inputs;
   inputs.push_back(
-      result.layout_ptr()); // output (unused, kernel uses outputs[0])
+      OpRegistry::array_arg(iter_arrays[input_arrays.size()].layout_ptr()));
 
-  int num_tensors = static_cast<int>(tensors.size());
-  inputs.push_back(const_cast<void *>(static_cast<const void *>(&num_tensors)));
+  int num_arrays = static_cast<int>(input_arrays.size());
+  inputs.push_back(OpRegistry::scalar_arg(&num_arrays));
 
-  for (const auto &t : tensors) {
-    inputs.push_back(
-        const_cast<void *>(static_cast<const void *>(t.layout_ptr())));
+  for (size_t i = 0; i < input_arrays.size(); ++i) {
+    inputs.push_back(OpRegistry::array_arg(iter_arrays[i].layout_ptr()));
   }
 
-  inputs.push_back(const_cast<void *>(static_cast<const void *>(&ax)));
+  inputs.push_back(OpRegistry::scalar_arg(&ax));
 
-  ops().launch("concat", place, dtype, inputs, {result.layout_ptr()});
+  OpRegistry::launch_schema(
+      "concat", place, dtype, inputs,
+      {OpRegistry::array_arg(iter_arrays[input_arrays.size()].layout_ptr())});
 
   return result;
 }
 
-Array stack(const std::vector<Array> &tensors, int axis) {
-  if (tensors.empty())
-    INS_THROW("stack: no tensors provided");
+Array stack(const std::vector<Array> &input_arrays, int axis) {
+  if (input_arrays.empty())
+    INS_THROW("stack: no arrays provided");
 
-  const Shape &first_shape = tensors[0].shape();
+  const Shape &first_shape = input_arrays[0].shape();
   int ndim = first_shape.ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim + 1;
-  INS_CHECK(ax >= 0 && ax <= ndim, "stack: axis out of range");
+  int ax = normalize_axis_insert(axis, ndim, "stack");
 
-  // Check all tensors have same shape and dtype
-  DType dtype = tensors[0].dtype();
-  Place place = tensors[0].place();
-  for (const auto &t : tensors) {
-    INS_CHECK(t.shape() == first_shape, "stack: shape mismatch");
-    INS_CHECK(t.dtype() == dtype, "stack: dtype mismatch");
-    INS_CHECK(t.place() == place, "stack: device mismatch");
+  // Check all arrays have same shape and dtype
+  DType dtype = input_arrays[0].dtype();
+  Place place = input_arrays[0].place();
+  for (const auto &array : input_arrays) {
+    INS_CHECK(array.shape() == first_shape, "stack: shape mismatch");
+    INS_CHECK(array.dtype() == dtype, "stack: dtype mismatch");
+    INS_CHECK(array.place() == place, "stack: device mismatch");
   }
 
-  // First unsqueeze each tensor, then concat
+  // First unsqueeze each array, then concat
   std::vector<Array> expanded;
-  expanded.reserve(tensors.size());
-  for (const auto &t : tensors) {
-    expanded.push_back(unsqueeze(t, ax));
+  expanded.reserve(input_arrays.size());
+  for (const auto &array : input_arrays) {
+    expanded.push_back(unsqueeze(array, ax));
   }
   return concat(expanded, ax);
 }
@@ -293,10 +282,7 @@ Array stack(const std::vector<Array> &tensors, int axis) {
 std::vector<Array> split(const Array &x, int indices_or_sections, int axis) {
   Shape shape = x.shape();
   int ndim = shape.ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "split: axis out of range");
+  int ax = normalize_axis(axis, ndim, "split");
 
   int64_t dim_size = shape.dim(ax);
   if (dim_size % indices_or_sections != 0) {
@@ -315,10 +301,7 @@ std::vector<Array> split(const Array &x, const std::vector<int64_t> &indices,
                          int axis) {
   Shape shape = x.shape();
   int ndim = shape.ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "split: axis out of range");
+  int ax = normalize_axis(axis, ndim, "split");
 
   std::vector<Array> result;
   int64_t start = 0;
@@ -347,11 +330,7 @@ Array repeat(const Array &x, int repeats, std::optional<int> axis) {
     return repeat(flat, repeats, 0);
   }
 
-  int ax = axis.value();
-  int ndim = x.shape().ndim();
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "repeat: axis out of range");
+  int ax = normalize_axis(axis.value(), x.shape().ndim(), "repeat");
   INS_CHECK(repeats >= 0, "repeat: repeats must be non-negative");
 
   // Compute output shape
@@ -361,16 +340,7 @@ Array repeat(const Array &x, int repeats, std::optional<int> axis) {
 
   Array result(out_shape, x.dtype(), x.place());
 
-  std::vector<void *> inputs;
-  inputs.push_back(
-      const_cast<void *>(static_cast<const void *>(x.layout_ptr())));
-  inputs.push_back(const_cast<void *>(static_cast<const void *>(&repeats)));
-  inputs.push_back(const_cast<void *>(static_cast<const void *>(&ax)));
-
-  ops().launch(
-      "repeat", x.place(), x.dtype(),
-      {(void *)result.layout_ptr(), (void *)x.layout_ptr(), &repeats, &ax},
-      {(void *)result.layout_ptr()});
+  launch_manipulation_kernel("repeat", x, result, repeats, ax);
 
   return result;
 }
@@ -428,7 +398,7 @@ Array pad(const Array &x, const std::vector<int64_t> &pad_width,
 // ============================================================================
 
 Array roll(const Array &x, int shift, std::optional<int> axis) {
-  int ax = axis.has_value() ? axis.value() : -1;
+  int ax = axis.has_value() ? normalize_axis(axis.value(), x.shape().ndim(), "roll") : -1;
   Array result(x.shape(), x.dtype(), x.place());
 
   launch_manipulation_kernel("roll", x, result, shift, ax);
@@ -517,10 +487,7 @@ Array diff(const Array &x, int n, int axis) {
   }
 
   int ndim = x.shape().ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "diff: axis out of range");
+  int ax = normalize_axis(axis, ndim, "diff");
 
   Array result = x;
   for (int i = 0; i < n; ++i) {
@@ -550,9 +517,13 @@ Array contiguous(const Array &x) {
     return x;
 
   Array result(x.shape(), x.dtype(), x.place());
-
-  ops().launch("contiguous_copy", x.place(), x.dtype(),
-               {(void *)x.layout_ptr()}, {result.layout_ptr()});
+  OpSchema schema = manipulation_schema("contiguous_copy");
+  ArrayIterator iter = schema.make_transform_iterator({x}, {result});
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
+      "contiguous_copy", x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[0].layout_ptr())},
+      {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   return result;
 }

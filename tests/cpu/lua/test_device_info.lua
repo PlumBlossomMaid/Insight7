@@ -40,7 +40,7 @@ describe("DeviceInfo CPU Tests", function()
   end)
 
   it("device_name default args", function()
-    local name = ins.device_name()
+    local name = ins.device_name("cpu")
     assert.is_not_nil(name)
     assert.is_string(name)
   end)

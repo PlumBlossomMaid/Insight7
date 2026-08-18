@@ -70,7 +70,7 @@ class TestDeviceInfoCPU:
     def test_device_count_zero_on_cpu_only(self):
         # On CPU-only builds, GPU count should be 0
         try:
-            ins.load_backend("cuda")
+            ins.init()
         except Exception:
             pass
         count = ins.device_count()
@@ -84,7 +84,7 @@ class TestDeviceInfoCPU:
         assert ins.is_initialized()
 
     def test_device_name_default_args(self):
-        name = ins.device_name()
+        name = ins.device_name("cpu")
         assert isinstance(name, str)
 
     def test_compute_capability_default(self):

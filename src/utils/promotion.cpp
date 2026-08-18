@@ -1,69 +1,53 @@
 // insight/utils/promotion.cpp
 #include "insight/utils/promotion.h"
 #include "insight/core/exception.h"
-#include <unordered_map>
-#include <vector>
 
 namespace ins {
 
-// Allowed promotion table
-static const std::unordered_map<DType, std::vector<DType>> allowed_promotions =
-    {
-        {DType::BOOL,
-         {DType::U8, DType::I8, DType::I16, DType::I32, DType::I64, DType::F16,
-          DType::BF16, DType::F32, DType::F64}},
-        {DType::U8,
-         {DType::I16, DType::I32, DType::I64, DType::F16, DType::BF16,
-          DType::F32, DType::F64}},
-        {DType::I8,
-         {DType::I16, DType::I32, DType::I64, DType::F16, DType::BF16,
-          DType::F32, DType::F64}},
-        {DType::I16,
-         {DType::I32, DType::I64, DType::F16, DType::BF16, DType::F32,
-          DType::F64}},
-        {DType::I32, {DType::I64, DType::F32, DType::F64}},
-        {DType::I64, {DType::F32, DType::F64}},
-        {DType::F16, {DType::F32, DType::F64}},
-        {DType::BF16, {DType::F32, DType::F64}},
-        {DType::F32, {DType::F64, DType::C32, DType::C64}},
-        {DType::F64, {DType::C64}},
-        {DType::C32, {DType::C64}},
-        {DType::C64, {}}, // Highest complex
-                          // F8 types cannot promote to anything
-        // U16, U32, U64 cannot promote (no integer promotion chain defined)
-};
+namespace {
 
-// Helper: get priority index from enum (order is the enum value)
-static int priority_index(DType dtype) {
-  int idx = static_cast<int>(dtype);
-  INS_CHECK(idx > 0 && idx < static_cast<int>(DType::DTYPE_COUNT),
-            "Invalid dtype for promotion: ", idx);
-  return idx;
+bool is_real_numeric(DType dtype) {
+  DTypeKind kind = dtype_kind(dtype);
+  return kind == DTypeKind::Bool || kind == DTypeKind::UInt ||
+         kind == DTypeKind::Int || kind == DTypeKind::Float;
 }
 
+} // namespace
+
 bool can_promote(DType from, DType to) {
-  auto it = allowed_promotions.find(from);
-  if (it == allowed_promotions.end())
+  if (from == to)
+    return true;
+
+  int from_rank = dtype_promotion_rank(from);
+  int to_rank = dtype_promotion_rank(to);
+  if (from_rank <= 0 || to_rank <= 0 || from_rank >= to_rank)
     return false;
-  for (auto d : it->second) {
-    if (d == to)
-      return true;
+
+  DTypeKind from_kind = dtype_kind(from);
+  DTypeKind to_kind = dtype_kind(to);
+  if (to_kind == DTypeKind::Complex) {
+    if (to == DType::C32)
+      return from == DType::F32;
+    return from == DType::F32 || from == DType::F64 ||
+           from_kind == DTypeKind::Complex;
   }
-  return false;
+  if (from_kind == DTypeKind::Complex)
+    return false;
+  return is_real_numeric(from) && is_real_numeric(to);
 }
 
 DType promote_types(DType a, DType b) {
   if (a == b)
     return a;
 
-  int pa = priority_index(a);
-  int pb = priority_index(b);
+  int pa = dtype_promotion_rank(a);
+  int pb = dtype_promotion_rank(b);
+  INS_CHECK(pa > 0 && pb > 0, "Invalid dtype for promotion: ", dtype_name(a),
+            " vs ", dtype_name(b));
 
-  // Higher priority (larger index) wins
   DType higher = (pa > pb) ? a : b;
   DType lower = (pa > pb) ? b : a;
 
-  // Check if promotion is allowed
   INS_CHECK(can_promote(lower, higher), "Cannot promote from ",
             dtype_name(lower), " to ", dtype_name(higher));
 

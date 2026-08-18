@@ -1,5 +1,6 @@
 // src/ops/signal.cpp
 #include "insight/ops/signal.h"
+#include "insight/core/axis.h"
 #include "insight/ops/creation.h"
 #include "insight/ops/elementwise.h"
 #include "insight/ops/fft.h"
@@ -23,10 +24,7 @@ Array unwrap(const Array &p, int axis, double discont, double period) {
   }
 
   int ndim = p.shape().ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "unwrap: axis out of range");
+  int ax = normalize_axis(axis, ndim, "unwrap");
 
   // If the axis dimension is less than 2, the difference cannot be calculated
   // and the original array is returned directly.
@@ -110,7 +108,7 @@ Array sinc(const Array &x) {
 Array convolve(const Array &a, const Array &v, const std::string &mode) {
   INS_CHECK(a.defined() && v.defined(), "convolve: inputs are undefined");
   INS_CHECK(a.shape().ndim() == 1 && v.shape().ndim() == 1,
-            "convolve: only 1D tensors supported");
+            "convolve: only 1D arrays supported");
   INS_CHECK(a.dtype() == v.dtype(), "convolve: inputs must have same dtype");
   INS_CHECK(is_floating_point(a.dtype()),
             "convolve: only floating point types supported");

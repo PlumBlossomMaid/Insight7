@@ -9,18 +9,43 @@
  */
 
 #include "insight/ops/reduction.h"
+#include "insight/core/axis.h"
 #include "insight/core/op_registry.h"
+#include "insight/core/op_schema.h"
 #include "insight/ops/creation.h"
 #include "insight/ops/elementwise.h"
 #include "insight/ops/manipulation.h"
 #include <cmath>
 #include <optional>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace ins {
 
-static DeviceKind get_device_kind(const Place &place) {
-  return place.is_cpu() ? DeviceKind::CPU : DeviceKind::GPU;
+static OpSchema reduction_schema(const char *name, size_t output_count = 1) {
+  std::vector<OpArgumentSchema> inputs = {
+      {"x", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}};
+  std::vector<OpArgumentSchema> outputs;
+  outputs.reserve(output_count);
+  for (size_t i = 0; i < output_count; ++i) {
+    outputs.push_back({output_count == 1 ? "out" : "out" + std::to_string(i),
+                       OpArgumentKind::Array, OpArgumentAccess::WriteOnly});
+  }
+  return OpSchema(name, OpKind::Reduction, inputs, outputs)
+      .promotion(OpPromotionRule::Identity)
+      .fallback(OpFallbackRule::StructuredCpu);
+}
+
+static OpSchema weighted_reduction_schema(const char *name) {
+  return OpSchema(name, OpKind::Reduction,
+                  {{"x", OpArgumentKind::Array, OpArgumentAccess::ReadOnly},
+                   {"weights", OpArgumentKind::Array,
+                    OpArgumentAccess::ReadOnly}},
+                  {{"out", OpArgumentKind::Array,
+                    OpArgumentAccess::WriteOnly}})
+      .promotion(OpPromotionRule::Identity)
+      .fallback(OpFallbackRule::StructuredCpu);
 }
 
 // ============================================================================
@@ -64,9 +89,7 @@ static ReductionInfo prepare_reduction(const Shape &in_shape,
     return info;
   }
 
-  int ax = axis.value();
-  if (ax < 0)
-    ax += info.ndim;
+  int ax = normalize_axis(axis.value(), info.ndim, "reduction");
   info.reduced_axis = ax;
 
   // Build permutation: move reduction axis to last position
@@ -191,6 +214,20 @@ static Array post_process_keepdim(const Array &result,
   return result;
 }
 
+static Shape reduction_output_shape(const ReductionInfo &info, bool keepdim) {
+  if (info.flatten_all && !keepdim) {
+    return Shape({});
+  }
+  return info.out_shape;
+}
+
+static Array post_process_reduction(const Array &result,
+                                    const ReductionInfo &info, bool keepdim,
+                                    std::optional<int> axis) {
+  Array transposed = transpose_output(result, info);
+  return post_process_keepdim(transposed, info, keepdim, axis);
+}
+
 // ============================================================================
 // Helper: Launch reduction kernel
 // ============================================================================
@@ -215,28 +252,68 @@ static Array launch_reduction(const char *kernel_name, const Array &x,
                               Args &&...extra_args) {
 
   Array prepared = prepare_input(x, info);
+  Array result(reduction_output_shape(info, keepdim), dtype, x.place());
+  OpSchema schema = reduction_schema(kernel_name);
+  ArrayIterator iter = schema.make_reduction_iterator(
+      prepared, result, info.batch_size, info.reduce_size);
+  auto arrays = iter.arrays();
+  int64_t batch_size = iter.reduction_batch_size();
+  int64_t reduce_size = iter.reduction_reduce_size();
 
-  Shape out_shape = info.out_shape;
-  if (info.flatten_all && !keepdim) {
-    out_shape = Shape({});
-  }
+  std::vector<OpRegistry::Arg> inputs;
+  inputs.push_back(OpRegistry::array_arg(arrays[1].layout_ptr()));
+  inputs.push_back(OpRegistry::array_arg(arrays[0].layout_ptr()));
+  inputs.push_back(OpRegistry::scalar_arg(&batch_size));
+  inputs.push_back(OpRegistry::scalar_arg(&reduce_size));
+  (inputs.push_back(OpRegistry::scalar_arg(&extra_args)), ...);
 
-  Array result(out_shape, dtype, x.place());
-
-  std::vector<void *> inputs;
-  inputs.push_back(result.layout_ptr());
-  inputs.push_back(prepared.layout_ptr());
-  inputs.push_back(
-      const_cast<void *>(static_cast<const void *>(&info.batch_size)));
-  inputs.push_back(
-      const_cast<void *>(static_cast<const void *>(&info.reduce_size)));
-  (inputs.push_back(const_cast<void *>(static_cast<const void *>(&extra_args))),
-   ...);
-
-  ops().launch(kernel_name, x.place(), x.dtype(), inputs,
-               {result.layout_ptr()});
+  OpRegistry::launch_schema(
+      kernel_name, x.place(), x.dtype(), inputs,
+      {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   return result;
+}
+
+template <typename... Args>
+static Array launch_reduction_with_postprocess(const char *kernel_name,
+                                               const Array &x,
+                                               const ReductionInfo &info,
+                                               bool keepdim,
+                                               std::optional<int> axis,
+                                               DType dtype,
+                                               Args &&...extra_args) {
+  Array result = launch_reduction(kernel_name, x, info, keepdim, axis, dtype,
+                                  std::forward<Args>(extra_args)...);
+  return post_process_reduction(result, info, keepdim, axis);
+}
+
+static std::pair<Array, Array> launch_nansum_pair(const Array &x,
+                                                  const ReductionInfo &info,
+                                                  bool keepdim,
+                                                  std::optional<int> axis) {
+  Array prepared = prepare_input(x, info);
+  Shape out_shape = reduction_output_shape(info, keepdim);
+  Array sum_out(out_shape, x.dtype(), x.place());
+  Array count_out(out_shape, DType::I64, x.place());
+  OpSchema schema = reduction_schema("nansum", 2);
+  ArrayIterator iter = schema.make_reduction_iterator(
+      prepared, {sum_out, count_out}, info.batch_size, info.reduce_size);
+  auto arrays = iter.arrays();
+  int64_t batch_size = iter.reduction_batch_size();
+  int64_t reduce_size = iter.reduction_reduce_size();
+
+  OpRegistry::launch_schema(
+      "nansum", x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::array_arg(arrays[2].layout_ptr()),
+       OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::scalar_arg(&batch_size),
+       OpRegistry::scalar_arg(&reduce_size)},
+      {OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::array_arg(arrays[2].layout_ptr())});
+
+  return {post_process_reduction(sum_out, info, keepdim, axis),
+          post_process_reduction(count_out, info, keepdim, axis)};
 }
 
 // ============================================================================
@@ -255,7 +332,8 @@ Array sum(const Array &x, std::optional<int> axis, bool keepdim) {
 Array mean(const Array &x, std::optional<int> axis, bool keepdim) {
   Array s = sum(x, axis, true);
 
-  int64_t n = axis.has_value() ? x.shape().dim(axis.value()) : x.numel();
+  int ax = axis.has_value() ? normalize_axis(axis.value(), x.shape().ndim(), "mean") : -1;
+  int64_t n = axis.has_value() ? x.shape().dim(ax) : x.numel();
   double inv_n = 1.0 / static_cast<double>(n);
 
   DType out_dtype = is_integer(x.dtype()) ? DType::F64 : x.dtype();
@@ -263,15 +341,9 @@ Array mean(const Array &x, std::optional<int> axis, bool keepdim) {
   Array divisor = full(s_cast.shape(), inv_n, out_dtype, s_cast.place());
   Array result = mul(s_cast, divisor);
 
-  if (!keepdim && axis.has_value()) {
-    int ax = axis.value();
-    int ndim = x.shape().ndim();
-    if (ax < 0)
-      ax += ndim;
-    if (result.shape().ndim() > 0 &&
-        result.shape().dim(result.shape().ndim() - 1) == 1) {
-      result = result.squeeze(result.shape().ndim() - 1);
-    }
+  if (!keepdim && axis.has_value() && result.shape().ndim() > 0 &&
+      result.shape().dim(result.shape().ndim() - 1) == 1) {
+    result = result.squeeze(result.shape().ndim() - 1);
   }
 
   return result;
@@ -359,9 +431,7 @@ Array var(const Array &x, std::optional<int> axis, bool keepdim, int ddof) {
     return var(flat, 0, keepdim, ddof);
   }
 
-  int ax = axis.value();
-  if (ax < 0)
-    ax += x.shape().ndim();
+  int ax = normalize_axis(axis.value(), x.shape().ndim(), "var");
   int64_t n = x.shape().dim(ax);
 
   Array m = mean(x, ax, true);
@@ -392,20 +462,35 @@ Array std(const Array &x, std::optional<int> axis, bool keepdim, int ddof) {
 
 Array sem(const Array &x, std::optional<int> axis, bool keepdim, int ddof) {
   Array s = std(x, axis, true, ddof);
-  int64_t n = axis.has_value() ? x.shape().dim(axis.value()) : x.numel();
+  int ax = axis.has_value() ? normalize_axis(axis.value(), x.shape().ndim(), "sem") : -1;
+  int64_t n = axis.has_value() ? x.shape().dim(ax) : x.numel();
   double inv_sqrt_n = 1.0 / std::sqrt(static_cast<double>(n));
   Array factor = full(s.shape(), inv_sqrt_n, s.dtype(), s.place());
   Array result = mul(s, factor);
 
-  if (!keepdim && axis.has_value()) {
-    int ax = axis.value();
-    int ndim = x.shape().ndim();
-    if (ax < 0)
-      ax += ndim;
-    if (ax < result.shape().ndim() && result.shape().dim(ax) == 1) {
-      result = result.squeeze(ax);
-    }
+  if (!keepdim && axis.has_value() && ax < result.shape().ndim() &&
+      result.shape().dim(ax) == 1) {
+    result = result.squeeze(ax);
   }
+  return result;
+}
+
+static Array launch_cumulative(const char *kernel_name, const Array &x,
+                               int axis) {
+  int ax = normalize_axis(axis, x.shape().ndim(), kernel_name);
+
+  Array result(x.shape(), x.dtype(), x.place());
+  OpSchema schema = reduction_schema(kernel_name);
+  ArrayIterator iter = schema.make_reduction_iterator(x, result, x.numel(), 1);
+  auto arrays = iter.arrays();
+
+  OpRegistry::launch_schema(
+      kernel_name, x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::scalar_arg(&ax)},
+      {OpRegistry::array_arg(arrays[1].layout_ptr())});
+
   return result;
 }
 
@@ -413,77 +498,27 @@ Array sem(const Array &x, std::optional<int> axis, bool keepdim, int ddof) {
 // cumsum: Cumulative sum
 // ============================================================================
 
-Array cumsum(const Array &x, int axis) {
-  int ndim = x.shape().ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-
-  Array result(x.shape(), x.dtype(), x.place());
-
-  ops().launch("cumsum", x.place(), x.dtype(),
-               {(void *)result.layout_ptr(), (void *)x.layout_ptr(), &ax},
-               {result.layout_ptr()});
-
-  return result;
-}
+Array cumsum(const Array &x, int axis) { return launch_cumulative("cumsum", x, axis); }
 
 // ============================================================================
 // cumprod: Cumulative product
 // ============================================================================
 
 Array cumprod(const Array &x, int axis) {
-  int ndim = x.shape().ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-
-  Array result(x.shape(), x.dtype(), x.place());
-
-  ops().launch("cumprod", x.place(), x.dtype(),
-               {(void *)result.layout_ptr(), (void *)x.layout_ptr(), &ax},
-               {result.layout_ptr()});
-
-  return result;
+  return launch_cumulative("cumprod", x, axis);
 }
 
 // ============================================================================
 // cummax: Cumulative maximum
 // ============================================================================
 
-Array cummax(const Array &x, int axis) {
-  int ndim = x.shape().ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-
-  Array result(x.shape(), x.dtype(), x.place());
-
-  ops().launch("cummax", x.place(), x.dtype(),
-               {(void *)result.layout_ptr(), (void *)x.layout_ptr(), &ax},
-               {(void *)result.layout_ptr()});
-
-  return result;
-}
+Array cummax(const Array &x, int axis) { return launch_cumulative("cummax", x, axis); }
 
 // ============================================================================
 // cummin: Cumulative minimum
 // ============================================================================
 
-Array cummin(const Array &x, int axis) {
-  int ndim = x.shape().ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-
-  Array result(x.shape(), x.dtype(), x.place());
-
-  ops().launch("cummin", x.place(), x.dtype(),
-               {(void *)result.layout_ptr(), (void *)x.layout_ptr(), &ax},
-               {(void *)result.layout_ptr()});
-
-  return result;
-}
+Array cummin(const Array &x, int axis) { return launch_cumulative("cummin", x, axis); }
 
 // ============================================================================
 // median: Median (50th percentile)
@@ -500,22 +535,8 @@ Array median(const Array &x, std::optional<int> axis, bool keepdim) {
 Array quantile(const Array &x, double q, std::optional<int> axis,
                bool keepdim) {
   ReductionInfo info = prepare_reduction(x.shape(), axis, keepdim);
-  Array prepared = prepare_input(x, info);
-
-  Shape out_shape = info.out_shape;
-  if (info.flatten_all && !keepdim) {
-    out_shape = Shape({});
-  }
-
-  Array result(out_shape, DType::F64, x.place());
-
-  ops().launch("quantile", x.place(), x.dtype(),
-               {result.layout_ptr(), prepared.layout_ptr(), &info.batch_size,
-                &info.reduce_size, &q},
-               {result.layout_ptr()});
-
-  Array res = transpose_output(result, info);
-  return post_process_keepdim(res, info, keepdim, axis);
+  return launch_reduction_with_postprocess("quantile", x, info, keepdim, axis,
+                                           DType::F64, q);
 }
 
 // ============================================================================
@@ -549,33 +570,7 @@ Array quantile(const Array &x, const Array &q, std::optional<int> axis,
 
 Array nansum(const Array &x, std::optional<int> axis, bool keepdim) {
   ReductionInfo info = prepare_reduction(x.shape(), axis, keepdim);
-  Array prepared = prepare_input(x, info);
-
-  Shape out_shape = info.out_shape;
-  if (info.flatten_all && !keepdim) {
-    out_shape = Shape({});
-  }
-
-  Array sum_out(out_shape, x.dtype(), x.place());
-  Array count_out(out_shape, DType::I64, x.place());
-
-  std::vector<void *> inputs;
-  inputs.push_back(sum_out.layout_ptr());
-  inputs.push_back(count_out.layout_ptr());
-  inputs.push_back(prepared.layout_ptr());
-  inputs.push_back(
-      const_cast<void *>(static_cast<const void *>(&info.batch_size)));
-  inputs.push_back(
-      const_cast<void *>(static_cast<const void *>(&info.reduce_size)));
-
-  std::vector<void *> outputs;
-  outputs.push_back(sum_out.layout_ptr());
-  outputs.push_back(count_out.layout_ptr());
-
-  ops().launch("nansum", x.place(), x.dtype(), inputs, outputs);
-
-  Array res = transpose_output(sum_out, info);
-  return post_process_keepdim(res, info, keepdim, axis);
+  return launch_nansum_pair(x, info, keepdim, axis).first;
 }
 
 // ============================================================================
@@ -584,36 +579,9 @@ Array nansum(const Array &x, std::optional<int> axis, bool keepdim) {
 
 Array nanmean(const Array &x, std::optional<int> axis, bool keepdim) {
   ReductionInfo info = prepare_reduction(x.shape(), axis, keepdim);
-  Array prepared = prepare_input(x, info);
-
-  Shape out_shape = info.out_shape;
-  if (info.flatten_all && !keepdim) {
-    out_shape = Shape({});
-  }
-
-  Array sum_out(out_shape, x.dtype(), x.place());
-  Array count_out(out_shape, DType::I64, x.place());
-
-  std::vector<void *> inputs;
-  inputs.push_back(sum_out.layout_ptr());
-  inputs.push_back(count_out.layout_ptr());
-  inputs.push_back(prepared.layout_ptr());
-  inputs.push_back(
-      const_cast<void *>(static_cast<const void *>(&info.batch_size)));
-  inputs.push_back(
-      const_cast<void *>(static_cast<const void *>(&info.reduce_size)));
-
-  std::vector<void *> outputs;
-  outputs.push_back(sum_out.layout_ptr());
-  outputs.push_back(count_out.layout_ptr());
-
-  ops().launch("nansum", x.place(), x.dtype(), inputs, outputs);
-
+  auto [sum_out, count_out] = launch_nansum_pair(x, info, keepdim, axis);
   Array count_float = count_out.to(x.dtype());
-  Array result = div(sum_out, count_float);
-
-  result = transpose_output(result, info);
-  return post_process_keepdim(result, info, keepdim, axis);
+  return div(sum_out, count_float);
 }
 
 // ============================================================================
@@ -640,22 +608,8 @@ Array nanmin(const Array &x, std::optional<int> axis, bool keepdim) {
 
 Array nanvar(const Array &x, std::optional<int> axis, bool keepdim, int ddof) {
   ReductionInfo info = prepare_reduction(x.shape(), axis, keepdim);
-  Array prepared = prepare_input(x, info);
-
-  Shape out_shape = info.out_shape;
-  if (info.flatten_all && !keepdim) {
-    out_shape = Shape({});
-  }
-
-  Array result(out_shape, x.dtype(), x.place());
-
-  ops().launch("nanvar", x.place(), x.dtype(),
-               {result.layout_ptr(), prepared.layout_ptr(), &info.batch_size,
-                &info.reduce_size, &ddof},
-               {result.layout_ptr()});
-
-  Array res = transpose_output(result, info);
-  return post_process_keepdim(res, info, keepdim, axis);
+  return launch_reduction_with_postprocess("nanvar", x, info, keepdim, axis,
+                                           x.dtype(), ddof);
 }
 
 // ============================================================================
@@ -682,22 +636,8 @@ Array nanmedian(const Array &x, std::optional<int> axis, bool keepdim) {
 Array nanquantile(const Array &x, double q, std::optional<int> axis,
                   bool keepdim) {
   ReductionInfo info = prepare_reduction(x.shape(), axis, keepdim);
-  Array prepared = prepare_input(x, info);
-
-  Shape out_shape = info.out_shape;
-  if (info.flatten_all && !keepdim) {
-    out_shape = Shape({});
-  }
-
-  Array result(out_shape, x.dtype(), x.place());
-
-  ops().launch("nanquantile", x.place(), x.dtype(),
-               {result.layout_ptr(), prepared.layout_ptr(), &info.batch_size,
-                &info.reduce_size, &q},
-               {result.layout_ptr()});
-
-  Array res = transpose_output(result, info);
-  return post_process_keepdim(res, info, keepdim, axis);
+  return launch_reduction_with_postprocess("nanquantile", x, info, keepdim,
+                                           axis, x.dtype(), q);
 }
 
 // ============================================================================
@@ -774,19 +714,30 @@ Array bincount(const Array &x, std::optional<Array> weights,
     Array result(Shape({out_len}), out_dtype, x.place());
     result = zeros_like(result);
 
-    ops().launch("bincount_weighted", x.place(), x.dtype(),
-                 {(void *)result.layout_ptr(), (void *)x.layout_ptr(),
-                  (void *)w.layout_ptr()},
-                 {(void *)result.layout_ptr()});
+    OpSchema schema = weighted_reduction_schema("bincount_weighted");
+    ArrayIterator iter = schema.make_reduction_iterator(
+        {x, w}, {result}, x.numel(), 1);
+    auto arrays = iter.arrays();
+    OpRegistry::launch_schema(
+        "bincount_weighted", x.place(), x.dtype(),
+        {OpRegistry::array_arg(arrays[2].layout_ptr()),
+         OpRegistry::array_arg(arrays[0].layout_ptr()),
+         OpRegistry::array_arg(arrays[1].layout_ptr())},
+        {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
     return result;
   } else {
     Array result(Shape({out_len}), DType::I64, x.place());
     result = zeros_like(result);
 
-    ops().launch("bincount", x.place(), x.dtype(),
-                 {(void *)result.layout_ptr(), (void *)x.layout_ptr()},
-                 {(void *)result.layout_ptr()});
+    OpSchema schema = reduction_schema("bincount");
+    ArrayIterator iter = schema.make_reduction_iterator(x, result, x.numel(), 1);
+    auto arrays = iter.arrays();
+    OpRegistry::launch_schema(
+        "bincount", x.place(), x.dtype(),
+        {OpRegistry::array_arg(arrays[1].layout_ptr()),
+         OpRegistry::array_arg(arrays[0].layout_ptr())},
+        {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
     return result;
   }

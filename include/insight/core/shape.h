@@ -15,7 +15,7 @@ namespace ins {
  * Examples:
  *   Shape()          -> 0-dimensional (scalar)
  *   Shape({2, 3})    -> 2x3 matrix (6 elements)
- *   Shape({2, 3, 4}) -> 3D tensor (24 elements)
+ *   Shape({2, 3, 4}) -> 3D array (24 elements)
  */
 class Shape {
 public:

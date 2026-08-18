@@ -174,10 +174,8 @@ static bool try_load_backend(DeviceKind kind, const char *lib_name) {
   std::string lib_filename =
       std::string(backend_prefix()) + lib_name + backend_extension();
 
-  // Try default search (LD_LIBRARY_PATH, system paths)
   LibHandle lib = load_library(lib_filename.c_str());
 
-  // Try extra search paths (e.g. Python package directory, build dir)
   if (!lib) {
     for (const auto &path : g_extra_search_paths) {
 #ifdef _WIN32
@@ -208,8 +206,10 @@ static bool try_load_backend(DeviceKind kind, const char *lib_name) {
   std::memset(&params, 0, sizeof(params));
   params.size = sizeof(CustomRuntimeParams);
   params.interface = new C_DeviceInterface();
+  std::memset(params.interface, 0, sizeof(C_DeviceInterface));
   params.interface->size = sizeof(C_DeviceInterface);
-  params.register_kernel = insight_register_kernel;
+  params.register_kernel =
+      kind == DeviceKind::GPU ? nullptr : insight_register_kernel;
 
   C_Status status = init_plugin(&params);
   if (status != C_SUCCESS) {
@@ -218,16 +218,41 @@ static bool try_load_backend(DeviceKind kind, const char *lib_name) {
     return false;
   }
 
-  set_device_interface(kind, params.interface, params.device_type);
+  if (kind == DeviceKind::GPU) {
+    if (!params.interface->get_device_count) {
+      delete params.interface;
+      unload_library(lib);
+      return false;
+    }
+    size_t count = 0;
+    if (params.interface->get_device_count(&count) != C_SUCCESS || count == 0) {
+      delete params.interface;
+      unload_library(lib);
+      return false;
+    }
+  }
 
-  // Initialize the default device (e.g. create CUDA context).
-  // Without this, the first GPU operation fails because no context exists.
   if (params.interface->init_device) {
     C_Device_st dev;
     std::memset(&dev, 0, sizeof(dev));
-    params.interface->init_device(&dev);
+    if (params.interface->init_device(&dev) != C_SUCCESS) {
+      delete params.interface;
+      unload_library(lib);
+      return false;
+    }
   }
 
+  if (kind == DeviceKind::GPU) {
+    params.register_kernel = insight_register_kernel;
+    if (init_plugin(&params) != C_SUCCESS) {
+      delete params.interface;
+      unload_library(lib);
+      return false;
+    }
+  }
+
+  set_device_interface(kind, params.interface, params.device_type,
+                       params.sub_device_type);
   return true;
 }
 
@@ -235,100 +260,91 @@ static bool try_load_backend(DeviceKind kind, const char *lib_name) {
 // Public API
 // ========================================================================
 
+static bool is_cpu_backend_name(const std::string &name) { return name == "cpu"; }
+
+static bool is_gpu_selector(const std::string &name) {
+  return name.empty() || name == "gpu";
+}
+
+static bool load_gpu_backend_by_name(const std::string &backend) {
+  if (get_device_interface(DeviceKind::GPU))
+    return active_gpu_backend_name() == backend;
+  return try_load_backend(DeviceKind::GPU,
+                          ("insight_" + backend + "_backend").c_str());
+}
+
+static bool load_selected_gpu_backend(const std::vector<std::string> &available,
+                                      const std::string &preferred = "") {
+  if (get_device_interface(DeviceKind::GPU)) {
+    return preferred.empty() || active_gpu_backend_name() == preferred;
+  }
+
+  if (!preferred.empty()) {
+    return load_gpu_backend_by_name(preferred);
+  }
+
+  if (const char *env_preferred = std::getenv("INSIGHT_GPU_BACKEND")) {
+    if (env_preferred[0] != '\0' && load_gpu_backend_by_name(env_preferred))
+      return true;
+  }
+
+  for (const auto &name : available) {
+    if (is_cpu_backend_name(name))
+      continue;
+    if (load_gpu_backend_by_name(name))
+      return true;
+  }
+  return false;
+}
+
 void init(std::optional<std::vector<std::string>> backends) {
+  init(InitOptions{backends, ""});
+}
+
+void init(const InitOptions &options) {
   if (g_initialized)
     return;
 
-  if (!backends.has_value()) {
-    // === Auto-discover mode (default) ===
-    // 1. Load CPU backend (required)
-    if (!try_load_backend(DeviceKind::CPU, "insight_cpu_backend")) {
-      INS_THROW("Failed to load CPU backend");
-    }
-    // 2. Scan current directory for other backends
-    auto available = discover_backends();
-    for (const auto &name : available) {
-      if (name == "cpu")
-        continue;
-      if (try_load_backend(DeviceKind::GPU,
-                           ("insight_" + name + "_backend").c_str())) {
-        break;
-      }
-    }
-    // 3. If no GPU backend found via scan, scan environment path directories
-    //    for any insight_*_backend.dll/.so (cuda, npu, rocm, etc.)
-    if (!get_device_interface(DeviceKind::GPU)) {
-#ifdef _WIN32
-      const char *env_path = getenv("PATH");
-      char path_sep = ';';
-#else
-      const char *env_path = getenv("LD_LIBRARY_PATH");
-      char path_sep = ':';
-#endif
-      if (env_path) {
-        std::string ld(env_path);
-        std::istringstream ss(ld);
-        std::string dir;
-        while (std::getline(ss, dir, path_sep)) {
-          if (dir.empty())
-            continue;
-#ifdef _WIN32
-          // Windows: use scan_dir_for_backends which handles FindFirstFileA
-          auto gpu_found = scan_dir_for_backends(dir.c_str());
-          for (const auto &name : gpu_found) {
-            if (name == "cpu")
-              continue;
-            if (try_load_backend(DeviceKind::GPU,
-                                 ("insight_" + name + "_backend").c_str())) {
-              goto gpu_found;
-            }
-          }
-#else
-          auto *dp = opendir(dir.c_str());
-          if (!dp)
-            continue;
-          struct dirent *entry;
-          while ((entry = readdir(dp)) != nullptr) {
-            std::string name(entry->d_name);
-            // Match libinsight_*_backend.so (any GPU backend)
-            if (name.find("libinsight_") == 0 &&
-                name.find("_backend.so") != std::string::npos &&
-                name.find("_cpu_") == std::string::npos) {
-              std::string backend_name =
-                  name.substr(11, name.find("_backend") - 11);
-              if (try_load_backend(
-                      DeviceKind::GPU,
-                      ("insight_" + backend_name + "_backend").c_str())) {
-                closedir(dp);
-                goto gpu_found;
-              }
-            }
-          }
-          closedir(dp);
-#endif
-        }
-      gpu_found:;
-      }
-    }
-  } else if (backends->empty()) {
-    // === Empty vector: load nothing ===
+  if (options.backends.has_value() && options.backends->empty()) {
+    g_initialized = true;
+    return;
+  }
+
+  std::vector<std::string> requested;
+  if (options.backends.has_value()) {
+    requested = *options.backends;
   } else {
-    // === Specified backends: load each in order ===
-    for (const auto &backend : *backends) {
-      if (backend == "cpu") {
-        if (!get_device_interface(DeviceKind::CPU)) {
-          if (!try_load_backend(DeviceKind::CPU, "insight_cpu_backend")) {
-            INS_THROW("Failed to load CPU backend");
-          }
-        }
-      } else {
-        if (!get_device_interface(DeviceKind::GPU)) {
-          std::string lib_name = "insight_" + backend + "_backend";
-          if (!try_load_backend(DeviceKind::GPU, lib_name.c_str())) {
-            INS_THROW("Failed to load GPU backend: " + backend);
-          }
-        }
+    requested = {"cpu"};
+    if (!options.gpu_backend.empty()) {
+      requested.push_back("gpu");
+    }
+  }
+
+  auto available = discover_backends();
+  for (const auto &backend : requested) {
+    if (is_cpu_backend_name(backend)) {
+      if (!get_device_interface(DeviceKind::CPU) &&
+          !try_load_backend(DeviceKind::CPU, "insight_cpu_backend")) {
+        INS_THROW("Failed to load CPU backend");
       }
+    } else if (is_gpu_selector(backend)) {
+      if (!load_selected_gpu_backend(available, options.gpu_backend)) {
+        if (!options.gpu_backend.empty()) {
+          INS_THROW("Failed to load GPU backend: " + options.gpu_backend);
+        }
+        INS_THROW("Failed to load GPU backend");
+      }
+    } else if (!load_gpu_backend_by_name(backend)) {
+      INS_THROW("Failed to load GPU backend: " + backend);
+    }
+  }
+
+  if (!options.backends.has_value() && options.gpu_backend.empty()) {
+    const char *env_preferred = std::getenv("INSIGHT_GPU_BACKEND");
+    const char *disable_auto = std::getenv("INSIGHT_DISABLE_AUTO_GPU");
+    if ((env_preferred && env_preferred[0] != '\0') ||
+        !(disable_auto && std::string(disable_auto) == "1")) {
+      load_selected_gpu_backend(available);
     }
   }
 
@@ -341,20 +357,27 @@ void init(const std::vector<std::string> &backends) {
 
 bool is_initialized() { return g_initialized; }
 
-bool has_device(DeviceKind kind) {
-  return get_device_interface(kind) != nullptr;
-}
+bool has_device(DeviceKind kind) { return is_device_available(kind); }
 
 void load_backend(const std::string &backend) {
-  if (backend == "cpu") {
-    if (!get_device_interface(DeviceKind::CPU)) {
-      try_load_backend(DeviceKind::CPU, "insight_cpu_backend");
+  if (is_cpu_backend_name(backend)) {
+    if (!get_device_interface(DeviceKind::CPU) &&
+        !try_load_backend(DeviceKind::CPU, "insight_cpu_backend")) {
+      INS_THROW("Failed to load CPU backend");
     }
-  } else {
-    if (!get_device_interface(DeviceKind::GPU)) {
-      std::string lib_name = "insight_" + backend + "_backend";
-      try_load_backend(DeviceKind::GPU, lib_name.c_str());
+    return;
+  }
+
+  if (is_gpu_selector(backend)) {
+    auto available = discover_backends();
+    if (!load_selected_gpu_backend(available)) {
+      INS_THROW("Failed to load GPU backend");
     }
+    return;
+  }
+
+  if (!load_gpu_backend_by_name(backend)) {
+    INS_THROW("Failed to load GPU backend: " + backend);
   }
 }
 

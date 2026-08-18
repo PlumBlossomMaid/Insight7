@@ -8,7 +8,9 @@
  */
 
 #include "insight/ops/indexing.h"
+#include "insight/core/axis.h"
 #include "insight/core/op_registry.h"
+#include "insight/core/op_schema.h"
 #include "insight/ops/broadcast.h"
 #include "insight/ops/creation.h"
 #include "insight/ops/elementwise.h"
@@ -18,11 +20,70 @@
 #include <cmath>
 #include <insight/io/print.h>
 #include <iostream>
+#include <string>
 #include <vector>
 namespace ins {
 
-static DeviceKind get_device_kind(const Place &place) {
-  return place.is_cpu() ? DeviceKind::CPU : DeviceKind::GPU;
+static OpSchema indexing_schema(const char *name, size_t input_count,
+                                size_t output_count = 1) {
+  std::vector<OpArgumentSchema> inputs;
+  inputs.reserve(input_count);
+  for (size_t i = 0; i < input_count; ++i) {
+    inputs.push_back({"x" + std::to_string(i), OpArgumentKind::Array,
+                      OpArgumentAccess::ReadOnly});
+  }
+
+  std::vector<OpArgumentSchema> outputs;
+  outputs.reserve(output_count);
+  for (size_t i = 0; i < output_count; ++i) {
+    outputs.push_back({output_count == 1 ? "out" : "out" + std::to_string(i),
+                       OpArgumentKind::Array, OpArgumentAccess::WriteOnly});
+  }
+
+  return OpSchema(name, OpKind::Indexing, inputs, outputs)
+      .promotion(OpPromotionRule::Identity)
+      .fallback(OpFallbackRule::StructuredCpu);
+}
+
+static ArrayIterator indexing_iterator(const char *name,
+                                       const std::vector<Array> &inputs,
+                                       const std::vector<Array> &outputs) {
+  OpSchema schema = indexing_schema(name, inputs.size(), outputs.size());
+  return schema.make_transform_iterator(inputs, outputs);
+}
+
+static ArrayIterator indexing_iterator(const char *name,
+                                       const std::vector<Array> &inputs,
+                                       const Array &output) {
+  return indexing_iterator(name, inputs, std::vector<Array>{output});
+}
+
+static ArrayIterator indexing_creation_iterator(const char *name,
+                                                const Array &output) {
+  OpSchema schema(name, OpKind::Creation, {},
+                  {{"out", OpArgumentKind::Array,
+                    OpArgumentAccess::WriteOnly}});
+  return schema.make_creation_iterator({output});
+}
+
+static OpSchema dynamic_indexing_schema(const char *name, size_t output_count) {
+  return indexing_schema(name, 1, output_count);
+}
+
+static std::vector<OpRegistry::Arg> dynamic_indexing_outputs(
+    const OpSchema &schema, const std::vector<Array *> &outputs) {
+  INS_CHECK(outputs.size() == schema.outputs().size(), "dynamic indexing '",
+            schema.name(), "': expected ", schema.outputs().size(),
+            " outputs, got ", outputs.size());
+
+  std::vector<OpRegistry::Arg> result;
+  result.reserve(outputs.size());
+  for (Array *output : outputs) {
+    INS_CHECK(output != nullptr, "dynamic indexing '", schema.name(),
+              "': output placeholder is null");
+    result.push_back(OpRegistry::array_arg(output->layout_ptr()));
+  }
+  return result;
 }
 
 // ============================================================================
@@ -94,13 +155,13 @@ Array take(const Array &x, const Array &indices, std::optional<int> axis) {
     idx = idx.to(x.place());
   }
 
+  int normalized_axis = axis.has_value()
+                            ? normalize_axis(axis.value(), x.shape().ndim(), "take")
+                            : -1;
   Shape out_shape;
   if (axis.has_value()) {
     std::vector<int64_t> dims = x.shape().dims();
-    int ax = axis.value();
-    if (ax < 0)
-      ax += x.shape().ndim();
-    dims[ax] = idx.numel();
+    dims[normalized_axis] = idx.numel();
     out_shape = Shape(dims);
   } else {
     out_shape = Shape({idx.numel()});
@@ -108,13 +169,18 @@ Array take(const Array &x, const Array &indices, std::optional<int> axis) {
 
   Array result(out_shape, x.dtype(), x.place());
 
-  int normalized_axis = axis.value_or(-1);
   bool has_axis = axis.has_value();
 
-  ops().launch("take", x.place(), x.dtype(),
-               {(void *)result.layout_ptr(), prepared.layout_ptr(),
-                (void *)idx.layout_ptr(), &normalized_axis, &has_axis},
-               {(void *)result.layout_ptr()});
+  ArrayIterator iter = indexing_iterator("take", {prepared, idx}, result);
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
+      "take", x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[2].layout_ptr()),
+       OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::scalar_arg(&normalized_axis),
+       OpRegistry::scalar_arg(&has_axis)},
+      {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return result;
 }
@@ -132,11 +198,7 @@ Array take(const Array &x, const Array &indices, std::optional<int> axis) {
  * @return Array of taken values
  */
 Array take_along_axis(const Array &x, const Array &indices, int axis) {
-  int ndim = x.shape().ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "take_along_axis: axis out of range");
+  int ax = normalize_axis(axis, x.shape().ndim(), "take_along_axis");
 
   Array idx = indices;
   if (idx.dtype() != DType::I64) {
@@ -152,10 +214,16 @@ Array take_along_axis(const Array &x, const Array &indices, int axis) {
 
   Array result(out_shape, x.dtype(), x.place());
 
-  ops().launch("take_along_axis", x.place(), x.dtype(),
-               {(void *)result.layout_ptr(), (void *)x.layout_ptr(),
-                (void *)idx_broadcasted.layout_ptr(), &ax},
-               {(void *)result.layout_ptr()});
+  ArrayIterator iter =
+      indexing_iterator("take_along_axis", {x, idx_broadcasted}, result);
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
+      "take_along_axis", x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[2].layout_ptr()),
+       OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::scalar_arg(&ax)},
+      {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return result;
 }
@@ -194,10 +262,14 @@ Array put(const Array &x, const Array &indices, const Array &values,
 
   Array result = prepared.copy();
 
-  ops().launch(
+  ArrayIterator iter = indexing_iterator("put", {result, idx, val}, result);
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
       "put", x.place(), x.dtype(),
-      {(void *)result.layout_ptr(), (void *)idx.layout_ptr(), val.layout_ptr()},
-      {(void *)result.layout_ptr()});
+      {OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::array_arg(arrays[2].layout_ptr())},
+      {OpRegistry::array_arg(arrays[3].layout_ptr())});
 
   if (!axis.has_value()) {
     return result.reshape(x.shape());
@@ -220,11 +292,7 @@ Array put(const Array &x, const Array &indices, const Array &values,
  */
 Array put_along_axis(const Array &x, const Array &indices, const Array &values,
                      int axis) {
-  int ndim = x.shape().ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "put_along_axis: axis out of range");
+  int ax = normalize_axis(axis, x.shape().ndim(), "put_along_axis");
 
   Array idx = indices;
   if (idx.dtype() != DType::I64) {
@@ -248,10 +316,16 @@ Array put_along_axis(const Array &x, const Array &indices, const Array &values,
 
   Array result = x.copy();
 
-  ops().launch("put_along_axis", x.place(), x.dtype(),
-               {(void *)result.layout_ptr(), (void *)idx.layout_ptr(),
-                (void *)val.layout_ptr(), (void *)&ax},
-               {(void *)result.layout_ptr()});
+  ArrayIterator iter =
+      indexing_iterator("put_along_axis", {result, idx, val}, result);
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
+      "put_along_axis", x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::array_arg(arrays[2].layout_ptr()),
+       OpRegistry::scalar_arg(&ax)},
+      {OpRegistry::array_arg(arrays[3].layout_ptr())});
 
   return result;
 }
@@ -299,11 +373,7 @@ Array scatter_add(const Array &x, int dim, const Array &index,
  */
 Array scatter_reduce(const Array &x, int dim, const Array &index,
                      const Array &src, const std::string &reduce) {
-  int ndim = x.shape().ndim();
-  int d = dim;
-  if (d < 0)
-    d += ndim;
-  INS_CHECK(d >= 0 && d < ndim, "scatter_reduce: dim out of range");
+  int d = normalize_axis(dim, x.shape().ndim(), "scatter_reduce");
 
   Array idx = index;
   if (idx.dtype() != DType::I64) {
@@ -320,11 +390,17 @@ Array scatter_reduce(const Array &x, int dim, const Array &index,
 
   Array result = x.copy();
 
-  ops().launch("scatter_reduce", x.place(), x.dtype(),
-               {(void *)result.layout_ptr(), (void *)idx.layout_ptr(),
-                (void *)src_broadcast.layout_ptr(), (void *)&d,
-                (void *)reduce.c_str()},
-               {(void *)result.layout_ptr()});
+  ArrayIterator iter =
+      indexing_iterator("scatter_reduce", {result, idx, src_broadcast}, result);
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
+      "scatter_reduce", x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::array_arg(arrays[2].layout_ptr()),
+       OpRegistry::scalar_arg(&d),
+       {const_cast<char *>(reduce.c_str()), OpRegistry::ArgKind::HostScalar}},
+      {OpRegistry::array_arg(arrays[3].layout_ptr())});
 
   return result;
 }
@@ -360,10 +436,14 @@ Array masked_select(const Array &x, const Array &mask) {
 
   Array result(Shape({count}), x.dtype(), x.place());
 
-  ops().launch("masked_select", x.place(), x.dtype(),
-               {(void *)result.layout_ptr(), (void *)x.layout_ptr(),
-                condition.layout_ptr()},
-               {(void *)result.layout_ptr()});
+  ArrayIterator iter = indexing_iterator("masked_select", {x, condition}, result);
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
+      "masked_select", x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[2].layout_ptr()),
+       OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::array_arg(arrays[1].layout_ptr())},
+      {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return result;
 }
@@ -382,11 +462,7 @@ Array masked_select(const Array &x, const Array &mask) {
  */
 Array compress(const Array &x, const Array &condition,
                std::optional<int> axis) {
-  int ndim = x.shape().ndim();
-  int ax = axis.value_or(0);
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "compress: axis out of range");
+  int ax = normalize_axis(axis.value_or(0), x.shape().ndim(), "compress");
 
   Array cond = condition;
   if (cond.dtype() != DType::BOOL) {
@@ -407,10 +483,15 @@ Array compress(const Array &x, const Array &condition,
 
   Array result(out_shape, x.dtype(), x.place());
 
-  ops().launch("compress", x.place(), x.dtype(),
-               {(void *)result.layout_ptr(), (void *)x.layout_ptr(),
-                cond.layout_ptr(), &ax},
-               {(void *)result.layout_ptr()});
+  ArrayIterator iter = indexing_iterator("compress", {x, cond}, result);
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
+      "compress", x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[2].layout_ptr()),
+       OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::scalar_arg(&ax)},
+      {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return result;
 }
@@ -438,10 +519,15 @@ Array where(const Array &condition, const Array &x, const Array &y) {
 
   Array result(cond.shape(), X.dtype(), X.place());
 
-  ops().launch("where", condition.place(), X.dtype(),
-               {(void *)result.layout_ptr(), cond.layout_ptr(), X.layout_ptr(),
-                Y.layout_ptr()},
-               {(void *)result.layout_ptr()});
+  ArrayIterator iter = indexing_iterator("where", {cond, X, Y}, result);
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
+      "where", condition.place(), X.dtype(),
+      {OpRegistry::array_arg(arrays[3].layout_ptr()),
+       OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::array_arg(arrays[2].layout_ptr())},
+      {OpRegistry::array_arg(arrays[3].layout_ptr())});
 
   return result;
 }
@@ -457,13 +543,12 @@ Array where(const Array &condition, const Array &x, const Array &y) {
  * @return 2D array of shape (ndim, nz_count) containing indices
  */
 Array nonzero(const Array &x) {
-  // Create placeholder output array (will be filled by kernel)
   Array result;
-
-  ops().launch(
+  OpSchema schema = dynamic_indexing_schema("nonzero", 1);
+  OpRegistry::launch_schema(
       "nonzero", x.place(), x.dtype(),
-      {(void *)(void *)x.layout_ptr(), (void *)(void *)result.layout_ptr()},
-      {(void *)(void *)result.layout_ptr()});
+      {OpRegistry::array_arg(x.layout_ptr())},
+      dynamic_indexing_outputs(schema, {&result}));
 
   return Array(result.layout_ptr());
 }
@@ -503,10 +588,7 @@ Array flatnonzero(const Array &x) {
  */
 Array argsort(const Array &x, int axis, bool descending) {
   int ndim = x.shape().ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "argsort: axis out of range");
+  int ax = normalize_axis(axis, ndim, "argsort");
 
   // Move axis to last dimension for contiguous processing
   Array prepared = x;
@@ -523,10 +605,14 @@ Array argsort(const Array &x, int axis, bool descending) {
   Shape out_shape = x.shape();
   Array result(out_shape, DType::I64, x.place());
 
-  ops().launch(
+  ArrayIterator iter = indexing_iterator("argsort", {prepared}, result);
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
       "argsort", x.place(), x.dtype(),
-      {(void *)result.layout_ptr(), prepared.layout_ptr(), &descending},
-      {(void *)result.layout_ptr()});
+      {OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::scalar_arg(&descending)},
+      {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   // Transpose back if needed
   if (ax != ndim - 1) {
@@ -573,10 +659,7 @@ Array sort(const Array &x, int axis, bool descending) {
 std::tuple<Array, Array> topk(const Array &x, int64_t k, int axis, bool largest,
                               bool sorted) {
   int ndim = x.shape().ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "topk: axis out of range");
+  int ax = normalize_axis(axis, ndim, "topk");
   INS_CHECK(k > 0, "topk: k must be positive");
 
   int64_t axis_size = x.shape().dim(ax);
@@ -602,10 +685,16 @@ std::tuple<Array, Array> topk(const Array &x, int64_t k, int axis, bool largest,
   Array values(out_shape, x.dtype(), x.place());
   Array indices(out_shape, DType::I64, x.place());
 
-  ops().launch("topk", x.place(), x.dtype(),
-               {values.layout_ptr(), indices.layout_ptr(),
-                prepared.layout_ptr(), &k, &largest, &sorted},
-               {values.layout_ptr(), indices.layout_ptr()});
+  ArrayIterator iter = indexing_iterator("topk", {prepared}, {values, indices});
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
+      "topk", x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::array_arg(arrays[2].layout_ptr()),
+       OpRegistry::array_arg(arrays[0].layout_ptr()), OpRegistry::scalar_arg(&k),
+       OpRegistry::scalar_arg(&largest), OpRegistry::scalar_arg(&sorted)},
+      {OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   // Transpose back if needed
   if (ax != ndim - 1) {
@@ -645,10 +734,15 @@ Array searchsorted(const Array &x, const Array &v, const std::string &side,
 
   int side_code = (side == "left") ? 0 : 1;
 
-  ops().launch("searchsorted", x.place(), x.dtype(),
-               {(void *)result.layout_ptr(), (void *)sorted_x.layout_ptr(),
-                (void *)v.layout_ptr(), (void *)&side_code},
-               {(void *)result.layout_ptr()});
+  ArrayIterator iter = indexing_iterator("searchsorted", {sorted_x, v}, result);
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
+      "searchsorted", x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[2].layout_ptr()),
+       OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::scalar_arg(&side_code)},
+      {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return result;
 }
@@ -670,44 +764,38 @@ UniqueResult unique(const Array &x, bool return_indices, bool return_inverse,
                     bool return_counts) {
   Array flattened = x.reshape(Shape({x.numel()}));
 
-  // Create placeholder outputs (will be filled by kernel via
-  // allocate_gpu_output)
   Array unique_arr;
   Array indices_arr;
   Array inverse_arr;
   Array counts_arr;
 
-  std::vector<void *> output_ptrs;
-  output_ptrs.push_back(unique_arr.layout_ptr());
+  size_t output_count = 1;
+  if (return_indices)
+    ++output_count;
+  if (return_inverse)
+    ++output_count;
+  if (return_counts)
+    ++output_count;
 
-  if (return_indices) {
-    indices_arr = Array();
-    output_ptrs.push_back(indices_arr.layout_ptr());
-  }
-  if (return_inverse) {
-    inverse_arr = Array();
-    output_ptrs.push_back(inverse_arr.layout_ptr());
-  }
-  if (return_counts) {
-    counts_arr = Array();
-    output_ptrs.push_back(counts_arr.layout_ptr());
-  }
+  OpSchema schema = dynamic_indexing_schema("unique", output_count);
+  std::vector<Array *> output_arrays = {&unique_arr};
+  if (return_indices)
+    output_arrays.push_back(&indices_arr);
+  if (return_inverse)
+    output_arrays.push_back(&inverse_arr);
+  if (return_counts)
+    output_arrays.push_back(&counts_arr);
 
-  // Prepare inputs
-  std::vector<void *> inputs;
-  inputs.push_back(flattened.layout_ptr());
-  inputs.push_back(
-      const_cast<void *>(static_cast<const void *>(&return_indices)));
-  inputs.push_back(
-      const_cast<void *>(static_cast<const void *>(&return_inverse)));
-  inputs.push_back(
-      const_cast<void *>(static_cast<const void *>(&return_counts)));
-
-  ops().launch("unique", x.place(), x.dtype(), inputs, output_ptrs);
+  OpRegistry::launch_schema(
+      "unique", x.place(), x.dtype(),
+      {OpRegistry::array_arg(flattened.layout_ptr()),
+       OpRegistry::scalar_arg(&return_indices),
+       OpRegistry::scalar_arg(&return_inverse),
+       OpRegistry::scalar_arg(&return_counts)},
+      dynamic_indexing_outputs(schema, output_arrays));
 
   UniqueResult result;
   result.unique = Array(unique_arr.layout_ptr());
-  size_t idx = 1;
   if (return_indices) {
     result.indices = Array(indices_arr.layout_ptr());
   }
@@ -733,18 +821,19 @@ UniqueResult unique(const Array &x, bool return_indices, bool return_inverse,
  * @return Partially sorted array
  */
 Array partition(const Array &x, int64_t kth, int axis) {
-  int ndim = x.shape().ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "partition: axis out of range");
+  int ax = normalize_axis(axis, x.shape().ndim(), "partition");
   INS_CHECK(kth >= 0 && kth < x.shape().dim(ax), "partition: kth out of range");
 
   Array result(x.shape(), x.dtype(), x.place());
 
-  ops().launch("partition", x.place(), x.dtype(),
-               {(void *)result.layout_ptr(), (void *)x.layout_ptr(), &kth, &ax},
-               {(void *)result.layout_ptr()});
+  ArrayIterator iter = indexing_iterator("partition", {x}, result);
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
+      "partition", x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::scalar_arg(&kth), OpRegistry::scalar_arg(&ax)},
+      {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   return result;
 }
@@ -762,19 +851,20 @@ Array partition(const Array &x, int64_t kth, int axis) {
  * @return Indices array
  */
 Array argpartition(const Array &x, int64_t kth, int axis) {
-  int ndim = x.shape().ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "argpartition: axis out of range");
+  int ax = normalize_axis(axis, x.shape().ndim(), "argpartition");
   INS_CHECK(kth >= 0 && kth < x.shape().dim(ax),
             "argpartition: kth out of range");
 
   Array result(x.shape(), DType::I64, x.place());
 
-  ops().launch("argpartition", x.place(), x.dtype(),
-               {(void *)result.layout_ptr(), (void *)x.layout_ptr(), &kth, &ax},
-               {(void *)result.layout_ptr()});
+  ArrayIterator iter = indexing_iterator("argpartition", {x}, result);
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
+      "argpartition", x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::scalar_arg(&kth), OpRegistry::scalar_arg(&ax)},
+      {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   return result;
 }
@@ -792,11 +882,8 @@ Array argpartition(const Array &x, int64_t kth, int axis) {
  */
 Array lexsort(const Array &keys, int axis) {
   int ndim = keys.shape().ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
   INS_CHECK(ndim >= 1, "lexsort: keys must be at least 1D");
-  INS_CHECK(ax >= 0 && ax < ndim, "lexsort: axis out of range");
+  int ax = normalize_axis(axis, ndim, "lexsort");
 
   // Move target axis to last position
   std::vector<int> perm(ndim);
@@ -824,10 +911,15 @@ Array lexsort(const Array &keys, int axis) {
 
   Array result(keys.shape(), DType::I64, keys.place());
 
-  ops().launch("lexsort", keys.place(), keys.dtype(),
-               {(void *)result.layout_ptr(), transposed.layout_ptr(),
-                &batch_size, &last_dim, &nkeys},
-               {(void *)result.layout_ptr()});
+  ArrayIterator iter = indexing_iterator("lexsort", {transposed}, result);
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
+      "lexsort", keys.place(), keys.dtype(),
+      {OpRegistry::array_arg(arrays[1].layout_ptr()),
+       OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::scalar_arg(&batch_size), OpRegistry::scalar_arg(&last_dim),
+       OpRegistry::scalar_arg(&nkeys)},
+      {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   // Transpose back if needed
   if (ax != ndim - 1) {
@@ -872,10 +964,14 @@ Array indices(const Shape &shape, bool sparse) {
   int64_t *shape_ptr = shape_dims.data();
   int ndim_val = ndim;
 
-  ops().launch(
+  ArrayIterator iter = indexing_creation_iterator("indices", result);
+  auto arrays = iter.arrays();
+  OpRegistry::launch_schema(
       "indices", CPUPlace(), DType::I64,
-      {(void *)result.layout_ptr(), (void *)&ndim_val, (void *)shape_ptr},
-      {(void *)result.layout_ptr()});
+      {OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::scalar_arg(&ndim_val),
+       {shape_ptr, OpRegistry::ArgKind::HostScalar}},
+      {OpRegistry::array_arg(arrays[0].layout_ptr())});
 
   return result;
 }

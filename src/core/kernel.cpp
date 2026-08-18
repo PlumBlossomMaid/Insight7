@@ -60,10 +60,16 @@ static bool validate_arg_schema(const char *op_name, const char *side,
   }
   int actual = count_ptrs(args);
   if (actual != count) {
-    kernel_error_message = std::string("insight_kernel_launch: ") + side +
-                           " schema count mismatch for '" + op_name +
-                           "': expected " + std::to_string(count) + ", got " +
-                           std::to_string(actual);
+    if (!kinds && actual > count) {
+      kernel_error_message =
+          std::string("insight_kernel_launch: CPU fallback for operator '") +
+          op_name + "' requires explicit argument schema";
+    } else {
+      kernel_error_message = std::string("insight_kernel_launch: ") + side +
+                             " schema count mismatch for '" + op_name +
+                             "': expected " + std::to_string(count) +
+                             ", got " + std::to_string(actual);
+    }
     insight_set_last_error(kernel_error_message.c_str());
     return false;
   }
@@ -85,6 +91,15 @@ static C_Status do_cpu_fallback(const char *op_name, int32_t dtype,
                                 int input_count, void **outputs,
                                 const InsightKernelArgKind *output_kinds,
                                 int output_count) {
+  if ((input_count > 0 && !input_kinds) ||
+      (output_count > 0 && !output_kinds)) {
+    kernel_error_message =
+        std::string("insight_kernel_launch: CPU fallback for operator '") +
+        op_name + "' requires explicit argument schema";
+    insight_set_last_error(kernel_error_message.c_str());
+    return C_FAILED;
+  }
+
   InsightKernel cpu_kernel =
       insight_find_kernel(op_name, INSIGHT_DEVICE_CPU, dtype);
   if (!cpu_kernel) {
@@ -96,8 +111,8 @@ static C_Status do_cpu_fallback(const char *op_name, int32_t dtype,
     return C_FAILED;
   }
 
-  int num_inputs = input_kinds ? input_count : count_ptrs(inputs);
-  int num_outputs = output_kinds ? output_count : count_ptrs(outputs);
+  int num_inputs = input_count;
+  int num_outputs = output_count;
 
   ins::Place cpu_place = ins::CPUPlace(0);
 
@@ -304,6 +319,15 @@ static C_Status launch_kernel_common(const char *op_name, int32_t device_type,
     insight_set_last_error(kernel_error_message.c_str());
     return C_FAILED;
   }
+  if (has_schema &&
+      ((input_count > 0 && !input_kinds) ||
+       (output_count > 0 && !output_kinds))) {
+    kernel_error_message =
+        std::string("insight_kernel_launch: CPU fallback for operator '") +
+        op_name + "' requires explicit argument schema";
+    insight_set_last_error(kernel_error_message.c_str());
+    return C_FAILED;
+  }
   if (has_schema && (!validate_arg_schema(op_name, "input", inputs, input_kinds,
                                           input_count) ||
                      !validate_arg_schema(op_name, "output", outputs,
@@ -324,6 +348,13 @@ static C_Status launch_kernel_common(const char *op_name, int32_t device_type,
   C_Status status = kernel(inputs, outputs);
 
   if (status == C_FALLBACK && device_type == INSIGHT_DEVICE_GPU) {
+    if (!has_schema) {
+      kernel_error_message =
+          std::string("insight_kernel_launch: CPU fallback for operator '") +
+          op_name + "' requires explicit argument schema";
+      insight_set_last_error(kernel_error_message.c_str());
+      return C_FAILED;
+    }
     return do_cpu_fallback(
         op_name, dtype, inputs, has_schema ? input_kinds : nullptr, input_count,
         outputs, has_schema ? output_kinds : nullptr, output_count);

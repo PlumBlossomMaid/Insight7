@@ -38,6 +38,16 @@ int32_t ref_count_decrement(int32_t *ref_count) {
 #endif
 }
 
+int32_t ref_count_value(const int32_t *ref_count) {
+  if (!ref_count)
+    return 0;
+#if defined(__GNUC__) || defined(__clang__)
+  return __atomic_load_n(ref_count, __ATOMIC_ACQUIRE);
+#else
+  return *ref_count;
+#endif
+}
+
 } // namespace
 
 // ========================================================================
@@ -210,8 +220,10 @@ size_t insight_array_storage_nbytes(const InsightArray *array) {
 }
 
 int insight_array_is_contiguous(const InsightArray *array) {
-  if (!array || array->ndim <= 0)
+  if (!array)
     return 0;
+  if (array->ndim == 0 || array->numel <= 1)
+    return 1;
   int64_t expected_stride = 1;
   for (int32_t i = array->ndim - 1; i >= 0; --i) {
     if (array->strides[i] != expected_stride)
@@ -483,6 +495,13 @@ size_t Array::nbytes() const {
 size_t Array::storage_nbytes() const {
   INS_CHECK(defined(), "Array is not initialized");
   return insight_array_storage_nbytes(&layout_);
+}
+
+ArrayStorageMetadata Array::storage_metadata() const {
+  INS_CHECK(defined(), "Array is not initialized");
+  return {insight_array_storage_data(&layout_),
+          insight_array_storage_nbytes(&layout_), place_,
+          ref_count_value(layout_.ref_count), layout_.is_view != 0};
 }
 
 // ========== Memory Layout ==========
@@ -1089,8 +1108,10 @@ void Array::fill_(double value) {
   if (is_contiguous()) {
     // Contiguous: use the "full" backend kernel directly
     double val = value;
-    ops().launch("full", place(), dtype(), {layout_ptr(), &val},
-                 {layout_ptr()});
+    OpRegistry::launch_schema(
+        "full", place(), dtype(),
+        {OpRegistry::array_arg(layout_ptr()), OpRegistry::scalar_arg(&val)},
+        {OpRegistry::array_arg(layout_ptr())});
   } else {
     // Non-contiguous view: create a contiguous filled array, then copy
     Array filled = full(shape(), value, dtype(), place());
@@ -1109,13 +1130,17 @@ void Array::copy_from_(const Array &src) {
   if (dtype() == src.dtype()) {
     // Same dtype: use contiguous_copy backend kernel (CPU + GPU)
     Array src_dev = src.to(place());
-    ops().launch("contiguous_copy", place(), dtype(),
-                 {(void *)src_dev.layout_ptr()}, {layout_ptr()});
+    OpRegistry::launch_schema(
+        "contiguous_copy", place(), dtype(),
+        {OpRegistry::array_arg(src_dev.layout_ptr())},
+        {OpRegistry::array_arg(layout_ptr())});
   } else {
     // Different dtype: cast first, then copy
     Array converted = src.to(dtype()).to(place());
-    ops().launch("contiguous_copy", place(), dtype(),
-                 {(void *)converted.layout_ptr()}, {layout_ptr()});
+    OpRegistry::launch_schema(
+        "contiguous_copy", place(), dtype(),
+        {OpRegistry::array_arg(converted.layout_ptr())},
+        {OpRegistry::array_arg(layout_ptr())});
   }
 }
 

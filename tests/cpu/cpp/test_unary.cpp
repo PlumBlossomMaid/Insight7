@@ -408,6 +408,22 @@ TEST_F(UnaryTestCPU, ViewAbs) {
   EXPECT_FLOAT_EQ(data[7], 6.0f);
 }
 
+TEST_F(UnaryTestCPU, ViewAngle) {
+  Array a({4}, DType::F32);
+  float *data = a.data<float>();
+  data[0] = -2.0f;
+  data[1] = 3.0f;
+  data[2] = -4.0f;
+  data[3] = 5.0f;
+
+  Array view = a.slice(0, 0, 4, 2);
+  Array c = angle(view);
+
+  ASSERT_EQ(c.dtype(), DType::F32);
+  expect_float_equal<float>(c, {static_cast<float>(M_PI),
+                                static_cast<float>(M_PI)});
+}
+
 // ============================================================================
 // IsNaN / IsInf / IsFinite tests
 // ============================================================================

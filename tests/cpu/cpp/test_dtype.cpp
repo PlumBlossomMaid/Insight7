@@ -1,6 +1,8 @@
 // tests/test_dtype.cpp
 #include "insight/c_api/dtype.h"
 #include "insight/core/dtype.h"
+#include "insight/core/exception.h"
+#include "insight/utils/promotion.h"
 #include <gtest/gtest.h>
 
 using namespace ins;
@@ -78,6 +80,63 @@ TEST(DTypeTest, FromName) {
 
   // Invalid name
   EXPECT_EQ(dtype_from_name("invalid_type"), DType::UNKNOWN);
+}
+
+// ========== DType descriptor test ==========
+TEST(DTypeTest, Descriptor) {
+  const DTypeDescriptor &f32 = dtype_descriptor(DType::F32);
+  EXPECT_EQ(f32.id, DType::F32);
+  EXPECT_STREQ(f32.name, "float32");
+  EXPECT_EQ(f32.kind, DTypeKind::Float);
+  EXPECT_EQ(f32.size, sizeof(float));
+  EXPECT_EQ(f32.alignment, alignof(float));
+  EXPECT_TRUE((f32.flags & DTYPE_FLAG_BUILTIN) != 0);
+  EXPECT_TRUE((f32.flags & DTYPE_FLAG_NUMERIC) != 0);
+  EXPECT_EQ(f32.promotion_rank, 9);
+  EXPECT_TRUE(f32.is_signed);
+
+  const DTypeDescriptor &c64 = dtype_descriptor(DType::C64);
+  EXPECT_EQ(c64.kind, DTypeKind::Complex);
+  EXPECT_EQ(c64.size, sizeof(std::complex<double>));
+  EXPECT_EQ(c64.promotion_rank, 12);
+
+  const DTypeDescriptor &f8 = dtype_descriptor(DType::F8_E4M3);
+  EXPECT_EQ(f8.kind, DTypeKind::Float);
+  EXPECT_TRUE((f8.flags & DTYPE_FLAG_EXPERIMENTAL) != 0);
+  EXPECT_EQ(f8.promotion_rank, 0);
+
+  const DTypeDescriptor &invalid = dtype_descriptor(static_cast<DType>(99));
+  EXPECT_EQ(invalid.id, DType::UNKNOWN);
+  EXPECT_EQ(invalid.kind, DTypeKind::Unknown);
+  EXPECT_EQ(invalid.size, 0u);
+}
+
+TEST(DTypeTest, DescriptorHelpers) {
+  EXPECT_EQ(dtype_kind(DType::BOOL), DTypeKind::Bool);
+  EXPECT_EQ(dtype_kind(DType::U32), DTypeKind::UInt);
+  EXPECT_EQ(dtype_kind(DType::I64), DTypeKind::Int);
+  EXPECT_EQ(dtype_kind(DType::F64), DTypeKind::Float);
+  EXPECT_EQ(dtype_kind(DType::C32), DTypeKind::Complex);
+  EXPECT_EQ(dtype_alignment(DType::F64), alignof(double));
+  EXPECT_EQ(dtype_promotion_rank(DType::F64), 10);
+  EXPECT_EQ(dtype_promotion_rank(DType::U64), 0);
+  EXPECT_EQ(dtype_flags(DType::UNKNOWN), DTYPE_FLAG_NONE);
+}
+
+TEST(DTypeTest, DescriptorPromotionRules) {
+  EXPECT_TRUE(can_promote(DType::I32, DType::F32));
+  EXPECT_TRUE(can_promote(DType::F32, DType::C32));
+  EXPECT_TRUE(can_promote(DType::F64, DType::C64));
+  EXPECT_TRUE(can_promote(DType::C32, DType::C64));
+  EXPECT_FALSE(can_promote(DType::U64, DType::F64));
+  EXPECT_FALSE(can_promote(DType::F64, DType::C32));
+  EXPECT_FALSE(can_promote(DType::C32, DType::F64));
+
+  EXPECT_EQ(promote_types(DType::I32, DType::F32), DType::F32);
+  EXPECT_EQ(promote_types(DType::F32, DType::C32), DType::C32);
+  EXPECT_EQ(promote_types(DType::F64, DType::C64), DType::C64);
+  EXPECT_THROW(promote_types(DType::F64, DType::C32), ins::Exception);
+  EXPECT_THROW(promote_types(DType::F8_E4M3, DType::F32), ins::Exception);
 }
 
 // ========== DType floating point judgment test ==========
@@ -214,11 +273,29 @@ TEST(DTypeTest, CAPICompatibility) {
   EXPECT_STREQ(insight_dtype_name(static_cast<int32_t>(DType::C64)),
                "complex128");
 
-  // Verify size
+  // Verify descriptor fields
   EXPECT_EQ(insight_dtype_size(static_cast<int32_t>(DType::F32)),
             sizeof(float));
   EXPECT_EQ(insight_dtype_size(static_cast<int32_t>(DType::C64)),
             sizeof(std::complex<double>));
+  EXPECT_EQ(insight_dtype_alignment(static_cast<int32_t>(DType::F64)),
+            static_cast<int32_t>(alignof(double)));
+  EXPECT_EQ(insight_dtype_kind(static_cast<int32_t>(DType::BOOL)),
+            INSIGHT_DTYPE_KIND_BOOL);
+  EXPECT_EQ(insight_dtype_kind(static_cast<int32_t>(DType::U16)),
+            INSIGHT_DTYPE_KIND_UINT);
+  EXPECT_EQ(insight_dtype_kind(static_cast<int32_t>(DType::I64)),
+            INSIGHT_DTYPE_KIND_INT);
+  EXPECT_EQ(insight_dtype_kind(static_cast<int32_t>(DType::F32)),
+            INSIGHT_DTYPE_KIND_FLOAT);
+  EXPECT_EQ(insight_dtype_kind(static_cast<int32_t>(DType::C64)),
+            INSIGHT_DTYPE_KIND_COMPLEX);
+  EXPECT_TRUE((insight_dtype_flags(static_cast<int32_t>(DType::F8_E5M2)) &
+               INSIGHT_DTYPE_FLAG_EXPERIMENTAL) != 0);
+  EXPECT_EQ(insight_dtype_promotion_rank(static_cast<int32_t>(DType::C64)),
+            12);
+  EXPECT_EQ(insight_dtype_promotion_rank(static_cast<int32_t>(DType::U64)),
+            0);
 
   // Verification type judgment
   EXPECT_EQ(insight_dtype_is_float(static_cast<int32_t>(DType::F32)), 1);

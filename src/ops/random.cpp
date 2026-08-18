@@ -10,9 +10,11 @@
 #include "insight/ops/random.h"
 #include "insight/core/exception.h"
 #include "insight/core/op_registry.h"
+#include "insight/core/op_schema.h"
 #include "insight/core/place.h"
 #include "insight/init.h"
 #include <atomic>
+#include <vector>
 
 namespace ins {
 
@@ -36,9 +38,8 @@ void seed(uint64_t base_seed) {
   auto devices = get_available_devices();
   for (const auto &dev : devices) {
     uint64_t device_seed = base_seed + static_cast<uint64_t>(dev.device_id());
-    ops().launch("set_seed", dev, DType::U64,
-                 {const_cast<void *>(static_cast<const void *>(&device_seed))},
-                 {});
+    OpRegistry::launch_schema("set_seed", dev, DType::U64,
+                              {OpRegistry::scalar_arg(&device_seed)}, {});
   }
 }
 
@@ -53,39 +54,32 @@ uint64_t get_seed() { return g_global_base_seed.load(); }
 // Helper function for random operations
 // ============================================================================
 
-static DeviceKind get_device_kind(const Place &place) {
-  return place.is_cpu() ? DeviceKind::CPU : DeviceKind::GPU;
+static OpSchema random_schema(const char *name) {
+  return OpSchema(name, OpKind::Creation, {},
+                  {{"out", OpArgumentKind::Array,
+                    OpArgumentAccess::WriteOnly}})
+      .promotion(OpPromotionRule::Identity)
+      .fallback(OpFallbackRule::StructuredCpu);
 }
 
-/**
- * @brief Launch a random distribution kernel.
- *
- * @tparam Args Parameter pack types
- * @param op_name Operator name
- * @param shape Output shape
- * @param dtype Output data type
- * @param place Device placement
- * @param extra_args Additional arguments to pass to kernel
- * @return Array Filled array with random values
- */
 template <typename... Args>
 static Array random_op(const char *op_name, const Shape &shape, DType dtype,
                        const Place &place, Args &&...extra_args) {
   Array result(shape, dtype, place);
+  OpSchema schema = random_schema(op_name);
+  ArrayIterator iter = schema.make_creation_iterator({result});
+  auto arrays = iter.arrays();
 
-  // Prepare arguments: output array first, then extra args, then seed
-  std::vector<void *> inputs;
-  inputs.push_back(result.layout_ptr());
+  std::vector<OpRegistry::Arg> inputs;
+  inputs.push_back(OpRegistry::array_arg(arrays[0].layout_ptr()));
+  (inputs.push_back(OpRegistry::scalar_arg(&extra_args)), ...);
 
-  // Add extra arguments
-  (inputs.push_back(const_cast<void *>(static_cast<const void *>(&extra_args))),
-   ...);
-
-  // Add device-specific seed
   uint64_t device_seed = get_seed() + static_cast<uint64_t>(place.device_id());
-  inputs.push_back(&device_seed);
+  inputs.push_back(OpRegistry::scalar_arg(&device_seed));
 
-  ops().launch(op_name, place, dtype, inputs, {result.layout_ptr()});
+  OpRegistry::launch_schema(
+      op_name, place, dtype, inputs,
+      {OpRegistry::array_arg(arrays[0].layout_ptr())});
 
   return result;
 }

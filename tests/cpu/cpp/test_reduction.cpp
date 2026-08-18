@@ -245,6 +245,24 @@ TEST_F(ReductionTest, CumMaxCumMin2D) {
   EXPECT_NEAR(cmin_data[3], 1.0f, 1e-5);
 }
 
+TEST_F(ReductionTest, CumulativeNegativeAxis) {
+  Array x = arange_2d(2, 4, 1.0f, 1.0f);
+
+  Array cs = cumsum(x, -1);
+  const float *cs_data = cs.data<float>();
+  EXPECT_NEAR(cs_data[0], 1.0f, 1e-5);
+  EXPECT_NEAR(cs_data[1], 3.0f, 1e-5);
+  EXPECT_NEAR(cs_data[2], 6.0f, 1e-5);
+  EXPECT_NEAR(cs_data[3], 10.0f, 1e-5);
+
+  Array cp = cumprod(x, -1);
+  const float *cp_data = cp.data<float>();
+  EXPECT_NEAR(cp_data[0], 1.0f, 1e-5);
+  EXPECT_NEAR(cp_data[1], 2.0f, 1e-5);
+  EXPECT_NEAR(cp_data[2], 6.0f, 1e-5);
+  EXPECT_NEAR(cp_data[3], 24.0f, 1e-5);
+}
+
 // ========== Median/Quantile ==========
 
 TEST_F(ReductionTest, Median2D) {
@@ -352,7 +370,7 @@ TEST_F(ReductionTest, NanMedianNanQuantile) {
   EXPECT_NEAR(nanquantile(x, 0.25).item<float>(), 2.0, 1e-5);
 }
 
-// ========== 3D Tensors ==========
+// ========== 3D Arrays ==========
 
 TEST_F(ReductionTest, Sum3D) {
   Array x = arange_3d(2, 3, 4); // values 0..23

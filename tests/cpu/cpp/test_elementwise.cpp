@@ -169,6 +169,38 @@ TEST_F(ElementwiseTestCPU, PowSameShape) {
   EXPECT_FLOAT_EQ(data[5], 3125.0f);
 }
 
+TEST_F(ElementwiseTestCPU, PowBroadcast) {
+  Array a({2, 3}, DType::F32);
+  Array b({3}, DType::F32);
+  fill_sequential<float>(a);
+  float *b_data = b.data<float>();
+  b_data[0] = 0.0f;
+  b_data[1] = 1.0f;
+  b_data[2] = 2.0f;
+
+  Array c = pow(a, b);
+
+  expect_float_equal<float>(c, {1, 1, 4, 1, 4, 25});
+}
+
+TEST_F(ElementwiseTestCPU, PowFloatExponentPromotesIntegerBase) {
+  Array a({3}, DType::I32);
+  Array b({3}, DType::F32);
+  int32_t *a_data = a.data<int32_t>();
+  float *b_data = b.data<float>();
+  a_data[0] = 4;
+  a_data[1] = 9;
+  a_data[2] = 16;
+  b_data[0] = 0.5f;
+  b_data[1] = 0.5f;
+  b_data[2] = 0.5f;
+
+  Array c = pow(a, b);
+
+  EXPECT_EQ(c.dtype(), DType::F32);
+  expect_float_equal<float>(c, {2.0f, 3.0f, 4.0f});
+}
+
 // ============================================================================
 // Modulo Tests (mod)
 // ============================================================================
@@ -228,6 +260,18 @@ TEST_F(ElementwiseTestCPU, Equal) {
   Array c = equal(a, b);
 
   std::vector<bool> expected = {true, true, true, true, true, true};
+  expect_bool_equal(c, expected);
+}
+
+TEST_F(ElementwiseTestCPU, EqualBroadcast) {
+  Array a({2, 3}, DType::F32);
+  Array b({3}, DType::F32);
+  fill_sequential<float>(a);
+  fill_sequential<float>(b);
+
+  Array c = equal(a, b);
+
+  std::vector<bool> expected = {true, true, true, false, false, false};
   expect_bool_equal(c, expected);
 }
 
@@ -361,6 +405,24 @@ TEST_F(ElementwiseTestCPU, LogicalXor) {
   expect_bool_equal(c, expected);
 }
 
+TEST_F(ElementwiseTestCPU, LogicalBroadcast) {
+  Array a({2, 3}, DType::BOOL);
+  Array b({3}, DType::BOOL);
+  bool *a_data = a.data<bool>();
+  bool *b_data = b.data<bool>();
+
+  for (int64_t i = 0; i < 6; ++i) {
+    a_data[i] = (i % 2 == 0);
+  }
+  b_data[0] = true;
+  b_data[1] = false;
+  b_data[2] = true;
+
+  expect_bool_equal(logical_and(a, b), {true, false, true, false, false, false});
+  expect_bool_equal(logical_or(a, b), {true, false, true, true, true, true});
+  expect_bool_equal(logical_xor(a, b), {false, false, false, true, true, true});
+}
+
 // ============================================================================
 // Bitwise Operations Tests
 // ============================================================================
@@ -455,6 +517,23 @@ TEST_F(ElementwiseTestCPU, BitwiseRightShift) {
   }
 }
 
+TEST_F(ElementwiseTestCPU, BitwiseBroadcast) {
+  Array a({2, 3}, DType::I32);
+  Array b({3}, DType::I32);
+  int32_t *a_data = a.data<int32_t>();
+  int32_t *b_data = b.data<int32_t>();
+  for (int64_t i = 0; i < 6; ++i) {
+    a_data[i] = static_cast<int32_t>(i + 1);
+  }
+  b_data[0] = 1;
+  b_data[1] = 2;
+  b_data[2] = 3;
+
+  expect_equal<int32_t>(bitwise_and(a, b), {1, 2, 3, 0, 0, 2});
+  expect_equal<int32_t>(bitwise_or(a, b), {1, 2, 3, 5, 7, 7});
+  expect_equal<int32_t>(bitwise_xor(a, b), {0, 0, 0, 5, 7, 5});
+}
+
 // ============================================================================
 // Maximum / Minimum Tests
 // ============================================================================
@@ -516,6 +595,36 @@ TEST_F(ElementwiseTestCPU, Broadcast2D1D) {
   expect_float_equal<float>(add_c, add_expected);
   expect_float_equal<float>(sub_c, sub_expected);
   expect_float_equal<float>(mul_c, mul_expected);
+}
+
+TEST_F(ElementwiseTestCPU, BroadcastDivMaxMin) {
+  Array a({2, 3}, DType::F32);
+  Array b({3}, DType::F32);
+  float *a_data = a.data<float>();
+  float *b_data = b.data<float>();
+  for (int64_t i = 0; i < 6; ++i) {
+    a_data[i] = static_cast<float>(i + 2);
+  }
+  b_data[0] = 1.0f;
+  b_data[1] = 2.0f;
+  b_data[2] = 4.0f;
+
+  expect_float_equal<float>(div(a, b), {2.0f, 1.5f, 1.0f, 5.0f, 3.0f, 1.75f});
+  expect_float_equal<float>(maximum(a, b), {2, 3, 4, 5, 6, 7});
+  expect_float_equal<float>(minimum(a, b), {1, 2, 4, 1, 2, 4});
+}
+
+TEST_F(ElementwiseTestCPU, BroadcastComparisons) {
+  Array a({2, 3}, DType::F32);
+  Array b({3}, DType::F32);
+  fill_sequential<float>(a);
+  fill_sequential<float>(b);
+
+  expect_bool_equal(not_equal(a, b), {false, false, false, true, true, true});
+  expect_bool_equal(greater(a, b), {false, false, false, true, true, true});
+  expect_bool_equal(less(a, b), {false, false, false, false, false, false});
+  expect_bool_equal(greater_equal(a, b), {true, true, true, true, true, true});
+  expect_bool_equal(less_equal(a, b), {true, true, true, false, false, false});
 }
 
 // ============================================================================

@@ -2,6 +2,7 @@
 #include "insight/ops/signal/spectral_analysis.h"
 #include "insight/core/exception.h"
 #include "insight/core/op_registry.h"
+#include "insight/core/op_schema.h"
 #include "insight/ops/complex.h"
 #include "insight/ops/creation.h"
 #include "insight/ops/elementwise.h"
@@ -16,6 +17,8 @@
 #include <cmath>
 #include <complex>
 #include <numeric>
+#include <string>
+#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -25,6 +28,57 @@ namespace ins {
 namespace signal {
 
 namespace {
+
+static OpSchema signal_schema(const char *name, size_t input_count,
+                              size_t output_count = 1) {
+  std::vector<OpArgumentSchema> inputs;
+  inputs.reserve(input_count);
+  for (size_t i = 0; i < input_count; ++i) {
+    inputs.push_back({"x" + std::to_string(i), OpArgumentKind::Array,
+                      OpArgumentAccess::ReadOnly});
+  }
+
+  std::vector<OpArgumentSchema> outputs;
+  outputs.reserve(output_count);
+  for (size_t i = 0; i < output_count; ++i) {
+    outputs.push_back({output_count == 1 ? "out" : "out" + std::to_string(i),
+                       OpArgumentKind::Array, OpArgumentAccess::WriteOnly});
+  }
+
+  return OpSchema(name, OpKind::Signal, inputs, outputs)
+      .promotion(OpPromotionRule::Identity)
+      .fallback(OpFallbackRule::StructuredCpu);
+}
+
+static void launch_signal_kernel(const char *name, const Place &place,
+                                 DType dtype,
+                                 const std::vector<Array> &inputs,
+                                 const std::vector<Array> &outputs) {
+  OpSchema schema = signal_schema(name, inputs.size(), outputs.size());
+  ArrayIterator iter = schema.make_transform_iterator(inputs, outputs);
+  auto arrays = iter.arrays();
+
+  std::vector<OpRegistry::Arg> launch_inputs;
+  launch_inputs.reserve(inputs.size());
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    launch_inputs.push_back(OpRegistry::array_arg(arrays[i].layout_ptr()));
+  }
+
+  std::vector<OpRegistry::Arg> launch_outputs;
+  launch_outputs.reserve(outputs.size());
+  for (size_t i = inputs.size(); i < arrays.size(); ++i) {
+    launch_outputs.push_back(OpRegistry::array_arg(arrays[i].layout_ptr()));
+  }
+
+  OpRegistry::launch_schema(name, place, dtype, launch_inputs, launch_outputs);
+}
+
+static void launch_signal_kernel(const char *name, const Place &place,
+                                 DType dtype,
+                                 const std::vector<Array> &inputs,
+                                 const Array &output) {
+  launch_signal_kernel(name, place, dtype, inputs, std::vector<Array>{output});
+}
 
 Array detrend_segment(const Array &seg, const std::string &method) {
   if (method == "none" || method.empty())
@@ -524,9 +578,7 @@ Array lombscargle(const Array &x, const Array &y, const Array &freqs) {
   Array out(f_c.shape(), dtype, dev);
 
   // Dispatch to backend
-  ops().launch("signal_lombscargle", dev, dtype,
-               {x_c.layout_ptr(), y_c.layout_ptr(), f_c.layout_ptr()},
-               {out.layout_ptr()});
+  launch_signal_kernel("signal_lombscargle", dev, dtype, {x_c, y_c, f_c}, out);
 
   return out;
 }

@@ -90,25 +90,25 @@ Array rot90(const Array &x, int k = 1, const std::vector<int> &axes = {0, 1});
 /**
  * @brief Concatenate arrays along an existing axis.
  */
-Array concat(const std::vector<Array> &tensors, int axis = 0);
+Array concat(const std::vector<Array> &arrays, int axis = 0);
 
 /**
  * @brief Stack arrays along a new axis.
  */
-Array stack(const std::vector<Array> &tensors, int axis = 0);
+Array stack(const std::vector<Array> &arrays, int axis = 0);
 
 /**
  * @brief Stack arrays vertically (axis=0).
  */
-inline Array vstack(const std::vector<Array> &tensors) {
-  return concat(tensors, 0);
+inline Array vstack(const std::vector<Array> &arrays) {
+  return concat(arrays, 0);
 }
 
 /**
  * @brief Stack arrays horizontally (axis=1).
  */
-inline Array hstack(const std::vector<Array> &tensors) {
-  return concat(tensors, 1);
+inline Array hstack(const std::vector<Array> &arrays) {
+  return concat(arrays, 1);
 }
 
 // ========== Splitting (views) ==========

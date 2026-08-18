@@ -1,7 +1,9 @@
 // src/ops/signal/filtering.cpp
 #include "insight/ops/signal/filtering.h"
+#include "insight/core/axis.h"
 #include "insight/core/exception.h"
 #include "insight/core/op_registry.h"
+#include "insight/core/op_schema.h"
 #include "insight/ops/complex.h"
 #include "insight/ops/creation.h"
 #include "insight/ops/elementwise.h"
@@ -19,6 +21,8 @@
 #include <cmath>
 #include <complex>
 #include <numeric>
+#include <string>
+#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -26,6 +30,61 @@
 
 namespace ins {
 namespace signal {
+
+namespace {
+
+static OpSchema signal_schema(const char *name, size_t input_count,
+                              size_t output_count = 1) {
+  std::vector<OpArgumentSchema> inputs;
+  inputs.reserve(input_count);
+  for (size_t i = 0; i < input_count; ++i) {
+    inputs.push_back({"x" + std::to_string(i), OpArgumentKind::Array,
+                      OpArgumentAccess::ReadOnly});
+  }
+
+  std::vector<OpArgumentSchema> outputs;
+  outputs.reserve(output_count);
+  for (size_t i = 0; i < output_count; ++i) {
+    outputs.push_back({output_count == 1 ? "out" : "out" + std::to_string(i),
+                       OpArgumentKind::Array, OpArgumentAccess::WriteOnly});
+  }
+
+  return OpSchema(name, OpKind::Signal, inputs, outputs)
+      .promotion(OpPromotionRule::Identity)
+      .fallback(OpFallbackRule::StructuredCpu);
+}
+
+static void launch_signal_kernel(const char *name, const Place &place,
+                                 DType dtype,
+                                 const std::vector<Array> &inputs,
+                                 const std::vector<Array> &outputs) {
+  OpSchema schema = signal_schema(name, inputs.size(), outputs.size());
+  ArrayIterator iter = schema.make_transform_iterator(inputs, outputs);
+  auto arrays = iter.arrays();
+
+  std::vector<OpRegistry::Arg> launch_inputs;
+  launch_inputs.reserve(inputs.size());
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    launch_inputs.push_back(OpRegistry::array_arg(arrays[i].layout_ptr()));
+  }
+
+  std::vector<OpRegistry::Arg> launch_outputs;
+  launch_outputs.reserve(outputs.size());
+  for (size_t i = inputs.size(); i < arrays.size(); ++i) {
+    launch_outputs.push_back(OpRegistry::array_arg(arrays[i].layout_ptr()));
+  }
+
+  OpRegistry::launch_schema(name, place, dtype, launch_inputs, launch_outputs);
+}
+
+static void launch_signal_kernel(const char *name, const Place &place,
+                                 DType dtype,
+                                 const std::vector<Array> &inputs,
+                                 const Array &output) {
+  launch_signal_kernel(name, place, dtype, inputs, std::vector<Array>{output});
+}
+
+} // namespace
 
 // ============================================================================
 // hilbert
@@ -129,10 +188,7 @@ Array detrend(const Array &data, int axis, const std::string &type) {
             "detrend: type must be 'linear' or 'constant'");
 
   int ndim = data.shape().ndim();
-  int ax = axis;
-  if (ax < 0)
-    ax += ndim;
-  INS_CHECK(ax >= 0 && ax < ndim, "detrend: axis out of range");
+  int ax = normalize_axis(axis, ndim, "detrend");
 
   if (type == "constant") {
     Array m = mean(data, ax, true);
@@ -194,7 +250,7 @@ Array firfilter(const Array &b, const Array &x, int axis) {
 
   // For multi-dimensional: apply convolve along each slice of the axis
   int ndim = x.shape().ndim();
-  int ax = (axis < 0) ? axis + ndim : axis;
+  int ax = normalize_axis(axis, ndim, "firfilter");
 
   // Move target axis to last position
   Array x_moved = x;
@@ -366,7 +422,7 @@ Array lfilter(const Array &b, const Array &a, const Array &x, int axis) {
   a_cpu = a_cpu.to(DType::F64);
 
   int ndim = x_cpu.shape().ndim();
-  int ax = (axis < 0) ? axis + ndim : axis;
+  int ax = normalize_axis(axis, ndim, "lfilter");
   int64_t n = x_cpu.shape().dim(ax);
 
   // Move signal axis to last
@@ -387,10 +443,8 @@ Array lfilter(const Array &b, const Array &a, const Array &x, int axis) {
   Array y_flat({batch, n}, DType::F64, cpu);
 
   // Dispatch to backend kernel: inputs=[b, a, x], outputs=[y]
-  ops().launch("lfilter", cpu, DType::F64,
-               {(void *)b_cpu.layout_ptr(), (void *)a_cpu.layout_ptr(),
-                (void *)x_flat.layout_ptr()},
-               {y_flat.layout_ptr()});
+  launch_signal_kernel("lfilter", cpu, DType::F64, {b_cpu, a_cpu, x_flat},
+                       y_flat);
 
   // Reshape back to original shape
   std::vector<int64_t> out_shape;
@@ -446,9 +500,7 @@ Array lfilter_zi(const Array &b, const Array &a) {
   Array zi({m}, DType::F64, cpu);
 
   // Dispatch to backend kernel: inputs=[b_norm, a_norm], outputs=[zi]
-  ops().launch("lfilter_zi", cpu, DType::F64,
-               {(void *)b_cpu.layout_ptr(), (void *)a_cpu.layout_ptr()},
-               {zi.layout_ptr()});
+  launch_signal_kernel("lfilter_zi", cpu, DType::F64, {b_cpu, a_cpu}, zi);
 
   return zi;
 }
@@ -462,9 +514,9 @@ Array filtfilt(const Array &b, const Array &a, const Array &x, int axis) {
             "filtfilt: inputs are undefined");
 
   int ndim = x.shape().ndim();
-  int ax = (axis < 0) ? axis + ndim : axis;
+  int ax = normalize_axis(axis, ndim, "filtfilt");
 
-  Array y = lfilter(b, a, x, axis);
+  Array y = lfilter(b, a, x, ax);
 
   int64_t orig_len = x.shape().dim(ax);
   if (y.shape().dim(ax) > orig_len) {
@@ -503,8 +555,7 @@ Array decimate(const Array &x, int64_t q, int axis, bool zero_phase) {
   Array filtered =
       zero_phase ? filtfilt(h, a, x, axis) : lfilter(h, a, x, axis);
 
-  int ndim = x.shape().ndim();
-  int ax = (axis < 0) ? axis + ndim : axis;
+  int ax = normalize_axis(axis, x.shape().ndim(), "decimate");
 
   return slice(filtered, {ax}, {0}, {x.shape().dim(ax)}, {static_cast<int>(q)});
 }
@@ -517,8 +568,7 @@ Array resample(const Array &x, int64_t num, int axis) {
   INS_CHECK(x.defined(), "resample: input is undefined");
   INS_CHECK(num >= 1, "resample: num must be >= 1");
 
-  int ndim = x.shape().ndim();
-  int ax = (axis < 0) ? axis + ndim : axis;
+  int ax = normalize_axis(axis, x.shape().ndim(), "resample");
   int64_t n = x.shape().dim(ax);
 
   if (num == n)
