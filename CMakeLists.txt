@@ -19,6 +19,9 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 option(INSIGHT_BUILD_TESTS "Build unit tests" ON)
 option(INSIGHT_WITH_CUDA "Enable CUDA backend" OFF)
 option(INSIGHT_WITH_ROCM "Enable ROCm/HIP backend" ON)
+set(INSIGHT_WITH_SDAA "AUTO" CACHE STRING "Enable SDAA GPU backend (ON/OFF/AUTO)")
+set_property(CACHE INSIGHT_WITH_SDAA PROPERTY STRINGS ON OFF AUTO)
+option(INSIGHT_SDAA_STUB_DEVICE "Expose a stub SDAA device for backend loader tests" OFF)
 option(INSIGHT_DYNAMIC_CPU_BACKEND "CPU backend is dynamically loaded" ON)
 option(INSIGHT_DYNAMIC_GPU_BACKEND "GPU backend is dynamically loaded" ON)
 
@@ -462,32 +465,73 @@ else()
     message(STATUS "CUDA backend disabled by user option")
 endif()
 
-# ========== IXUCA (天数智芯 Iluvatar) Backend ==========
-# Auto-detect CoreX SDK (provides CUDA-compatible runtime for Iluvatar GPU)
+# ========== IXUCA (天数智芯 IXUCA) Backend ==========
+# Auto-detect CoreX SDK (provides CUDA-compatible runtime for IXUCA GPU)
 # Set to ON to force, OFF to disable, or leave unset for auto-detection
-set(INSIGHT_WITH_ILUVATAR "AUTO" CACHE STRING "Enable Iluvatar (天数智芯) GPU backend (ON/OFF/AUTO)")
-set_property(CACHE INSIGHT_WITH_ILUVATAR PROPERTY STRINGS ON OFF AUTO)
+set(INSIGHT_WITH_IXUCA "AUTO" CACHE STRING "Enable IXUCA (天数智芯) GPU backend (ON/OFF/AUTO)")
+set_property(CACHE INSIGHT_WITH_IXUCA PROPERTY STRINGS ON OFF AUTO)
 
-if(INSIGHT_WITH_ILUVATAR STREQUAL "ON" OR INSIGHT_WITH_ILUVATAR STREQUAL "AUTO")
+if(INSIGHT_WITH_IXUCA STREQUAL "ON" OR INSIGHT_WITH_IXUCA STREQUAL "AUTO")
     # Check for CoreX clang++ compiler
     find_program(COREX_CLANGXX "clang++" PATHS "/usr/local/corex/bin" NO_DEFAULT_PATH)
     # Check for CoreX CUDA-compatible headers
     if(COREX_CLANGXX AND EXISTS "/usr/local/corex/include/cuda_runtime.h")
-        set(INSIGHT_WITH_ILUVATAR ON)
-        add_subdirectory(backends/iluvatar)
-        target_compile_definitions(insight_core PUBLIC INSIGHT_WITH_ILUVATAR)
+        set(INSIGHT_WITH_IXUCA ON)
+        add_subdirectory(backends/ixuca)
+        target_compile_definitions(insight_core PUBLIC INSIGHT_WITH_IXUCA)
         message(STATUS "IXUCA backend enabled (CoreX SDK found at /usr/local/corex)")
-    elseif(INSIGHT_WITH_ILUVATAR STREQUAL "AUTO")
+    elseif(INSIGHT_WITH_IXUCA STREQUAL "AUTO")
         # Auto mode: not found, silently disable
-        set(INSIGHT_WITH_ILUVATAR OFF)
+        set(INSIGHT_WITH_IXUCA OFF)
         message(STATUS "IXUCA backend: CoreX SDK not found, disabled")
     else()
         message(WARNING "IXUCA backend requested but CoreX SDK not found")
-        set(INSIGHT_WITH_ILUVATAR OFF)
+        set(INSIGHT_WITH_IXUCA OFF)
     endif()
 else()
-    set(INSIGHT_WITH_ILUVATAR OFF)
+    set(INSIGHT_WITH_IXUCA OFF)
     message(STATUS "IXUCA backend disabled by user option")
+endif()
+
+# ========== SDAA Backend ==========
+if(INSIGHT_WITH_SDAA STREQUAL "ON" OR INSIGHT_WITH_SDAA STREQUAL "AUTO")
+    if(INSIGHT_WITH_SDAA STREQUAL "ON" OR INSIGHT_SDAA_STUB_DEVICE)
+        add_subdirectory(backends/sdaa)
+        target_compile_definitions(insight_core PUBLIC INSIGHT_WITH_SDAA)
+        message(STATUS "SDAA backend enabled")
+    else()
+        set(INSIGHT_WITH_SDAA OFF)
+        message(STATUS "SDAA backend disabled (set INSIGHT_WITH_SDAA=ON to build)")
+    endif()
+else()
+    set(INSIGHT_WITH_SDAA OFF)
+    message(STATUS "SDAA backend disabled by user option")
+endif()
+
+# ========== Code generation (developer target, not part of default build) ==========
+find_program(INSIGHT_LUA_CODEGEN_INTERPRETER NAMES luajit lua lua5.4 lua5.3 lua5.2 lua5.1)
+set(INSIGHT_CODEGEN_OUT_DIR "${CMAKE_CURRENT_BINARY_DIR}/generated/codegen" CACHE PATH
+    "Output directory for Insight Lua code generation")
+if(INSIGHT_LUA_CODEGEN_INTERPRETER)
+    add_custom_target(insight_codegen
+        COMMAND ${INSIGHT_LUA_CODEGEN_INTERPRETER}
+                ${CMAKE_CURRENT_SOURCE_DIR}/tools/codegen/gen.lua
+                ${INSIGHT_CODEGEN_OUT_DIR}
+        BYPRODUCTS
+                ${INSIGHT_CODEGEN_OUT_DIR}/docs/op_manifest.md
+                ${INSIGHT_CODEGEN_OUT_DIR}/docs/kernel_plan.md
+                ${INSIGHT_CODEGEN_OUT_DIR}/docs/source_manifest.md
+                ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/kernel_plan.h
+                ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/source_manifest.h
+                ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/cast_ops.h
+                ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/creation_ops.h
+                ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/elementwise_ops.h
+                ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/reduction_ops.h
+                ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/unary_ops.h
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+        COMMENT "Running Insight Lua operator codegen")
+else()
+    message(STATUS "Lua interpreter not found; insight_codegen target disabled")
 endif()
 
 # ========== Demos ==========
@@ -521,7 +565,8 @@ message(STATUS "  SndFile:   ${INSIGHT_USE_SNDFILE}")
 message(STATUS "  Matplot:   ${INSIGHT_USE_MATPLOT}")
 message(STATUS "  CUDA:      ${INSIGHT_WITH_CUDA}")
 message(STATUS "  ROCm/HIP:  ${INSIGHT_WITH_ROCM}")
-message(STATUS "  IXUCA:     ${INSIGHT_WITH_ILUVATAR}")
+message(STATUS "  IXUCA:     ${INSIGHT_WITH_IXUCA}")
+message(STATUS "  SDAA:      ${INSIGHT_WITH_SDAA}")
 message(STATUS "  Thrust:    ${INSIGHT_USE_THRUST}")
 message(STATUS "  Tests:     ${INSIGHT_BUILD_TESTS}")
 message(STATUS "")

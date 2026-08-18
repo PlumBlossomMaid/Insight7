@@ -1,5 +1,6 @@
 # Build directories
 build/
+build-*/
 build_win/
 build_win_x86/
 build.luarocks/

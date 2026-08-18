@@ -1,8 +1,8 @@
 # tests/CMakeLists.txt
 
 # ========== 收集测试源文件 ==========
-file(GLOB CPU_TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/cpu/cpp/*.cpp")
-file(GLOB CUDA_TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/cuda/cpp/*.cpp")
+file(GLOB CPU_TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/cpu/cpp/*.cpp")
+file(GLOB CUDA_TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/cuda/cpp/*.cpp")
 
 add_executable(insight_tests_cpu ${CPU_TEST_SOURCES})
 if(INSIGHT_WITH_CUDA)
@@ -18,6 +18,7 @@ target_link_libraries(insight_tests_cpu
 target_include_directories(insight_tests_cpu
     PRIVATE
         ${INSIGHT_INCLUDE_DIR}
+        $<$<BOOL:${INSIGHT_LUA_CODEGEN_INTERPRETER}>:${INSIGHT_CODEGEN_OUT_DIR}/include>
 )
 
 if(INSIGHT_WITH_CUDA)
@@ -27,6 +28,10 @@ if(INSIGHT_WITH_CUDA)
         insight_cuda_backend
         GTest::gtest_main
     )
+endif()
+
+if(INSIGHT_LUA_CODEGEN_INTERPRETER)
+    add_dependencies(insight_tests_cpu insight_codegen)
 endif()
 
 # ========== 复制运行时依赖 ==========
@@ -52,8 +57,11 @@ function(copy_all_backend_dlls TARGET_NAME)
     if(INSIGHT_WITH_CUDA AND INSIGHT_DYNAMIC_GPU_BACKEND)
         copy_backend_dll(${TARGET_NAME} insight_cuda_backend)
     endif()
-    if(INSIGHT_WITH_ILUVATAR AND INSIGHT_DYNAMIC_GPU_BACKEND)
-        copy_backend_dll(${TARGET_NAME} insight_iluvatar_backend)
+    if(INSIGHT_WITH_IXUCA AND INSIGHT_DYNAMIC_GPU_BACKEND)
+        copy_backend_dll(${TARGET_NAME} insight_ixuca_backend)
+    endif()
+    if(INSIGHT_WITH_SDAA AND INSIGHT_DYNAMIC_GPU_BACKEND)
+        copy_backend_dll(${TARGET_NAME} insight_sdaa_backend)
     endif()
 endfunction()
 
@@ -66,26 +74,47 @@ if(INSIGHT_WITH_CUDA)
 endif()
 
 # IXUCA 测试
-if(INSIGHT_WITH_ILUVATAR)
-    add_executable(insight_tests_iluvatar ${CUDA_TEST_SOURCES})
-    target_link_libraries(insight_tests_iluvatar
+if(INSIGHT_WITH_IXUCA)
+    add_executable(insight_tests_ixuca ${CUDA_TEST_SOURCES})
+    target_link_libraries(insight_tests_ixuca
         insight_core
         insight_cpu_backend
-        insight_iluvatar_backend
+        insight_ixuca_backend
         GTest::gtest_main
     )
-    target_include_directories(insight_tests_iluvatar
+    target_include_directories(insight_tests_ixuca
         PRIVATE ${INSIGHT_INCLUDE_DIR}
     )
-    copy_all_backend_dlls(insight_tests_iluvatar)
+    copy_all_backend_dlls(insight_tests_ixuca)
+endif()
+
+# SDAA 测试
+if(INSIGHT_WITH_SDAA)
+    add_executable(insight_tests_sdaa ${CUDA_TEST_SOURCES})
+    target_link_libraries(insight_tests_sdaa
+        insight_core
+        insight_cpu_backend
+        insight_sdaa_backend
+        GTest::gtest_main
+    )
+    target_include_directories(insight_tests_sdaa
+        PRIVATE ${INSIGHT_INCLUDE_DIR}
+    )
+    copy_all_backend_dlls(insight_tests_sdaa)
 endif()
 
 # ========== 自动发现并注册测试 ==========
 include(GoogleTest)
 gtest_discover_tests(insight_tests_cpu)
 if(INSIGHT_WITH_CUDA)
-    gtest_discover_tests(insight_tests_cuda)
+    gtest_discover_tests(insight_tests_cuda
+        PROPERTIES ENVIRONMENT "INSIGHT_GPU_BACKEND=cuda")
 endif()
-if(INSIGHT_WITH_ILUVATAR)
-    gtest_discover_tests(insight_tests_iluvatar)
+if(INSIGHT_WITH_IXUCA)
+    gtest_discover_tests(insight_tests_ixuca
+        PROPERTIES ENVIRONMENT "INSIGHT_GPU_BACKEND=ixuca")
+endif()
+if(INSIGHT_WITH_SDAA)
+    gtest_discover_tests(insight_tests_sdaa
+        PROPERTIES ENVIRONMENT "INSIGHT_GPU_BACKEND=sdaa")
 endif()
