@@ -13,10 +13,10 @@ if not ok_ins then
 end
 
 local ok_gpu = pcall(function()
-  ins.load_backend("cuda")
+  ins.init()
 end)
 if not ok_gpu then
-  print("SKIP: CUDA backend not available")
+  print("SKIP: GPU backend not available")
   os.exit(0)
 end
 

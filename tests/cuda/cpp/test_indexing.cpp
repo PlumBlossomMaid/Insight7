@@ -14,7 +14,7 @@ using namespace ins;
 class IndexingTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "iluvatar"});
+    ins::init();
     try {
       set_device(GPUPlace(0));
     } catch (...) {
@@ -515,25 +515,25 @@ TEST_F(IndexingTestGPU, Argpartition2D) {
 // ========== interp tests ==========
 
 TEST_F(IndexingTestGPU, InterpBasic) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(IndexingTestGPU, InterpNonUniform) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(IndexingTestGPU, InterpBoundaryDefault) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(IndexingTestGPU, InterpBoundaryCustom) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(IndexingTestGPU, InterpScalar) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(IndexingTestGPU, InterpUnsortedXp) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }

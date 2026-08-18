@@ -6,10 +6,10 @@
 
 local ok_gpu = pcall(function()
   local native = require("_insight")
-  native.load_backend("cuda")
+  native.init()
 end)
 if not ok_gpu then
-  print("SKIP: CUDA backend not available")
+  print("SKIP: GPU backend not available")
   os.exit(0)
 end
 

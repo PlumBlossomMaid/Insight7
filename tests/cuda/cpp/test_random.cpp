@@ -27,7 +27,7 @@ void expect_float_equal_gpu(const Array &gpu_arr,
 class RandomTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "iluvatar"});
+    ins::init();
     try {
       set_device(GPUPlace(0));
     } catch (...) {
@@ -109,7 +109,7 @@ TEST_F(RandomTestGPU, RandnShape) {
 }
 
 TEST_F(RandomTestGPU, RandnStatisticalMeanAndStd) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // ========== randint ==========
@@ -153,7 +153,7 @@ TEST_F(RandomTestGPU, NormalShape) {
 }
 
 TEST_F(RandomTestGPU, NormalStatisticalMeanAndStd) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // ========== uniform ==========
@@ -242,11 +242,11 @@ TEST_F(RandomTestGPU, ExponentialShape) {
 }
 
 TEST_F(RandomTestGPU, ExponentialValuesPositive) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(RandomTestGPU, ExponentialStatisticalMean) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(RandomTestGPU, GammaShape) {
@@ -255,7 +255,7 @@ TEST_F(RandomTestGPU, GammaShape) {
 }
 
 TEST_F(RandomTestGPU, GammaValuesPositive) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(RandomTestGPU, ChisquareShape) {
@@ -264,7 +264,7 @@ TEST_F(RandomTestGPU, ChisquareShape) {
 }
 
 TEST_F(RandomTestGPU, ChisquareValuesPositive) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(RandomTestGPU, PoissonShape) {
@@ -283,5 +283,5 @@ TEST_F(RandomTestGPU, BetaShape) {
 }
 
 TEST_F(RandomTestGPU, BetaValuesInRange) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }

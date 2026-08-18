@@ -44,7 +44,7 @@ function init_cache(device)
     global _S_TX, _TEMPLATE, _HAMMING, _SLOW_TIMES, _SIG_POWER, _NOISE_SIGMA, _DOPPLER_BINS, _RANGE_BINS, _PLACE
 
     if device == "gpu" && Insight.has_device(Int64(1))
-        Insight.load_backend("rocm")
+        Insight.load_backend("gpu")
         _PLACE = Insight.GPUPlace(0)
     else
         _PLACE = Insight.CPUPlace()
@@ -182,7 +182,7 @@ end
 
 function run_frame(delays, dopplers, _device, seed; noise_r=nothing, noise_i=nothing, timer=false, prof=nothing)
     if _device == "gpu" && Insight.has_device(Int64(1))
-        Insight.load_backend("rocm")
+        Insight.load_backend("gpu")
         Insight.set_device(Insight.GPUPlace(0))
     else
         Insight.set_device(Insight.CPUPlace())

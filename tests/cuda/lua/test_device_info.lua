@@ -11,10 +11,10 @@ if not ok_ins then
 end
 
 local ok_gpu = pcall(function()
-  ins.load_backend("cuda")
+  ins.init()
 end)
 if not ok_gpu then
-  print("SKIP: CUDA backend not available")
+  print("SKIP: GPU backend not available")
   os.exit(0)
 end
 
@@ -26,11 +26,16 @@ describe("DeviceInfo CUDA Tests", function()
     assert.is_true(#name > 0)
   end)
 
-  it("device_name cuda alias", function()
-    local name = ins.device_name("cuda", 0)
-    assert.is_not_nil(name)
+  it("active_gpu_backend_name", function()
+    local name = ins.active_gpu_backend_name()
     assert.is_string(name)
     assert.is_true(#name > 0)
+  end)
+
+  it("device_name rejects backend name", function()
+    assert.has_error(function()
+      ins.device_name(ins.active_gpu_backend_name(), 0)
+    end)
   end)
 
   it("gpu_version positive", function()
@@ -51,15 +56,14 @@ describe("DeviceInfo CUDA Tests", function()
     assert.is_true(cc > 0)
   end)
 
-  it("compute_capability range", function()
+  it("compute_capability stays positive", function()
     local cc = ins.compute_capability(0)
-    assert.is_true(cc >= 30 and cc <= 100)
+    assert.is_true(cc > 0)
   end)
 
-  it("gpu_version format", function()
+  it("gpu_version stays positive", function()
     local ver = ins.gpu_version()
-    local major = math.floor(ver / 1000)
-    assert.is_true(major >= 11)
+    assert.is_true(ver > 0)
   end)
 
   it("device_name stable", function()

@@ -1,4 +1,4 @@
-// tests/cuda/test_device_info.cu
+// tests/cuda/test_device_info.cpp
 #include "insight/core/place.h"
 #include "insight/init.h"
 #include <gtest/gtest.h>
@@ -8,7 +8,7 @@ using namespace ins;
 
 class DeviceInfoTestGPU : public ::testing::Test {
 protected:
-  static void SetUpTestSuite() { ins::init({"cpu", "iluvatar"}); }
+  static void SetUpTestSuite() { ins::init(); }
 };
 
 TEST_F(DeviceInfoTestGPU, GPUDeviceCount) {
@@ -22,8 +22,8 @@ TEST_F(DeviceInfoTestGPU, GPUDeviceName) {
   EXPECT_NE(name, "CPU");
 }
 
-TEST_F(DeviceInfoTestGPU, CudaVersion) {
-  int ver = cuda_version();
+TEST_F(DeviceInfoTestGPU, GpuRuntimeVersion) {
+  int ver = gpu_runtime_version();
   EXPECT_GT(ver, 0);
 }
 
@@ -35,7 +35,12 @@ TEST_F(DeviceInfoTestGPU, DriverVersion) {
 TEST_F(DeviceInfoTestGPU, ComputeCapability) {
   int cap = compute_capability(0);
   EXPECT_GT(cap, 0);
-  EXPECT_GE(cap, 50);
+}
+
+TEST_F(DeviceInfoTestGPU, ActiveGpuBackendName) {
+  std::string name = active_gpu_backend_name();
+  EXPECT_FALSE(name.empty());
+  EXPECT_NE(name, "gpu");
 }
 
 TEST_F(DeviceInfoTestGPU, DeviceMemory) {

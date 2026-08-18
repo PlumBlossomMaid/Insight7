@@ -9,10 +9,10 @@ using Insight
 
 # Try GPU
 try
-    Insight.load_backend("cuda")
+    Insight.load_backend("gpu")
     Insight.set_device(Insight.GPUPlace(0))
 catch e
-    println("SKIP: CUDA backend not available: $e")
+    println("SKIP: GPU backend not available: $e")
     exit(0)
 end
 

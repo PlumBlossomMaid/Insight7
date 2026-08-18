@@ -40,7 +40,7 @@ local _SLOW_TIMES = nil
 
 local function init_cache(device)
   if device == "gpu" and ins.has_device("gpu") then
-    ins.load_backend("rocm")
+    ins.init()
     _PLACE = ins.GPUPlace(0)
   else
     _PLACE = ins.CPUPlace()
@@ -227,7 +227,7 @@ end
 -- ============================================================
 local function run_frame(delays, dopplers, device, seed, external_noise_r, external_noise_i, prof)
   if device == "gpu" and ins.has_device("gpu") then
-    ins.load_backend("rocm")
+    ins.init()
     ins.set_device(ins.GPUPlace(0))
   else
     ins.set_device(ins.CPUPlace())

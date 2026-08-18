@@ -26,6 +26,9 @@ test_cpu_support.csv
 test_cuda_support.csv
 .qwen/
 
+# Local dependency checkouts used by FetchContent fallback
+third_party/matplotplusplus/
+
 # IDE files
 .vscode/
 .idea/

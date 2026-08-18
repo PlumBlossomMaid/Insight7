@@ -10,7 +10,7 @@ using namespace ins;
 class CsvTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "iluvatar"});
+    ins::init();
     try {
       set_device(GPUPlace(0));
     } catch (...) {

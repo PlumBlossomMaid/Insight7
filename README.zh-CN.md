@@ -176,8 +176,8 @@ f, Pxx = ins.signal.welch(x, fs=1000)
 local ins = require("insight")
 -- 后端自动检测，有 GPU 时自动选择
 
-print(ins.get_device())       -- "cuda:0" 或 "cpu:0"
-print(ins.gpu_version())      -- 11080 (CUDA 11.8)
+print(ins.get_device())       -- "gpu:0" 或 "cpu:0"
+print(ins.gpu_version())      -- GPU runtime 版本，无 GPU 时为 0
 
 local a = ins.rand({1000, 1000})
 local b = ins.randn({1000, 1000})

@@ -176,8 +176,8 @@ f, Pxx = ins.signal.welch(x, fs=1000)
 local ins = require("insight")
 -- Backend auto-detected, GPU selected when available
 
-print(ins.get_device())       -- "cuda:0" or "cpu:0"
-print(ins.gpu_version())      -- 11080 (CUDA 11.8)
+print(ins.get_device())       -- "gpu:0" or "cpu:0"
+print(ins.gpu_version())      -- GPU runtime version, 0 if no GPU
 
 local a = ins.rand({1000, 1000})
 local b = ins.randn({1000, 1000})

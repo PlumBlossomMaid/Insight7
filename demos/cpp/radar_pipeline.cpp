@@ -402,7 +402,7 @@ int main(int argc, char *argv[]) {
   bool do_all = (eff_device == "all");
   Place place = CPUPlace();
   if (use_gpu) {
-    load_backend("cuda");
+    init();
     place = GPUPlace(0);
   }
   if (!do_all)

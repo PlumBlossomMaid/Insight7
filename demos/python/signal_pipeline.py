@@ -219,7 +219,7 @@ def estimate_parameters(inst_freq, fs, peaks):
 # ============================================================
 def run_pipeline(device="cpu"):
     if device == "gpu" and ins.has_device("gpu"):
-        ins.load_backend("cuda")
+        ins.init()
         ins.set_device(ins.GPUPlace(0))
     else:
         if device == "gpu":

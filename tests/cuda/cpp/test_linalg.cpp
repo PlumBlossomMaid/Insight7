@@ -21,7 +21,7 @@ using namespace ins;
 class LinalgTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "iluvatar"});
+    ins::init();
     try {
       set_device(GPUPlace(0));
     } catch (...) {
@@ -110,7 +110,7 @@ static bool check_matrix_equal(const Array &gpu_A, const Array &gpu_B,
 // ============================================================================
 
 TEST_F(LinalgTestGPU, MatMul2x2F64) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (use F32 variant)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (use F32 variant)";
 }
 
 TEST_F(LinalgTestGPU, MatMul2x2F32) {
@@ -126,7 +126,7 @@ TEST_F(LinalgTestGPU, MatMul2x2F32) {
 }
 
 TEST_F(LinalgTestGPU, MatMulNonSquare) {
-  // Iluvatar: skip F64 block (hardware limit) - F32 block below
+  // IXUCA-only: skip F64 block (hardware limit) - F32 block below
   {
     Array A = make_gpu_matrix_f32(2, 3, {1, 2, 3, 4, 5, 6});
     Array B = make_gpu_matrix_f32(3, 2, {7, 8, 9, 10, 11, 12});
@@ -145,7 +145,7 @@ TEST_F(LinalgTestGPU, MatMulNonSquare) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, Det2x2) {
-  // Iluvatar: skip F64 block (hardware limit) - F32 block below
+  // IXUCA-only: skip F64 block (hardware limit) - F32 block below
   {
     Array A = make_gpu_matrix_f32(2, 2, {1, 2, 3, 4});
     Array d = det(A);
@@ -155,7 +155,7 @@ TEST_F(LinalgTestGPU, Det2x2) {
 }
 
 TEST_F(LinalgTestGPU, Det3x3) {
-  // Iluvatar: skip F64 block (hardware limit) - F32 block below
+  // IXUCA-only: skip F64 block (hardware limit) - F32 block below
   {
     Array A = make_gpu_matrix_f32(3, 3, {1, 2, 3, 2, 5, 3, 1, 0, 8});
     Array d = det(A);
@@ -165,7 +165,7 @@ TEST_F(LinalgTestGPU, Det3x3) {
 }
 
 TEST_F(LinalgTestGPU, DetIdentity) {
-  // Iluvatar: skip F64 block (hardware limit) - F32 block below
+  // IXUCA-only: skip F64 block (hardware limit) - F32 block below
   {
     Array A = make_gpu_matrix_f32(3, 3, {1, 0, 0, 0, 1, 0, 0, 0, 1});
     Array d = det(A);
@@ -179,7 +179,7 @@ TEST_F(LinalgTestGPU, DetIdentity) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, Slogdet2x2) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 // ============================================================================
@@ -187,7 +187,7 @@ TEST_F(LinalgTestGPU, Slogdet2x2) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, Inv2x2) {
-  // Iluvatar: skip F64 block (hardware limit) - F32 block below
+  // IXUCA-only: skip F64 block (hardware limit) - F32 block below
   {
     Array A = make_gpu_matrix_f32(2, 2, {1, 2, 3, 4});
     Array invA = inv(A);
@@ -201,7 +201,7 @@ TEST_F(LinalgTestGPU, Inv2x2) {
 }
 
 TEST_F(LinalgTestGPU, Inv3x3) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 // ============================================================================
@@ -209,7 +209,7 @@ TEST_F(LinalgTestGPU, Inv3x3) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, Solve3x3) {
-  // Iluvatar: skip F64 block (hardware limit) - F32 block below
+  // IXUCA-only: skip F64 block (hardware limit) - F32 block below
   {
     Array A = make_gpu_matrix_f32(3, 3, {3, 2, -1, 2, -2, 4, -1, 0.5, -1});
     Array b = make_gpu_vector_f32({1.0f, -2.0f, 0.0f});
@@ -227,7 +227,7 @@ TEST_F(LinalgTestGPU, Solve3x3) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, Cholesky3x3) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 // ============================================================================
@@ -235,11 +235,11 @@ TEST_F(LinalgTestGPU, Cholesky3x3) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, QR3x3) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 TEST_F(LinalgTestGPU, QR3x2) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 // ============================================================================
@@ -247,7 +247,7 @@ TEST_F(LinalgTestGPU, QR3x2) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, SVD3x3) {
-  // Iluvatar: skip F64 block (hardware limit) - F32 block below
+  // IXUCA-only: skip F64 block (hardware limit) - F32 block below
   {
     Array A = make_gpu_matrix_f32(
         3, 3, {1.0f, 0.0f, 0.0f, 0.0f, 2.0f, 0.0f, 0.0f, 0.0f, 3.0f});
@@ -261,7 +261,7 @@ TEST_F(LinalgTestGPU, SVD3x3) {
 }
 
 TEST_F(LinalgTestGPU, SVDvals) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 // ============================================================================
@@ -269,11 +269,11 @@ TEST_F(LinalgTestGPU, SVDvals) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, Eigh3x3) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 TEST_F(LinalgTestGPU, Eigvalsh) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 // ============================================================================
@@ -281,7 +281,7 @@ TEST_F(LinalgTestGPU, Eigvalsh) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, Dot) {
-  // Iluvatar: skip F64 block (hardware limit) - F32 block below
+  // IXUCA-only: skip F64 block (hardware limit) - F32 block below
   {
     Array a = make_gpu_vector_f32({1.0f, 2.0f, 3.0f});
     Array b = make_gpu_vector_f32({4.0f, 5.0f, 6.0f});
@@ -292,7 +292,7 @@ TEST_F(LinalgTestGPU, Dot) {
 }
 
 TEST_F(LinalgTestGPU, Outer) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 // ============================================================================
@@ -300,7 +300,7 @@ TEST_F(LinalgTestGPU, Outer) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, MatrixPower2x2) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 TEST_F(LinalgTestGPU, MatrixPowerZero) {
@@ -321,7 +321,7 @@ TEST_F(LinalgTestGPU, MatrixPowerZero) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, Trace) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 // ============================================================================
@@ -329,11 +329,11 @@ TEST_F(LinalgTestGPU, Trace) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, NormVector2) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 TEST_F(LinalgTestGPU, NormMatrixFrobenius) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 // ============================================================================
@@ -341,11 +341,11 @@ TEST_F(LinalgTestGPU, NormMatrixFrobenius) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, SolveTriangularUpper) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 TEST_F(LinalgTestGPU, SolveTriangularLower) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 // ============================================================================
@@ -368,7 +368,7 @@ TEST_F(LinalgTestGPU, LuDecomposition) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, LqDecomposition) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 // ============================================================================
@@ -389,7 +389,7 @@ TEST_F(LinalgTestGPU, Cond) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, SolveMultipleRHS) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 // ============================================================================
@@ -397,7 +397,7 @@ TEST_F(LinalgTestGPU, SolveMultipleRHS) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, QRSquareRandom) {
-  GTEST_SKIP() << "Iluvatar: QR random test uses F64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: QR random test uses F64 (hardware limit)";
 }
 
 // ============================================================================
@@ -405,11 +405,11 @@ TEST_F(LinalgTestGPU, QRSquareRandom) {
 // ============================================================================
 
 TEST_F(LinalgTestGPU, Pinv2x2) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 TEST_F(LinalgTestGPU, PinvRectangular) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 // ============================================================================
@@ -469,7 +469,7 @@ TEST_F(LinalgTestGPU, LstsqOverdetermined) {
 }
 
 TEST_F(LinalgTestGPU, LstsqUnderdetermined) {
-  GTEST_SKIP() << "Iluvatar: no native FP64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64 (hardware limit)";
 }
 
 // ============================================================================
@@ -506,5 +506,5 @@ TEST_F(LinalgTestGPU, SvdF32) {
 }
 
 TEST_F(LinalgTestGPU, Cov) {
-  GTEST_SKIP() << "Iluvatar: Cov uses F64 (hardware limit)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: Cov uses F64 (hardware limit)";
 }

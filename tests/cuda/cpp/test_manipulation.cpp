@@ -9,7 +9,7 @@ using namespace ins;
 class ManipulationTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "iluvatar"});
+    ins::init();
     try {
       set_device(GPUPlace(0));
     } catch (...) {
@@ -489,11 +489,11 @@ TEST_F(ManipulationTestGPU, Hstack) {
 // ========== diff tests ==========
 
 TEST_F(ManipulationTestGPU, Diff1DBasic) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(ManipulationTestGPU, Diff2ndOrder) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(ManipulationTestGPU, DiffInt) {
@@ -507,7 +507,7 @@ TEST_F(ManipulationTestGPU, DiffInt) {
 }
 
 TEST_F(ManipulationTestGPU, DiffWithNegativeAxis) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(ManipulationTestGPU, Diff2DAxis0) {

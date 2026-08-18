@@ -9,7 +9,7 @@ using namespace ins;
 class ReductionTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "iluvatar"});
+    ins::init();
     try {
       set_device(GPUPlace(0));
     } catch (...) {
@@ -184,7 +184,7 @@ TEST_F(ReductionTestGPU, ArgMaxArgMin2D) {
 // ========== Var/Std ==========
 
 TEST_F(ReductionTestGPU, VarStd2D) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // ========== Cumulative Operations ==========
@@ -345,7 +345,7 @@ TEST_F(ReductionTestGPU, NanMedianNanQuantile) {
   EXPECT_NEAR(nanquantile(x, 0.25).to(CPUPlace()).item<float>(), 2.0, 1e-5);
 }
 
-// ========== 3D Tensors ==========
+// ========== 3D Arrays ==========
 
 TEST_F(ReductionTestGPU, Sum3D) {
   Array x = arange_3d_gpu(2, 3, 4); // values 0..23
@@ -412,14 +412,13 @@ TEST_F(ReductionTestGPU, KeepdimFlag) {
 // ========== Dtype Consistency ==========
 
 TEST_F(ReductionTestGPU, DtypeConsistency) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // ========== bincount tests ==========
 
 TEST_F(ReductionTestGPU, BincountBasic) {
-  GTEST_SKIP()
-      << "Iluvatar: Bincount kernel produces wrong results (CoreX compat bug)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: Bincount kernel produces wrong results (CoreX compat bug)";
 }
 
 TEST_F(ReductionTestGPU, BincountWithWeights) {
@@ -438,8 +437,7 @@ TEST_F(ReductionTestGPU, BincountWithWeights) {
 }
 
 TEST_F(ReductionTestGPU, BincountMinlength) {
-  GTEST_SKIP()
-      << "Iluvatar: Bincount kernel produces wrong results (CoreX compat bug)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: Bincount kernel produces wrong results (CoreX compat bug)";
 }
 
 TEST_F(ReductionTestGPU, BincountEmpty) {

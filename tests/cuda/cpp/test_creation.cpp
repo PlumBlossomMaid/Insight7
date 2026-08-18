@@ -11,7 +11,7 @@ using namespace ins;
 class CreationTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "iluvatar"});
+    ins::init();
     set_device(ins::GPUPlace(0));
   }
 };
@@ -173,8 +173,7 @@ TEST_F(CreationTestGPU, EyeNegativeOffset) {
 // ============================================================================
 
 TEST_F(CreationTestGPU, ArangeSingle) {
-  GTEST_SKIP()
-      << "Iluvatar: Arange on GPU produces wrong results (CoreX compat)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: Arange on GPU produces wrong results (CoreX compat)";
 }
 
 TEST_F(CreationTestGPU, ArangeStartStop) {
@@ -217,7 +216,7 @@ TEST_F(CreationTestGPU, ArangeFloat) {
 }
 
 TEST_F(CreationTestGPU, ArangeFloat64) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // ============================================================================
@@ -249,7 +248,7 @@ TEST_F(CreationTestGPU, LinspaceSingle) {
 }
 
 TEST_F(CreationTestGPU, LinspaceFloat64) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(CreationTestGPU, LinspaceNegativeRange) {
@@ -269,20 +268,19 @@ TEST_F(CreationTestGPU, LinspaceNegativeRange) {
 // ============================================================================
 
 TEST_F(CreationTestGPU, Logspace) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(CreationTestGPU, LogspaceBase2) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(CreationTestGPU, LogspaceFloat64) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(CreationTestGPU, LogspaceSingle) {
-  GTEST_SKIP()
-      << "Iluvatar: Logspace on GPU produces wrong results (CoreX compat)";
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: Logspace on GPU produces wrong results (CoreX compat)";
 }
 
 // ============================================================================

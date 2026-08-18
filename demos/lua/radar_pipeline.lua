@@ -142,7 +142,7 @@ end
 -- ============================================================
 local function init_cache(device)
   if device == "gpu" and ins.has_device("gpu") then
-    ins.load_backend("rocm")
+    ins.init()
     _PLACE = ins.GPUPlace(0)
   else
     _PLACE = ins.CPUPlace()

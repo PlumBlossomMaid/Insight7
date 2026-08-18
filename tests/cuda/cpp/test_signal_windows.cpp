@@ -15,11 +15,11 @@ namespace {
 class SignalWindowsTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "iluvatar"});
+    ins::init();
     try {
       set_device(GPUPlace(0));
-      // Iluvatar: signal API uses F64
-      GTEST_SKIP() << "Iluvatar: signal API uses F64 (hardware limit)";
+      // IXUCA-only: signal API uses F64
+      if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: signal API uses F64 (hardware limit)";
     } catch (...) {
       GTEST_SKIP() << "GPU not available";
     }

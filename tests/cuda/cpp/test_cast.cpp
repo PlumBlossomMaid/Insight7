@@ -88,7 +88,7 @@ void expect_complex_values(const Array &input,
 class CastTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "iluvatar"});
+    ins::init();
     set_device(ins::GPUPlace(0));
   }
 };
@@ -208,7 +208,9 @@ TEST_F(CastTestGPU, F32ToAll) {
 }
 
 // Test 5: F64 to all types
-TEST_F(CastTestGPU, F64ToAll) { GTEST_SKIP() << "Iluvatar: no native FP64"; }
+TEST_F(CastTestGPU, F64ToAll) {
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+}
 
 // Test 6: C32 to all types
 TEST_F(CastTestGPU, C32ToAll) {
@@ -235,7 +237,9 @@ TEST_F(CastTestGPU, C32ToAll) {
 }
 
 // Test 7: C64 to all types
-TEST_F(CastTestGPU, C64ToAll) { GTEST_SKIP() << "Iluvatar: no native FP64"; }
+TEST_F(CastTestGPU, C64ToAll) {
+  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+}
 
 // Test 8: Type promotion in add requires cast
 TEST_F(CastTestGPU, AddTypePromotionUsesCast) {

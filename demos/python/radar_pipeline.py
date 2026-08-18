@@ -89,7 +89,7 @@ def _init_cache(device="cpu"):
     global _T, _COMPOSITE_BASE, _TAPS, _GAUSS_KERNEL, _CWT_WAVELETS, _PLACE
 
     if device == "gpu" and ins.has_device("gpu"):
-        ins.load_backend("cuda")
+        ins.init()
         _PLACE = ins.GPUPlace(0)
     else:
         _PLACE = ins.CPUPlace()

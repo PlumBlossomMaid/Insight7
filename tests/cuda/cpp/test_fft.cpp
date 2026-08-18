@@ -23,9 +23,9 @@ using namespace ins;
 class FFTTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "iluvatar"});
+    ins::init();
     set_device(GPUPlace(0));
-    GTEST_SKIP() << "Iluvatar: FFT uses F64";
+    if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: FFT uses F64";
   }
 };
 

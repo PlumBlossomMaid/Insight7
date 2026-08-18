@@ -26,9 +26,9 @@ except ImportError:
 
 # Skip if CUDA not available
 try:
-    ins.load_backend("cuda")
+    ins.init()
 except Exception:
-    pytest.skip("CUDA backend not available", allow_module_level=True)
+    pytest.skip("GPU backend not available", allow_module_level=True)
 
 GPU = ins.GPUPlace(0)
 CPU = ins.CPUPlace()

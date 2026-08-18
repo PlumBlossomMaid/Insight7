@@ -21,11 +21,11 @@ try:
 except ImportError:
     pytest.skip("Insight or NumPy not available", allow_module_level=True)
 try:
-    ins.load_backend("cuda")
+    ins.init()
     if ins.device_count() == 0:
         pytest.skip("No GPU available", allow_module_level=True)
 except Exception:
-    pytest.skip("CUDA backend not available", allow_module_level=True)
+    pytest.skip("GPU backend not available", allow_module_level=True)
 
 
 class TestKaiserBeta:
