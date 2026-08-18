@@ -58,7 +58,7 @@ void insight_jl_init() {
   }
 }
 
-// Load an additional backend (e.g. "cuda"). Returns 1 on success, 0 on failure.
+// Load an additional backend. Use "gpu" for the selected GPU backend.
 int32_t insight_jl_load_backend(const char *backend) {
   try {
     ins::load_backend(std::string(backend));
@@ -114,13 +114,27 @@ Array *insight_jl_at_index(const Array *arr, const int64_t *indices,
 // Device information
 // ============================================================================
 
-void insight_jl_device_name(int32_t device_id, char *buf, size_t buf_size) {
-  std::string name = device_name(DeviceKind::GPU, device_id);
+void insight_jl_device_name(int32_t device_kind, int32_t device_id, char *buf,
+                            size_t buf_size) {
+  DeviceKind kind = device_kind == 1 ? DeviceKind::GPU : DeviceKind::CPU;
+  std::string name = device_name(kind, device_id);
   std::strncpy(buf, name.c_str(), buf_size - 1);
   buf[buf_size - 1] = '\0';
 }
 
-int32_t insight_jl_cuda_version() { return cuda_version(); }
+void insight_jl_active_gpu_backend_name(char *buf, size_t buf_size) {
+  std::string name = active_gpu_backend_name();
+  std::strncpy(buf, name.c_str(), buf_size - 1);
+  buf[buf_size - 1] = '\0';
+}
+
+void insight_jl_active_gpu_backend_version(char *buf, size_t buf_size) {
+  std::string version = active_gpu_backend_version();
+  std::strncpy(buf, version.c_str(), buf_size - 1);
+  buf[buf_size - 1] = '\0';
+}
+
+int32_t insight_jl_gpu_runtime_version() { return gpu_runtime_version(); }
 int32_t insight_jl_driver_version() { return driver_version(); }
 int32_t insight_jl_compute_capability(int32_t device_id) {
   return compute_capability(device_id);

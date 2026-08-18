@@ -9,7 +9,7 @@ source = {
 description = {
     summary = "Insight7 — lightweight scientific computing framework for Lua",
     detailed = [[
-        Insight is a C++ tensor computing framework with GPU support.
+        Insight is a C++ array computing framework with GPU support.
         This package provides Lua/LuaJIT bindings via sol2 with
         Penlight-enhanced API wrappers. Supports signal processing,
         linear algebra, FFT, and more.

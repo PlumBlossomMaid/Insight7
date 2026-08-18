@@ -15,6 +15,7 @@
 #define SOL_NO_EXCEPTIONS 0
 #include <sol/sol.hpp>
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -111,6 +112,26 @@ static void infer_lua_shape(sol::table t, std::vector<int64_t> &shape,
         std::to_string(INSIGHT_MAX_NDIM) + ") at " + path);
   }
   int64_t len = static_cast<int64_t>(t.size());
+  int64_t entry_count = 0;
+  int64_t max_index = 0;
+  bool has_invalid_key = false;
+  t.for_each([&](sol::object key, sol::object) {
+    if (!key.is<int64_t>()) {
+      has_invalid_key = true;
+      return;
+    }
+    int64_t index = key.as<int64_t>();
+    if (index < 1) {
+      has_invalid_key = true;
+      return;
+    }
+    ++entry_count;
+    max_index = std::max(max_index, index);
+  });
+  if (has_invalid_key || entry_count != len || max_index != len) {
+    throw std::runtime_error("Lua table must contain contiguous array indices at " +
+                             path);
+  }
   if (depth >= static_cast<int>(shape.size())) {
     shape.push_back(len);
   } else if (shape[depth] != len) {
@@ -355,11 +376,15 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   m["device_name"] = [](sol::optional<std::string> kind,
                         sol::optional<int> device_id) {
     std::string k = kind.value_or("cpu");
-    ins::DeviceKind dk = (k == "gpu" || k == "cuda") ? ins::DeviceKind::GPU
-                                                     : ins::DeviceKind::CPU;
-    return ins::device_name(dk, device_id.value_or(0));
+    if (k == "gpu")
+      return ins::device_name(ins::DeviceKind::GPU, device_id.value_or(0));
+    if (k == "cpu")
+      return ins::device_name(ins::DeviceKind::CPU, device_id.value_or(0));
+    throw std::runtime_error("device_name() expects 'cpu' or 'gpu'");
   };
-  m["gpu_version"] = []() { return ins::cuda_version(); };
+  m["active_gpu_backend_name"] = []() { return ins::active_gpu_backend_name(); };
+  m["active_gpu_backend_version"] = []() { return ins::active_gpu_backend_version(); };
+  m["gpu_version"] = []() { return ins::gpu_runtime_version(); };
   m["driver_version"] = []() { return ins::driver_version(); };
   m["compute_capability"] = [](sol::optional<int> device_id) {
     return ins::compute_capability(device_id.value_or(0));

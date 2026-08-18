@@ -229,8 +229,8 @@ luajit tests/bindings/test_lua_binding.lua
 local ins = require("insight")
 -- Backend auto-detected (GPU when available, no manual init needed)
 
-print(ins.get_device())       -- "cuda:0" or "cpu:0"
-print(ins.gpu_version())      -- 11080 (CUDA 11.8), 0 if no GPU
+print(ins.get_device())       -- "gpu:0" or "cpu:0"
+print(ins.gpu_version())      -- GPU runtime version, 0 if no GPU
 
 -- Array creation (default: current device)
 local a = ins.zeros({2, 3}, ins.float32)

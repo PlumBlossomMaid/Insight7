@@ -35,6 +35,7 @@
 
 #include <cmath>
 #include <csignal>
+#include <cstring>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -251,6 +252,54 @@ static py::array to_numpy(const Array &arr) {
   return py::array(np_dt, shape, strides, owner->data(), base);
 }
 
+static int dlpack_device_type(const Array &arr) {
+  return arr.place().is_cpu() ? 1 : 2;
+}
+
+static py::tuple dlpack_device(const Array &arr) {
+  return py::make_tuple(dlpack_device_type(arr), arr.place().device_id());
+}
+
+static py::dict array_interface(const Array &arr) {
+  if (!arr.place().is_cpu()) {
+    throw py::value_error(
+        "__array_interface__ is only available for CPU arrays; use numpy() "
+        "for an explicit host copy");
+  }
+  py::dtype np_dt = dtype_to_numpy(arr.dtype());
+  size_t itemsize = dtype_size(arr.dtype());
+
+  py::tuple shape(arr.shape().ndim());
+  py::tuple strides(arr.shape().ndim());
+  for (int i = 0; i < arr.shape().ndim(); ++i) {
+    shape[i] = py::int_(arr.shape().dim(i));
+    strides[i] = py::int_(arr.strides()[i] * itemsize);
+  }
+
+  py::dict iface;
+  iface["shape"] = shape;
+  iface["typestr"] = np_dt.attr("str");
+  iface["data"] = py::make_tuple(
+      py::int_(reinterpret_cast<uintptr_t>(arr.data())), py::bool_(false));
+  if (!arr.is_contiguous()) {
+    iface["strides"] = strides;
+  }
+  iface["version"] = py::int_(3);
+  return iface;
+}
+
+static py::capsule to_dlpack_cpu(const Array &arr) {
+  if (!arr.place().is_cpu()) {
+    throw py::value_error(
+        "__dlpack__ currently supports CPU arrays only; use numpy() for an "
+        "explicit host copy");
+  }
+  py::module_ np = py::module_::import("numpy");
+  py::array np_arr = to_numpy(arr);
+  py::object dlpack = np_arr.attr("__dlpack__")();
+  return dlpack.cast<py::capsule>();
+}
+
 // ============================================================================
 // Array __repr__
 // ============================================================================
@@ -310,7 +359,7 @@ PYBIND11_MODULE(_insight, m) {
         }
       },
       py::arg("backend"),
-      "Load an additional backend after init() (e.g., 'cuda', 'rocm')");
+      "Load an additional backend after init() ('gpu' for selected GPU backend)");
 
   m.def(
       "add_backend_search_path",
@@ -341,18 +390,24 @@ PYBIND11_MODULE(_insight, m) {
   m.def(
       "device_name",
       [](const std::string &kind, int device_id) {
-        DeviceKind dk = (kind == "gpu" || kind == "cuda") ? DeviceKind::GPU
-                                                          : DeviceKind::CPU;
-        return device_name(dk, device_id);
+        if (kind == "gpu")
+          return device_name(DeviceKind::GPU, device_id);
+        if (kind == "cpu")
+          return device_name(DeviceKind::CPU, device_id);
+        throw py::value_error("device_name() expects 'cpu' or 'gpu'");
       },
       py::arg("kind") = "cpu", py::arg("device_id") = 0,
-      "Get the name of a device");
+      "Get the public cpu/gpu device name; concrete backend diagnostics use active_gpu_backend_name().");
+  m.def("active_gpu_backend_name", &ins::active_gpu_backend_name,
+        "Get the active concrete GPU backend name");
+  m.def("active_gpu_backend_version", &ins::active_gpu_backend_version,
+        "Get the active concrete GPU backend version string");
   m.def(
-      "gpu_version", []() { return cuda_version(); },
+      "gpu_version", []() { return gpu_runtime_version(); },
       "Get the GPU runtime version (major*1000+minor*10, 0 if not available)");
   m.def(
       "driver_version", []() { return driver_version(); },
-      "Get the CUDA driver version (major*1000+minor*10, 0 if not available)");
+      "Get the GPU driver version (major*1000+minor*10, 0 if not available)");
   m.def(
       "compute_capability",
       [](int device_id) { return compute_capability(device_id); },
@@ -787,10 +842,27 @@ PYBIND11_MODULE(_insight, m) {
            [](const Array &a, const Array &b) { return greater_equal(a, b); })
       // --- bool ---
       .def("__bool__", [](const Array &a) { return static_cast<bool>(a); })
-      // --- NumPy interop ---
+      // --- NumPy / array interop ---
       .def(
           "numpy", [](const Array &a) { return to_numpy(a); },
-          "Convert to NumPy array (CPU only)")
+          "Convert to NumPy array via an explicit host copy")
+      .def("__array__", [](const Array &a) { return to_numpy(a); })
+      .def("__array__",
+           [](const Array &a, py::object dtype) {
+             py::array out = to_numpy(a);
+             if (!dtype.is_none())
+               out = out.attr("astype")(dtype, py::arg("copy") = false);
+             return out;
+           },
+           py::arg("dtype") = py::none())
+      .def_property_readonly("__array_interface__", &array_interface)
+      .def("__dlpack_device__", &dlpack_device)
+      .def("__dlpack__",
+           [](const Array &a, py::object, py::object, py::object, py::object) {
+             return to_dlpack_cpu(a);
+           },
+           py::arg("stream") = py::none(), py::arg("max_version") = py::none(),
+           py::arg("dl_device") = py::none(), py::arg("copy") = py::none())
       .def_static(
           "from_numpy", [](py::array arr) { return from_numpy(arr); },
           "Create Insight Array from NumPy array")

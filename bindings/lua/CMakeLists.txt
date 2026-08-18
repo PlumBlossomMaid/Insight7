@@ -3,12 +3,11 @@
 # Lua/LuaJIT bindings via sol2 (header-only).
 #
 # Usage:
-#   cmake .. -DINSIGHT_BUILD_LUA=ON -DLUA_DIR=/path/to/lua
+#   cmake .. -DINSIGHT_BUILD_LUA_BINDING=ON -DLUA_DIR=/path/to/lua
 #
 # The built module is always _insight.so, loadable by require("_insight").
 
-option(INSIGHT_BUILD_LUA "Build Lua bindings" ON)
-if(NOT INSIGHT_BUILD_LUA)
+if(NOT INSIGHT_BUILD_LUA_BINDING)
     return()
 endif()
 
@@ -74,19 +73,23 @@ target_link_libraries(insight_lua PRIVATE
 
 target_compile_features(insight_lua PRIVATE cxx_std_17)
 
-# Ensure backend is built before POST_BUILD copy
+# Ensure available backends are built before POST_BUILD copy.
 add_dependencies(insight_lua insight_cpu_backend)
+foreach(_backend_target insight_cuda_backend insight_rocm_backend insight_ixuca_backend insight_sdaa_backend)
+    if(TARGET ${_backend_target})
+        add_dependencies(insight_lua ${_backend_target})
+    endif()
+endforeach()
 
-# Copy binding + CPU backend using cross-platform generator expressions
 add_custom_command(TARGET insight_lua POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         $<TARGET_FILE:insight_lua>
         "${CMAKE_SOURCE_DIR}/bindings/lua/$<TARGET_FILE_NAME:insight_lua>"
-    # Copy CPU backend for dlopen
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "$<TARGET_FILE:insight_cpu_backend>"
-        "${CMAKE_SOURCE_DIR}/bindings/lua/$<TARGET_FILE_NAME:insight_cpu_backend>"
-    COMMENT "Copying Lua binding + CPU backend"
+    COMMAND ${CMAKE_COMMAND}
+        -DSRC_DIR="${CMAKE_BINARY_DIR}/backends"
+        -DDST_DIR="${CMAKE_SOURCE_DIR}/bindings/lua"
+        -P "${CMAKE_CURRENT_SOURCE_DIR}/copy_backends.cmake"
+    COMMENT "Copying Lua binding and backend libraries"
 )
 
 message(STATUS "Lua bindings enabled")

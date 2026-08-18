@@ -9,7 +9,7 @@ source = {
 description = {
     summary = "Insight7 — lightweight scientific computing framework for Lua",
     detailed = [[
-        Insight is a C++ tensor computing framework with GPU support.
+        Insight is a C++ array computing framework with GPU support.
         This package provides Lua/LuaJIT bindings via sol2 with
         Penlight-enhanced API wrappers.
     ]],
@@ -30,30 +30,33 @@ external_dependencies = {
 }
 
 build = {
-    type = "cmake",
+    type = "command",
 
-    variables = {
-        CMAKE_BUILD_TYPE = "Release",
-        INSIGHT_BUILD_TESTS = "OFF",
-        INSIGHT_BUILD_DEMOS = "OFF",
-        INSIGHT_BUILD_BINDINGS = "ON",
-        INSIGHT_BUILD_PYTHON_BINDING = "OFF",
-        INSIGHT_BUILD_JULIA_BINDING = "OFF",
-        INSIGHT_BUILD_LUA_BINDING = "ON",
-        INSIGHT_WITH_CUDA = "OFF",
-        LUA_INCLUDE_DIR = "$(LUA_INCDIR)",
-        LUA_LIBDIR = "$(LUA_LIBDIR)",
-        CMAKE_INSTALL_PREFIX = "$(PREFIX)",
-        LUADIR = "$(LUADIR)",
-        LIBDIR = "$(LIBDIR)",
-    },
+    build_command = [[
+        cmake -S . -B build.luarocks \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DINSIGHT_BUILD_TESTS=OFF \
+            -DINSIGHT_BUILD_DEMOS=OFF \
+            -DINSIGHT_BUILD_BINDINGS=ON \
+            -DINSIGHT_BUILD_PYTHON_BINDING=OFF \
+            -DINSIGHT_BUILD_JULIA_BINDING=OFF \
+            -DINSIGHT_BUILD_LUA_BINDING=ON \
+            -DINSIGHT_WITH_CUDA=ON \
+            -DINSIGHT_USE_FFTW3=ON \
+            -DINSIGHT_USE_OPENBLAS=ON \
+            -DLUA_INCLUDE_DIR="$(LUA_INCDIR)" \
+            && cmake --build build.luarocks -j "${CMAKE_BUILD_PARALLEL_LEVEL:-4}"
+    ]],
 
-    install = {
-        lua = {
-            ["insight"] = "bindings/lua/insight/init.lua",
-        },
-        lib = {
-            "insight.so",
-        },
-    },
+    install_command = [[
+        mkdir -p "$(LIBDIR)" "$(LUADIR)/insight" && \
+        cp build.luarocks/bindings/lua/_insight.so "$(LIBDIR)/" 2>/dev/null || \
+        cp build.luarocks/bindings/lua/_insight.dll "$(LIBDIR)/" && \
+        for f in build.luarocks/backends/*/*insight*backend*.so \
+                 build.luarocks/backends/*/*insight*backend*.dll; do \
+            [ -f "$f" ] && cp "$f" "$(LIBDIR)/" 2>/dev/null || true; \
+        done && \
+        cp bindings/lua/insight/init.lua "$(LUADIR)/insight/" && \
+        cp bindings/lua/insight/*.lua "$(LUADIR)/insight/" 2>/dev/null || true
+    ]],
 }

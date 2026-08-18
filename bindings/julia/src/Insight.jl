@@ -74,7 +74,8 @@ export Array, zeros, ones, full, arange, linspace, eye,
        csd, coherence, spectrogram, stft, vectorstrength, lombscargle,
        choose_conv_method, firfilter_zi_state,
        # Device info
-       device_name, gpu_version, driver_version, compute_capability,
+       device_name, active_gpu_backend_name, active_gpu_backend_version,
+       gpu_version, driver_version, compute_capability,
        device_memory, device_memory_info, gpu_count, load_backend, has_device,
        get_device, set_device,
        # Profiler / Timer
@@ -132,7 +133,7 @@ end
 """
     load_backend(name::String)::Bool
 
-Load an additional backend (e.g. "cuda"). Returns true on success.
+Load an additional backend. Use "gpu" for the selected GPU backend.
 """
 function load_backend(name::String)::Bool
     ccall((:insight_jl_load_backend, LIB_INSIGHT), Int32, (Cstring,), name) == 1
@@ -224,16 +225,38 @@ end
 # Device information
 # ============================================================================
 
-function device_name(device_id::Int=0)::String
+"""
+    device_name(device_kind::Int=0, device_id::Int=0)::String
+
+Return the public device name for CPU (`device_kind=0`) or GPU
+(`device_kind=1`). Concrete backend details are available through
+`active_gpu_backend_name()` and `active_gpu_backend_version()`.
+"""
+function device_name(device_kind::Int=0, device_id::Int=0)::String
     buf = Vector{UInt8}(undef, 256)
     ccall((:insight_jl_device_name, LIB_INSIGHT), Cvoid,
-          (Int32, Ptr{UInt8}, Csize_t), Int32(device_id), buf, 256)
+          (Int32, Int32, Ptr{UInt8}, Csize_t), Int32(device_kind),
+          Int32(device_id), buf, 256)
+    return String(buf[1:findfirst(==(0x00), buf)-1])
+end
+
+function active_gpu_backend_name()::String
+    buf = Vector{UInt8}(undef, 256)
+    ccall((:insight_jl_active_gpu_backend_name, LIB_INSIGHT), Cvoid,
+          (Ptr{UInt8}, Csize_t), buf, 256)
+    return String(buf[1:findfirst(==(0x00), buf)-1])
+end
+
+function active_gpu_backend_version()::String
+    buf = Vector{UInt8}(undef, 256)
+    ccall((:insight_jl_active_gpu_backend_version, LIB_INSIGHT), Cvoid,
+          (Ptr{UInt8}, Csize_t), buf, 256)
     return String(buf[1:findfirst(==(0x00), buf)-1])
 end
 
 """Get the GPU runtime version (major*1000+minor*10, 0 if not available)."""
 function gpu_version()::Int
-    Int(ccall((:insight_jl_cuda_version, LIB_INSIGHT), Int32, ()))
+    Int(ccall((:insight_jl_gpu_runtime_version, LIB_INSIGHT), Int32, ()))
 end
 
 function driver_version()::Int

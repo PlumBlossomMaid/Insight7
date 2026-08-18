@@ -193,7 +193,7 @@ import insight as ins
 
 # Backend auto-detected (GPU when available, PaddlePaddle behavior)
 print(ins.get_device())   # GPUPlace(0) or CPUPlace()
-print(ins.gpu_version())  # 11080 (CUDA 11.8), 0 if no GPU
+print(ins.gpu_version())  # GPU runtime version, 0 if no GPU
 
 # --- Array Creation ---
 a = ins.zeros([2, 3], ins.float32)

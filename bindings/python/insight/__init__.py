@@ -1,7 +1,7 @@
 """
 Insight7 — Lightweight scientific computing framework for Python.
 
-A NumPy-compatible tensor library with GPU acceleration support,
+A NumPy-compatible array library with GPU acceleration support,
 inspired by PaddlePaddle, Torch7, and NumPy/CuPy.
 
 Quick Start::
