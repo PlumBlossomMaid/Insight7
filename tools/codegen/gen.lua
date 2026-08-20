@@ -15,7 +15,13 @@ local args = {...}
 local out_dir = args[1] or "generated/codegen"
 
 local function mkdir_p(path)
-  local ok = os.execute(string.format("mkdir -p %q", path))
+  local command
+  if os.getenv("OS") == "Windows_NT" then
+    command = string.format("if not exist %q mkdir %q", path, path)
+  else
+    command = string.format("mkdir -p %q", path)
+  end
+  local ok = os.execute(command)
   if ok ~= true and ok ~= 0 then
     error("failed to create directory: " .. path)
   end
