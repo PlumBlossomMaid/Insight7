@@ -99,6 +99,8 @@ TEST_F(SignalFilteringTestGPU, DetrendLinear) {
 // ========== lfilter (FIR) ==========
 
 TEST_F(SignalFilteringTestGPU, LfilterFIRBasic) {
+  // b = [1, 1], a = [1], x = [1, 0, 0, 0, 0]
+  // scipy.signal.lfilter returns len(x) samples: [1, 1, 0, 0, 0]
   std::vector<double> b_data = {1.0, 1.0};
   std::vector<double> a_data = {1.0};
   std::vector<double> x_data = {1.0, 0.0, 0.0, 0.0, 0.0};
@@ -108,10 +110,13 @@ TEST_F(SignalFilteringTestGPU, LfilterFIRBasic) {
   Array x = x_cpu.to(GPUPlace(0));
   Array y = signal::lfilter(b, a, x);
   Array y_cpu = y.to(CPUPlace());
-  EXPECT_EQ(y_cpu.numel(), 6);
+  EXPECT_EQ(y_cpu.numel(), 5);
   const double *d = y_cpu.data<double>();
   EXPECT_NEAR(d[0], 1.0, 1e-10);
   EXPECT_NEAR(d[1], 1.0, 1e-10);
+  for (int i = 2; i < 5; ++i) {
+    EXPECT_NEAR(d[i], 0.0, 1e-10);
+  }
 }
 
 // ========== lfilter (IIR) ==========
