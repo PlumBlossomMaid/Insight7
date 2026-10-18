@@ -15,11 +15,12 @@ template <typename T>
 __global__ void logical_not_kernel(const T *x, bool *out, int64_t n, int ndim,
                                    const int64_t *dims,
                                    const int64_t *x_strides,
-                                   const int64_t *out_strides) {
+                                   const int64_t *out_strides, int64_t x_offset,
+                                   int64_t out_offset) {
   int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < n) {
-    int64_t off_x = unary_offset(idx, ndim, dims, x_strides);
-    int64_t off_out = unary_offset(idx, ndim, dims, out_strides);
+    int64_t off_x = x_offset + unary_offset(idx, ndim, dims, x_strides);
+    int64_t off_out = out_offset + unary_offset(idx, ndim, dims, out_strides);
     out[off_out] = (x[off_x] == 0);
   }
 }
@@ -53,21 +54,24 @@ C_Status logical_not_kernel_gpu(void **inputs, void **outputs) {
   cudaMemcpy(d_out_strides, out->strides, ndim * sizeof(int64_t),
              cudaMemcpyHostToDevice);
 
+  int64_t x_offset = x->offset;
+  int64_t out_offset = out->offset;
+
   switch (x->dtype) {
   case INSIGHT_DTYPE_BOOL:
     logical_not_kernel<bool><<<blocks, threads>>>(
         static_cast<const bool *>(x->data), static_cast<bool *>(out->data), n,
-        ndim, d_dims, d_x_strides, d_out_strides);
+        ndim, d_dims, d_x_strides, d_out_strides, x_offset, out_offset);
     break;
   case INSIGHT_DTYPE_F32:
     logical_not_kernel<float><<<blocks, threads>>>(
         static_cast<const float *>(x->data), static_cast<bool *>(out->data), n,
-        ndim, d_dims, d_x_strides, d_out_strides);
+        ndim, d_dims, d_x_strides, d_out_strides, x_offset, out_offset);
     break;
   case INSIGHT_DTYPE_F64:
     logical_not_kernel<double><<<blocks, threads>>>(
         static_cast<const double *>(x->data), static_cast<bool *>(out->data), n,
-        ndim, d_dims, d_x_strides, d_out_strides);
+        ndim, d_dims, d_x_strides, d_out_strides, x_offset, out_offset);
     break;
   default:
     cudaFree(d_dims);

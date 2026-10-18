@@ -22,11 +22,12 @@
 __global__ void angle_f32_kernel(const float *x, float *out, int64_t n,
                                  int ndim, const int64_t *dims,
                                  const int64_t *x_strides,
-                                 const int64_t *out_strides) {
+                                 const int64_t *out_strides, int64_t x_offset,
+                                 int64_t out_offset) {
   int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < n) {
-    int64_t off_x = unary_offset(idx, ndim, dims, x_strides);
-    int64_t off_out = unary_offset(idx, ndim, dims, out_strides);
+    int64_t off_x = x_offset + unary_offset(idx, ndim, dims, x_strides);
+    int64_t off_out = out_offset + unary_offset(idx, ndim, dims, out_strides);
     out[off_out] = atan2f(0.0f, x[off_x]);
   }
 }
@@ -34,11 +35,12 @@ __global__ void angle_f32_kernel(const float *x, float *out, int64_t n,
 __global__ void angle_f64_kernel(const double *x, double *out, int64_t n,
                                  int ndim, const int64_t *dims,
                                  const int64_t *x_strides,
-                                 const int64_t *out_strides) {
+                                 const int64_t *out_strides, int64_t x_offset,
+                                 int64_t out_offset) {
   int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < n) {
-    int64_t off_x = unary_offset(idx, ndim, dims, x_strides);
-    int64_t off_out = unary_offset(idx, ndim, dims, out_strides);
+    int64_t off_x = x_offset + unary_offset(idx, ndim, dims, x_strides);
+    int64_t off_out = out_offset + unary_offset(idx, ndim, dims, out_strides);
     out[off_out] = atan2(0.0, x[off_x]);
   }
 }
@@ -48,11 +50,12 @@ __global__ void angle_f64_kernel(const double *x, double *out, int64_t n,
 __global__ void angle_c32_kernel(const cuFloatComplex *x, float *out, int64_t n,
                                  int ndim, const int64_t *dims,
                                  const int64_t *x_strides,
-                                 const int64_t *out_strides) {
+                                 const int64_t *out_strides, int64_t x_offset,
+                                 int64_t out_offset) {
   int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < n) {
-    int64_t off_x = unary_offset(idx, ndim, dims, x_strides);
-    int64_t off_out = unary_offset(idx, ndim, dims, out_strides);
+    int64_t off_x = x_offset + unary_offset(idx, ndim, dims, x_strides);
+    int64_t off_out = out_offset + unary_offset(idx, ndim, dims, out_strides);
     cuFloatComplex v = x[off_x];
     out[off_out] = atan2f(cuCimagf(v), cuCrealf(v));
   }
@@ -61,11 +64,12 @@ __global__ void angle_c32_kernel(const cuFloatComplex *x, float *out, int64_t n,
 __global__ void angle_c64_kernel(const cuDoubleComplex *x, double *out,
                                  int64_t n, int ndim, const int64_t *dims,
                                  const int64_t *x_strides,
-                                 const int64_t *out_strides) {
+                                 const int64_t *out_strides, int64_t x_offset,
+                                 int64_t out_offset) {
   int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < n) {
-    int64_t off_x = unary_offset(idx, ndim, dims, x_strides);
-    int64_t off_out = unary_offset(idx, ndim, dims, out_strides);
+    int64_t off_x = x_offset + unary_offset(idx, ndim, dims, x_strides);
+    int64_t off_out = out_offset + unary_offset(idx, ndim, dims, out_strides);
     cuDoubleComplex v = x[off_x];
     out[off_out] = atan2(cuCimag(v), cuCreal(v));
   }
@@ -101,28 +105,31 @@ C_Status angle_kernel_gpu(void **inputs, void **outputs) {
   cudaMemcpy(d_out_strides, out->strides, ndim * sizeof(int64_t),
              cudaMemcpyHostToDevice);
 
+  int64_t x_offset = x->offset;
+  int64_t out_offset = out->offset;
+
   switch (x->dtype) {
   case INSIGHT_DTYPE_C32:
     angle_c32_kernel<<<blocks, threads>>>(
         static_cast<const cuFloatComplex *>(x->data),
         static_cast<float *>(out->data), n, ndim, d_dims, d_x_strides,
-        d_out_strides);
+        d_out_strides, x_offset, out_offset);
     break;
   case INSIGHT_DTYPE_C64:
     angle_c64_kernel<<<blocks, threads>>>(
         static_cast<const cuDoubleComplex *>(x->data),
         static_cast<double *>(out->data), n, ndim, d_dims, d_x_strides,
-        d_out_strides);
+        d_out_strides, x_offset, out_offset);
     break;
   case INSIGHT_DTYPE_F32:
     angle_f32_kernel<<<blocks, threads>>>(
         static_cast<const float *>(x->data), static_cast<float *>(out->data), n,
-        ndim, d_dims, d_x_strides, d_out_strides);
+        ndim, d_dims, d_x_strides, d_out_strides, x_offset, out_offset);
     break;
   case INSIGHT_DTYPE_F64:
     angle_f64_kernel<<<blocks, threads>>>(
         static_cast<const double *>(x->data), static_cast<double *>(out->data),
-        n, ndim, d_dims, d_x_strides, d_out_strides);
+        n, ndim, d_dims, d_x_strides, d_out_strides, x_offset, out_offset);
     break;
   default:
     cudaFree(d_dims);

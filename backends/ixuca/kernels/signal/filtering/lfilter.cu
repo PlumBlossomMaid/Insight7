@@ -16,7 +16,9 @@ __device__ void lfilter_f64_impl(const double *b, int nb, const double *a,
     z[j] = 0.0;
 
   for (int i = 0; i < n; ++i) {
-    double val = x[i] + z[0];
+    double val = b[0] * x[i];
+    if (nmax >= 2)
+      val += z[0];
     y[i] = val;
     for (int j = 0; j < nmax - 2 && j < MAX_FILTER_ORDER - 1; ++j) {
       double bj1 = (j + 1 < nb) ? b[j + 1] : 0.0;
@@ -39,7 +41,9 @@ __device__ void lfilter_f32_impl(const float *b, int nb, const float *a, int na,
     z[j] = 0.0f;
 
   for (int i = 0; i < n; ++i) {
-    float val = x[i] + z[0];
+    float val = b[0] * x[i];
+    if (nmax >= 2)
+      val += z[0];
     y[i] = val;
     for (int j = 0; j < nmax - 2 && j < MAX_FILTER_ORDER - 1; ++j) {
       float bj1 = (j + 1 < nb) ? b[j + 1] : 0.0f;

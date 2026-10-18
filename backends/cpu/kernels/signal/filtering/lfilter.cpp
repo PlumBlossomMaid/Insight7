@@ -51,7 +51,9 @@ C_Status lfilter_kernel_cpu(void **inputs, void **outputs) {
       std::vector<double> z(nmax - 1, 0.0);
 
       for (int64_t i = 0; i < n; ++i) {
-        double val = xi[i] + z[0];
+        double val = bp[0] * xi[i];
+        if (nmax >= 2)
+          val += z[0];
         yi[i] = val;
         for (int64_t j = 0; j < nmax - 2; ++j) {
           double bj1 = (j + 1 < nb) ? bp[j + 1] : 0.0;
@@ -81,7 +83,9 @@ C_Status lfilter_kernel_cpu(void **inputs, void **outputs) {
       std::vector<float> z(nmax - 1, 0.0f);
 
       for (int64_t i = 0; i < n; ++i) {
-        float val = xi[i] + z[0];
+        float val = bp[0] * xi[i];
+        if (nmax >= 2)
+          val += z[0];
         yi[i] = val;
         for (int64_t j = 0; j < nmax - 2; ++j) {
           float bj1 = (j + 1 < nb) ? bp[j + 1] : 0.0f;

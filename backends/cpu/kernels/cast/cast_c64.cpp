@@ -39,23 +39,23 @@ C_Status cast_c64_kernel_cpu(void **inputs, void **outputs) {
   switch (target_dtype) {
   case INSIGHT_DTYPE_BOOL: {
     bool *d = static_cast<bool *>(dst->data);
-    CAST_LOOP(n, d[i] = s[i].real() != 0.0 || s[i].imag() != 0.0;);
+    CAST_LOOP(n, d[i] = s[si].real() != 0.0 || s[si].imag() != 0.0;);
     break;
   }
   case INSIGHT_DTYPE_F64: {
     double *d = static_cast<double *>(dst->data);
-    CAST_LOOP(n, d[i] = s[i].real(););
+    CAST_LOOP(n, d[i] = s[si].real(););
     break;
   }
   case INSIGHT_DTYPE_F32: {
     float *d = static_cast<float *>(dst->data);
-    CAST_LOOP(n, d[i] = static_cast<float>(s[i].real()););
+    CAST_LOOP(n, d[i] = static_cast<float>(s[si].real()););
     break;
   }
   case INSIGHT_DTYPE_C32: {
     std::complex<float> *d = static_cast<std::complex<float> *>(dst->data);
-    CAST_LOOP(n, d[i] = std::complex<float>(static_cast<float>(s[i].real()),
-                                            static_cast<float>(s[i].imag())););
+    CAST_LOOP(n, d[i] = std::complex<float>(static_cast<float>(s[si].real()),
+                                            static_cast<float>(s[si].imag())););
     break;
   }
   default:

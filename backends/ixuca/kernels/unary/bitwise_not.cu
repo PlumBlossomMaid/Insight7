@@ -12,11 +12,12 @@
 template <typename T>
 __global__ void
 bitwise_not_kernel(const T *x, T *out, int64_t n, int ndim, const int64_t *dims,
-                   const int64_t *x_strides, const int64_t *out_strides) {
+                   const int64_t *x_strides, const int64_t *out_strides,
+                   int64_t x_offset, int64_t out_offset) {
   int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < n) {
-    int64_t off_x = unary_offset(idx, ndim, dims, x_strides);
-    int64_t off_out = unary_offset(idx, ndim, dims, out_strides);
+    int64_t off_x = x_offset + unary_offset(idx, ndim, dims, x_strides);
+    int64_t off_out = out_offset + unary_offset(idx, ndim, dims, out_strides);
     out[off_out] = ~x[off_x];
   }
 }
@@ -26,11 +27,12 @@ bitwise_not_kernel(const T *x, T *out, int64_t n, int ndim, const int64_t *dims,
 __global__ void bitwise_not_bool_kernel(const bool *x, bool *out, int64_t n,
                                         int ndim, const int64_t *dims,
                                         const int64_t *x_strides,
-                                        const int64_t *out_strides) {
+                                        const int64_t *out_strides,
+                                        int64_t x_offset, int64_t out_offset) {
   int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < n) {
-    int64_t off_x = unary_offset(idx, ndim, dims, x_strides);
-    int64_t off_out = unary_offset(idx, ndim, dims, out_strides);
+    int64_t off_x = x_offset + unary_offset(idx, ndim, dims, x_strides);
+    int64_t off_out = out_offset + unary_offset(idx, ndim, dims, out_strides);
     out[off_out] = !x[off_x];
   }
 }
@@ -64,34 +66,37 @@ C_Status bitwise_not_kernel_gpu(void **inputs, void **outputs) {
   cudaMemcpy(d_out_strides, out->strides, ndim * sizeof(int64_t),
              cudaMemcpyHostToDevice);
 
+  int64_t x_offset = x->offset;
+  int64_t out_offset = out->offset;
+
   switch (out->dtype) {
   case INSIGHT_DTYPE_BOOL:
     bitwise_not_bool_kernel<<<blocks, threads>>>(
         static_cast<const bool *>(x->data), static_cast<bool *>(out->data), n,
-        ndim, d_dims, d_x_strides, d_out_strides);
+        ndim, d_dims, d_x_strides, d_out_strides, x_offset, out_offset);
     break;
   case INSIGHT_DTYPE_I8:
     bitwise_not_kernel<int8_t><<<blocks, threads>>>(
         static_cast<const int8_t *>(x->data), static_cast<int8_t *>(out->data),
-        n, ndim, d_dims, d_x_strides, d_out_strides);
+        n, ndim, d_dims, d_x_strides, d_out_strides, x_offset, out_offset);
     break;
   case INSIGHT_DTYPE_I16:
-    bitwise_not_kernel<int16_t>
-        <<<blocks, threads>>>(static_cast<const int16_t *>(x->data),
-                              static_cast<int16_t *>(out->data), n, ndim,
-                              d_dims, d_x_strides, d_out_strides);
+    bitwise_not_kernel<int16_t><<<blocks, threads>>>(
+        static_cast<const int16_t *>(x->data),
+        static_cast<int16_t *>(out->data), n, ndim, d_dims, d_x_strides,
+        d_out_strides, x_offset, out_offset);
     break;
   case INSIGHT_DTYPE_I32:
-    bitwise_not_kernel<int32_t>
-        <<<blocks, threads>>>(static_cast<const int32_t *>(x->data),
-                              static_cast<int32_t *>(out->data), n, ndim,
-                              d_dims, d_x_strides, d_out_strides);
+    bitwise_not_kernel<int32_t><<<blocks, threads>>>(
+        static_cast<const int32_t *>(x->data),
+        static_cast<int32_t *>(out->data), n, ndim, d_dims, d_x_strides,
+        d_out_strides, x_offset, out_offset);
     break;
   case INSIGHT_DTYPE_I64:
-    bitwise_not_kernel<int64_t>
-        <<<blocks, threads>>>(static_cast<const int64_t *>(x->data),
-                              static_cast<int64_t *>(out->data), n, ndim,
-                              d_dims, d_x_strides, d_out_strides);
+    bitwise_not_kernel<int64_t><<<blocks, threads>>>(
+        static_cast<const int64_t *>(x->data),
+        static_cast<int64_t *>(out->data), n, ndim, d_dims, d_x_strides,
+        d_out_strides, x_offset, out_offset);
     break;
   default:
     cudaFree(d_dims);

@@ -103,10 +103,34 @@ C_Status arange_kernel_gpu(void **inputs, void **outputs) {
   return C_SUCCESS;
 }
 
+/**
+ * @brief Disabled entry point: defers arange to the CPU implementation.
+ *
+ * DISABLED PENDING A COREX NUMERICAL FIX. arange_kernel_gpu above produces
+ * wrong results on CoreX (see tests/cuda/cpp/test_creation.cpp, ArangeSingle).
+ * `start` and `step` cross the void** ABI as `double`, but every .cu in this
+ * backend is compiled with `-mllvm --skip-double` (backends/ixuca/
+ * CMakeLists.txt) while the host code that writes them is not.
+ *
+ * Returning C_FALLBACK makes the framework transfer the output to the host and
+ * run the CPU kernel, which is correct but slower. Silently returning wrong
+ * numbers is not an option, and an unregistered op would hard-fail
+ * (src/core/kernel.cpp: insight_kernel_launch returns C_FAILED when no kernel
+ * is found 鈥?the fallback path only runs for a *registered* kernel that
+ * returns C_FALLBACK).
+ *
+ * Re-register arange_kernel_gpu once the CoreX double-precision issue is fixed.
+ */
+C_Status arange_kernel_gpu_fallback(void **inputs, void **outputs) {
+  (void)inputs;
+  (void)outputs;
+  return C_FALLBACK;
+}
+
 } // extern "C"
 
 // Register for supported types
-REGISTER_IXUCA_KERNEL(arange, INSIGHT_DTYPE_I32, arange_kernel_gpu);
-REGISTER_IXUCA_KERNEL(arange, INSIGHT_DTYPE_I64, arange_kernel_gpu);
-REGISTER_IXUCA_KERNEL(arange, INSIGHT_DTYPE_F32, arange_kernel_gpu);
-REGISTER_IXUCA_KERNEL(arange, INSIGHT_DTYPE_F64, arange_kernel_gpu);
+REGISTER_IXUCA_KERNEL(arange, INSIGHT_DTYPE_I32, arange_kernel_gpu_fallback);
+REGISTER_IXUCA_KERNEL(arange, INSIGHT_DTYPE_I64, arange_kernel_gpu_fallback);
+REGISTER_IXUCA_KERNEL(arange, INSIGHT_DTYPE_F32, arange_kernel_gpu_fallback);
+REGISTER_IXUCA_KERNEL(arange, INSIGHT_DTYPE_F64, arange_kernel_gpu_fallback);

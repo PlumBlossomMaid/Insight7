@@ -5,13 +5,19 @@
  * Provides thread-local FFTW plan caching shared across all FFT kernels.
  *
  * Cache strategy:
- * - C2C: Always recreates plan with actual buffer (FFTW_ESTIMATE has
- *   buffer-address dependency for n>=64 — fftw_execute_dft gives wrong
- *   results with mismatched buffer). Plan creation with FFTW_ESTIMATE
- *   is fast (~microseconds), so this is acceptable.
- * - R2C/C2R: Multi-plan cache keyed by (n, batch, direction, kind, is_f64).
- *   These transforms use fftw_execute_dft_r2c/c2r which work correctly
- *   with any buffer, so plans can be cached with dummy buffers.
+ * - Multi-plan cache keyed by (n, batch, direction, kind, is_f64). Plans are
+ *   built with dummy buffers and executed through the new-array (guru) forms
+ *   fftw_execute_dft / fftw_execute_dft_r2c / fftw_execute_dft_c2r.
+ * - C2C plans are created with FFTW_UNALIGNED so the new-array execution is
+ *   valid for arbitrarily aligned array data, and in-place (in == out) to
+ *   match how the C2C kernel executes them.
+ * - C2R plans are created with FFTW_PRESERVE_INPUT so that irfft does not
+ *   clobber the caller's spectrum (only valid for rank-1 c2r, which is all
+ *   this cache builds).
+ *
+ * FFTW's planner is global shared state and is not thread-safe; all plan
+ * creation and destruction goes through fft_ensure_plan_f64/f32, which
+ * serialize on a single mutex.
  */
 
 #ifndef CPU_FFT_COMMON_H
@@ -45,7 +51,7 @@ typedef enum {
 } FFTKind;
 
 // ============================================================================
-// Multi-Plan Cache Entry (for R2C/C2R only)
+// Multi-Plan Cache Entry
 // ============================================================================
 
 #define FFTW_CACHE_MAX_PLANS 8
@@ -57,7 +63,7 @@ typedef struct {
   int64_t n;
   int64_t batch;
   int direction;       ///< FFTW_FORWARD or FFTW_BACKWARD
-  FFTKind kind;        ///< R2C or C2R only
+  FFTKind kind;        ///< C2C, R2C or C2R
   int is_f64;          ///< 1 for f64, 0 for f32
   fftw_plan plan_f64;  ///< Double precision plan (only if is_f64)
   fftwf_plan plan_f32; ///< Single precision plan (only if !is_f64)
@@ -66,9 +72,6 @@ typedef struct {
 
 /**
  * @brief Thread-local FFTW plan cache.
- *
- * - C2C plans are NOT cached (always recreated with actual buffer).
- * - R2C/C2R plans are cached in entries[].
  */
 typedef struct {
   FFTWCacheEntry entries[FFTW_CACHE_MAX_PLANS];
@@ -101,24 +104,20 @@ static inline void fft_invalidate_cache(void) {
 }
 
 /**
- * @brief Find or create a cached FFTW plan for R2C/C2R.
+ * @brief Find or create a cached FFTW plan.
  *
- * For C2C transforms, this always returns NULL — the caller must create
- * a plan with the actual buffer.
+ * Not thread-safe on its own — callers must hold the planner lock.
  *
  * @param n         FFT length
  * @param batch     Number of transforms
  * @param direction FFTW_FORWARD or FFTW_BACKWARD
- * @param kind      Transform kind (R2C or C2R)
+ * @param kind      Transform kind (C2C, R2C or C2R)
  * @param is_f64    1 for double precision, 0 for single
- * @return void* Plan pointer (fftw_plan or fftwf_plan), NULL for C2C or error
+ * @return void* Plan pointer (fftw_plan or fftwf_plan), NULL on error
  */
 static inline void *fft_cache_find_or_create(int n, int64_t batch,
                                              int direction, FFTKind kind,
                                              int is_f64) {
-  if (kind == FFT_KIND_C2C)
-    return NULL; // C2C must be created with actual buffer
-
   FFTWCache *cache = fft_get_cache();
 
   // Search existing entries
@@ -153,38 +152,53 @@ static inline void *fft_cache_find_or_create(int n, int64_t batch,
   int n_int = n;
 
   // Create plan with dummy buffers
-  if (kind == FFT_KIND_R2C || kind == FFT_KIND_C2R) {
-    if (is_f64) {
-      double *di = (double *)fftw_malloc((size_t)n * sizeof(double));
-      double *dout =
-          (double *)fftw_malloc((size_t)(n / 2 + 1) * 2 * sizeof(double));
-      if (kind == FFT_KIND_R2C) {
-        e->plan_f64 = fftw_plan_many_dft_r2c(1, &n_int, (int)batch, di, NULL, 1,
-                                             n_int, (fftw_complex *)dout, NULL,
-                                             1, n / 2 + 1, FFTW_ESTIMATE);
-      } else {
-        e->plan_f64 = fftw_plan_many_dft_c2r(
-            1, &n_int, (int)batch, (fftw_complex *)di, NULL, 1, n / 2 + 1, dout,
-            NULL, 1, n_int, FFTW_ESTIMATE);
-      }
-      fftw_free(di);
-      fftw_free(dout);
+  if (is_f64) {
+    double *di = (double *)fftw_malloc((size_t)(n + 2) * 2 * sizeof(double));
+    double *dout =
+        (double *)fftw_malloc((size_t)(n + 2) * 2 * sizeof(double));
+    if (kind == FFT_KIND_C2C) {
+      e->plan_f64 = fftw_plan_many_dft(
+          1, &n_int, (int)batch, (fftw_complex *)di, NULL, 1, n_int,
+          (fftw_complex *)di, NULL, 1, n_int, direction,
+          FFTW_ESTIMATE | FFTW_UNALIGNED);
+    } else if (kind == FFT_KIND_R2C) {
+      e->plan_f64 = fftw_plan_many_dft_r2c(1, &n_int, (int)batch, di, NULL, 1,
+                                           n_int, (fftw_complex *)dout, NULL, 1,
+                                           n / 2 + 1, FFTW_ESTIMATE);
     } else {
-      float *di = (float *)fftwf_malloc((size_t)n * sizeof(float));
-      float *dout =
-          (float *)fftwf_malloc((size_t)(n / 2 + 1) * 2 * sizeof(float));
-      if (kind == FFT_KIND_R2C) {
-        e->plan_f32 = fftwf_plan_many_dft_r2c(
-            1, &n_int, (int)batch, di, NULL, 1, n_int, (fftwf_complex *)dout,
-            NULL, 1, n / 2 + 1, FFTW_ESTIMATE);
-      } else {
-        e->plan_f32 = fftwf_plan_many_dft_c2r(
-            1, &n_int, (int)batch, (fftwf_complex *)di, NULL, 1, n / 2 + 1,
-            dout, NULL, 1, n_int, FFTW_ESTIMATE);
-      }
-      fftwf_free(di);
-      fftwf_free(dout);
+      e->plan_f64 = fftw_plan_many_dft_c2r(
+          1, &n_int, (int)batch, (fftw_complex *)di, NULL, 1, n / 2 + 1, dout,
+          NULL, 1, n_int, FFTW_ESTIMATE | FFTW_PRESERVE_INPUT);
     }
+    fftw_free(di);
+    fftw_free(dout);
+  } else {
+    float *di = (float *)fftwf_malloc((size_t)(n + 2) * 2 * sizeof(float));
+    float *dout = (float *)fftwf_malloc((size_t)(n + 2) * 2 * sizeof(float));
+    if (kind == FFT_KIND_C2C) {
+      e->plan_f32 = fftwf_plan_many_dft(
+          1, &n_int, (int)batch, (fftwf_complex *)di, NULL, 1, n_int,
+          (fftwf_complex *)di, NULL, 1, n_int, direction,
+          FFTW_ESTIMATE | FFTW_UNALIGNED);
+    } else if (kind == FFT_KIND_R2C) {
+      e->plan_f32 = fftwf_plan_many_dft_r2c(
+          1, &n_int, (int)batch, di, NULL, 1, n_int, (fftwf_complex *)dout,
+          NULL, 1, n / 2 + 1, FFTW_ESTIMATE);
+    } else {
+      e->plan_f32 = fftwf_plan_many_dft_c2r(
+          1, &n_int, (int)batch, (fftwf_complex *)di, NULL, 1, n / 2 + 1, dout,
+          NULL, 1, n_int, FFTW_ESTIMATE | FFTW_PRESERVE_INPUT);
+    }
+    fftwf_free(di);
+    fftwf_free(dout);
+  }
+
+  void *plan = is_f64 ? (void *)e->plan_f64 : (void *)e->plan_f32;
+  if (!plan) {
+    e->valid = 0;
+    if (idx == cache->entry_count - 1)
+      cache->entry_count = idx;
+    return NULL;
   }
 
   e->n = n;
@@ -194,31 +208,28 @@ static inline void *fft_cache_find_or_create(int n, int64_t batch,
   e->is_f64 = is_f64;
   e->valid = 1;
 
-  return is_f64 ? (void *)e->plan_f64 : (void *)e->plan_f32;
+  return plan;
 }
 
 /**
  * @brief Ensure FFTW plan exists for given parameters (double precision).
  *
- * For C2C transforms, creates plan with the actual buffer (required for
- * correctness at n>=64). For R2C/C2R, uses the multi-plan cache.
+ * Thread-safe: serializes access to FFTW's global planner.
  *
  * @param n        FFT length
  * @param batch    Number of transforms
  * @param direction FFTW_FORWARD or FFTW_BACKWARD
  * @param kind     Transform kind (C2C, R2C, C2R)
- * @param buf_in   Input buffer (for C2C, same as buf_out)
- * @param buf_out  Output buffer (for C2C, same as buf_in)
- * @return fftw_plan Valid plan
+ * @return fftw_plan Valid plan, NULL on failure
  */
-fftw_plan fft_ensure_plan_f64(int n, int64_t batch, int direction, FFTKind kind,
-                              void *buf_in, void *buf_out);
+fftw_plan fft_ensure_plan_f64(int n, int64_t batch, int direction,
+                              FFTKind kind);
 
 /**
  * @brief Ensure FFTW plan exists for given parameters (single precision).
  */
 fftwf_plan fft_ensure_plan_f32(int n, int64_t batch, int direction,
-                               FFTKind kind, void *buf_in, void *buf_out);
+                               FFTKind kind);
 
 #ifdef __cplusplus
 }

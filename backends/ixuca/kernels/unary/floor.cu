@@ -13,11 +13,12 @@
 __global__ void floor_f32_kernel(const float *x, float *out, int64_t n,
                                  int ndim, const int64_t *dims,
                                  const int64_t *x_strides,
-                                 const int64_t *out_strides) {
+                                 const int64_t *out_strides, int64_t x_offset,
+                                 int64_t out_offset) {
   int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < n) {
-    int64_t off_x = unary_offset(idx, ndim, dims, x_strides);
-    int64_t off_out = unary_offset(idx, ndim, dims, out_strides);
+    int64_t off_x = x_offset + unary_offset(idx, ndim, dims, x_strides);
+    int64_t off_out = out_offset + unary_offset(idx, ndim, dims, out_strides);
     out[off_out] = floorf(x[off_x]);
   }
 }
@@ -25,11 +26,12 @@ __global__ void floor_f32_kernel(const float *x, float *out, int64_t n,
 __global__ void floor_f64_kernel(const double *x, double *out, int64_t n,
                                  int ndim, const int64_t *dims,
                                  const int64_t *x_strides,
-                                 const int64_t *out_strides) {
+                                 const int64_t *out_strides, int64_t x_offset,
+                                 int64_t out_offset) {
   int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < n) {
-    int64_t off_x = unary_offset(idx, ndim, dims, x_strides);
-    int64_t off_out = unary_offset(idx, ndim, dims, out_strides);
+    int64_t off_x = x_offset + unary_offset(idx, ndim, dims, x_strides);
+    int64_t off_out = out_offset + unary_offset(idx, ndim, dims, out_strides);
     out[off_out] = floor(x[off_x]);
   }
 }
@@ -63,16 +65,19 @@ C_Status floor_kernel_gpu(void **inputs, void **outputs) {
   cudaMemcpy(d_out_strides, out->strides, ndim * sizeof(int64_t),
              cudaMemcpyHostToDevice);
 
+  int64_t x_offset = x->offset;
+  int64_t out_offset = out->offset;
+
   switch (out->dtype) {
   case INSIGHT_DTYPE_F32:
     floor_f32_kernel<<<blocks, threads>>>(
         static_cast<const float *>(x->data), static_cast<float *>(out->data), n,
-        ndim, d_dims, d_x_strides, d_out_strides);
+        ndim, d_dims, d_x_strides, d_out_strides, x_offset, out_offset);
     break;
   case INSIGHT_DTYPE_F64:
     floor_f64_kernel<<<blocks, threads>>>(
         static_cast<const double *>(x->data), static_cast<double *>(out->data),
-        n, ndim, d_dims, d_x_strides, d_out_strides);
+        n, ndim, d_dims, d_x_strides, d_out_strides, x_offset, out_offset);
     break;
   default:
     cudaFree(d_dims);

@@ -63,9 +63,10 @@ static inline int64_t cpu_offset_from_linear(int64_t linear, int64_t ndim,
     int64_t n = out->numel;                                                    \
     _Pragma("omp parallel for") for (int64_t linear = 0; linear < n;           \
                                      ++linear) {                               \
-      int64_t off_x = cpu_offset_from_linear(linear, ndim, dims, x_strides);   \
-      int64_t off_out =                                                        \
-          cpu_offset_from_linear(linear, ndim, dims, out_strides);             \
+      int64_t off_x =                                                          \
+          x->offset + cpu_offset_from_linear(linear, ndim, dims, x_strides);   \
+      int64_t off_out = out->offset + cpu_offset_from_linear(                  \
+                                          linear, ndim, dims, out_strides);    \
       out_data[off_out] = Func(x_data[off_x]);                                 \
     }                                                                          \
   } while (0)
@@ -89,9 +90,10 @@ static inline int64_t cpu_offset_from_linear(int64_t linear, int64_t ndim,
     int64_t n = out->numel;                                                    \
     _Pragma("omp parallel for") for (int64_t linear = 0; linear < n;           \
                                      ++linear) {                               \
-      int64_t off_x = cpu_offset_from_linear(linear, ndim, dims, x_strides);   \
-      int64_t off_out =                                                        \
-          cpu_offset_from_linear(linear, ndim, dims, out_strides);             \
+      int64_t off_x =                                                          \
+          x->offset + cpu_offset_from_linear(linear, ndim, dims, x_strides);   \
+      int64_t off_out = out->offset + cpu_offset_from_linear(                  \
+                                          linear, ndim, dims, out_strides);    \
       out_data[off_out] = Func(x_data[off_x]);                                 \
     }                                                                          \
   } while (0)
@@ -122,9 +124,10 @@ static inline int64_t cpu_offset_from_linear(int64_t linear, int64_t ndim,
     int64_t n = out->numel;                                                    \
     _Pragma("omp parallel for") for (int64_t linear = 0; linear < n;           \
                                      ++linear) {                               \
-      int64_t off_x = cpu_offset_from_linear(linear, ndim, dims, x_strides);   \
-      int64_t off_out =                                                        \
-          cpu_offset_from_linear(linear, ndim, dims, out_strides);             \
+      int64_t off_x =                                                          \
+          x->offset + cpu_offset_from_linear(linear, ndim, dims, x_strides);   \
+      int64_t off_out = out->offset + cpu_offset_from_linear(                  \
+                                          linear, ndim, dims, out_strides);    \
       float v = to_f32(x_data[off_x]);                                         \
       out_data[off_out] = from_f32(Func(v));                                   \
     }                                                                          \

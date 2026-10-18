@@ -3,43 +3,39 @@
  * @file common_impl.cpp
  * @brief FFTW plan cache implementation.
  *
- * - C2C: always recreate with actual buffers (FFTW_ESTIMATE buffer-address
- *   dependency for n >= 64 — using dummy buffers gives wrong results).
- * - R2C/C2R: multi-plan cache with dummy buffers (works correctly).
+ * The plan cache is thread-local, but FFTW's planner is global shared state
+ * and is not thread-safe, so every plan creation/destruction is serialized
+ * on a process-wide mutex. A mutex is used rather than
+ * fftw_make_planner_thread_safe() because the latter needs a guaranteed
+ * one-time init hook per precision and is only available from FFTW 3.3.5,
+ * whereas the lock is self-contained and also covers plan destruction
+ * performed during cache eviction.
  */
 
 #ifdef INSIGHT_USE_FFTW3
 
 #include "common.h"
 #include <cstring>
+#include <mutex>
 
 static thread_local FFTWCache cache = {{0}};
 
 FFTWCache *fft_get_cache(void) { return &cache; }
 
-fftw_plan fft_ensure_plan_f64(int n, int64_t batch, int direction, FFTKind kind,
-                              void *buf_in, void *buf_out) {
-  if (kind == FFT_KIND_C2C) {
-    // C2C must use actual buffers
-    int n_int = (int)n;
-    return fftw_plan_many_dft(1, &n_int, (int)batch, (fftw_complex *)buf_in,
-                              NULL, 1, n_int, (fftw_complex *)buf_out, NULL, 1,
-                              n_int, direction, FFTW_ESTIMATE);
-  }
-  // R2C/C2R: use multi-plan cache (dummy buffers work correctly)
+static std::mutex &fft_planner_mutex(void) {
+  static std::mutex m;
+  return m;
+}
+
+fftw_plan fft_ensure_plan_f64(int n, int64_t batch, int direction,
+                              FFTKind kind) {
+  std::lock_guard<std::mutex> lock(fft_planner_mutex());
   return (fftw_plan)fft_cache_find_or_create(n, batch, direction, kind, 1);
 }
 
 fftwf_plan fft_ensure_plan_f32(int n, int64_t batch, int direction,
-                               FFTKind kind, void *buf_in, void *buf_out) {
-  if (kind == FFT_KIND_C2C) {
-    // C2C must use actual buffers
-    int n_int = (int)n;
-    return fftwf_plan_many_dft(1, &n_int, (int)batch, (fftwf_complex *)buf_in,
-                               NULL, 1, n_int, (fftwf_complex *)buf_out, NULL,
-                               1, n_int, direction, FFTW_ESTIMATE);
-  }
-  // R2C/C2R: use multi-plan cache (dummy buffers work correctly)
+                               FFTKind kind) {
+  std::lock_guard<std::mutex> lock(fft_planner_mutex());
   return (fftwf_plan)fft_cache_find_or_create(n, batch, direction, kind, 0);
 }
 
