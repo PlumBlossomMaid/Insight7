@@ -563,8 +563,10 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
     return sol::make_object(ts.lua_state(), val);
   };
   array_type["get"] = [](const ins::Array &a, int64_t idx) -> double {
-    ins::Array cpu =
-        (a.place().kind() == ins::DeviceKind::CPU) ? a : a.to(ins::CPUPlace());
+    // contiguous() is required as well: to(CPUPlace()) is a no-op for an
+    // array already on CPU, and the read below follows memory order, which
+    // is wrong for a strided view (e.g. after transpose()).
+    ins::Array cpu = a.to(ins::CPUPlace()).contiguous();
     if (idx < 0 || idx >= cpu.numel())
       return 0.0;
     switch (cpu.dtype()) {
@@ -593,8 +595,10 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   array_type["table"] = [](const ins::Array &a,
                            sol::this_state ts) -> sol::table {
     sol::state_view lv(ts);
-    ins::Array cpu =
-        (a.place().kind() == ins::DeviceKind::CPU) ? a : a.to(ins::CPUPlace());
+    // contiguous() is required as well: to(CPUPlace()) is a no-op for an
+    // array already on CPU, and the loop below reads in memory order, which
+    // is wrong for a strided view (e.g. after transpose()).
+    ins::Array cpu = a.to(ins::CPUPlace()).contiguous();
     sol::table t = lv.create_table(cpu.numel());
     int64_t n = cpu.numel();
     switch (cpu.dtype()) {

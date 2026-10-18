@@ -73,6 +73,12 @@ target_link_libraries(insight_lua PRIVATE
 
 target_compile_features(insight_lua PRIVATE cxx_std_17)
 
+if(MSVC)
+    # sol2 template instantiation produces more than 65,535 COFF sections
+    # for this 2800+ line binding file on MSVC.
+    target_compile_options(insight_lua PRIVATE /bigobj)
+endif()
+
 # Ensure available backends are built before POST_BUILD copy.
 add_dependencies(insight_lua insight_cpu_backend)
 foreach(_backend_target insight_cuda_backend insight_rocm_backend insight_ixuca_backend insight_sdaa_backend)
