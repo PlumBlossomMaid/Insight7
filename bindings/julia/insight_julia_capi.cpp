@@ -40,7 +40,30 @@ using namespace ins;
 #define JULIA_EXPORT
 #endif
 
+// A C++ exception must never unwind through a ccall boundary — Julia cannot
+// catch it and the process aborts. Every entry point runs its body through
+// jl_guard(), which records the message (retrievable via
+// insight_jl_last_error) and returns a value-initialized result: nullptr for
+// pointers, 0 for integers, nothing for void.
+static thread_local std::string g_jl_last_error;
+
+template <typename F> static auto jl_guard(F &&body) -> decltype(body()) {
+  using R = decltype(body());
+  try {
+    g_jl_last_error.clear();
+    return body();
+  } catch (const std::exception &e) {
+    g_jl_last_error = e.what();
+  } catch (...) {
+    g_jl_last_error = "unknown C++ exception";
+  }
+  return R();
+}
+
 extern "C" {
+
+// Message of the last exception caught at the ccall boundary ("" if none).
+const char *insight_jl_last_error() { return g_jl_last_error.c_str(); }
 
 // ============================================================================
 // Initialization

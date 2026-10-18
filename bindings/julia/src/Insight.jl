@@ -359,6 +359,34 @@ end
 Base.unsafe_convert(::Type{Ptr{Cvoid}}, arr::InsightArray) = arr.ptr
 
 # ============================================================================
+# Error reporting helpers (used by module wrappers)
+# ============================================================================
+
+"""Message of the last C++ exception caught at the ccall boundary ("" if none)."""
+function _last_error()::String
+    cstr = ccall((:insight_jl_last_error, LIB_INSIGHT), Ptr{UInt8}, ())
+    return cstr == C_NULL ? "" : unsafe_string(cstr)
+end
+
+"""Raise a Julia error describing why the C layer returned a NULL pointer."""
+function _fail(op::AbstractString)
+    msg = _last_error()
+    error(isempty(msg) ? "Insight: $op failed" : "Insight: $op failed: $msg")
+end
+
+"""
+Take ownership of an Array pointer returned by the C layer.
+Raises a Julia error on NULL instead of leaving a dangling InsightArray whose
+next metadata call would segfault.
+"""
+function _wrap_ptr(ptr::Ptr{Cvoid}, op::AbstractString)::InsightArray
+    ptr == C_NULL && _fail(op)
+    arr = InsightArray(ptr)
+    finalizer(_free, arr)
+    return arr
+end
+
+# ============================================================================
 # In-place mutation
 # ============================================================================
 
