@@ -233,31 +233,58 @@ static void lua_write_sigmf(const std::string &data_file,
 }
 
 // Convert a Lua 1-based slice spec string to C++ 0-based.
-// Positive numbers are decremented by 1; negative numbers and colons unchanged.
-// Example: "1:3" → "0:2", "2,1:-1" → "1,0:-1", "::-1" → "::-1"
+// Only the start and stop fields of each comma-separated dimension are
+// converted: positive values are decremented by 1, negatives already count
+// from the end in both conventions, and the step is passed through untouched.
+// Example: "1:3" → "0:2", "1:5:2" → "0:4:2", "2,1:-1" → "1,0:-1",
+//          "::-1" → "::-1", "::2" → "::2"
 static std::string lua_spec_to_cpp(const std::string &spec) {
-  std::string out;
-  for (size_t i = 0; i < spec.size(); i++) {
-    char c = spec[i];
-    if (c == ':' || c == ',') {
-      out += c;
-    } else if (c == '-' || (c >= '0' && c <= '9')) {
-      size_t start = i;
-      if (c == '-')
-        i++;
-      while (i < spec.size() && spec[i] >= '0' && spec[i] <= '9')
-        i++;
-      std::string num = spec.substr(start, i - start);
-      int val = std::stoi(num);
-      if (val > 0) {
-        out += std::to_string(val - 1);
-      } else {
-        out += num;
-      }
-      i--;
-    } else {
-      out += c;
+  auto trim = [](const std::string &s) -> std::string {
+    size_t begin = s.find_first_not_of(" \t");
+    if (begin == std::string::npos)
+      return std::string();
+    return s.substr(begin, s.find_last_not_of(" \t") - begin + 1);
+  };
+  auto to_zero_based = [](const std::string &field) -> std::string {
+    if (field.empty())
+      return field;
+    try {
+      size_t pos = 0;
+      long long val = std::stoll(field, &pos);
+      if (pos == field.size() && val > 0)
+        return std::to_string(val - 1);
+    } catch (const std::exception &) {
     }
+    return field;
+  };
+
+  std::string out;
+  size_t dim_begin = 0;
+  while (true) {
+    size_t dim_end = spec.find(',', dim_begin);
+    std::string dim = spec.substr(dim_begin, dim_end == std::string::npos
+                                                 ? std::string::npos
+                                                 : dim_end - dim_begin);
+    size_t field_begin = 0;
+    int field_idx = 0;
+    while (true) {
+      size_t field_end = dim.find(':', field_begin);
+      std::string field =
+          trim(dim.substr(field_begin, field_end == std::string::npos
+                                           ? std::string::npos
+                                           : field_end - field_begin));
+      // Fields 0 (start) and 1 (stop) are 1-based in Lua; field 2 is the step.
+      out += (field_idx < 2) ? to_zero_based(field) : field;
+      if (field_end == std::string::npos)
+        break;
+      out += ':';
+      field_begin = field_end + 1;
+      field_idx++;
+    }
+    if (dim_end == std::string::npos)
+      break;
+    out += ',';
+    dim_begin = dim_end + 1;
   }
   return out;
 }

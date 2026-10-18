@@ -870,7 +870,10 @@ PYBIND11_MODULE(_insight, m) {
       // --- list (flat extraction) ---
       .def("list",
            [](const Array &a) {
-             Array cpu = a.to(CPUPlace());
+             // contiguous() is required as well: to(CPUPlace()) is a no-op for
+             // an array already on CPU, and the loops below read the buffer in
+             // memory order, which is wrong for a strided view.
+             Array cpu = a.to(CPUPlace()).contiguous();
              py::list result;
              int64_t n = cpu.numel();
              switch (cpu.dtype()) {

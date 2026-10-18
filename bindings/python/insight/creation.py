@@ -16,14 +16,14 @@ Functions:
 from insight._insight import zeros as _native_zeros
 from insight._insight import ones as _native_ones
 from insight._insight import full as _native_full
+from insight._insight import eye as _native_eye
+from insight._insight import arange as _native_arange
+from insight._insight import linspace as _native_linspace
+from insight._insight import logspace as _native_logspace
 from insight._insight import Shape, DType, CPUPlace, get_device
 
 # Import remaining functions directly (no Shape conversion needed)
 from insight._insight import (
-    eye,
-    arange,
-    linspace,
-    logspace,
     from_numpy,
     from_array,
     zeros_like,
@@ -87,6 +87,78 @@ def full(shape, fill_value, dtype=DType.float32, place=None):
     if place is None:
         return _native_full(s, fill_value, dtype, get_device())
     return _native_full(s, fill_value, dtype, place)
+
+
+def eye(n, m=-1, k=0, dtype=DType.float32, place=None):
+    """Create a 2-D array with ones on a diagonal and zeros elsewhere.
+
+    Args:
+        n: Number of rows.
+        m: Number of columns (default -1, meaning same as n).
+        k: Diagonal offset (default 0).
+        dtype: Data type (default float32).
+        place: Device placement (default: current device).
+
+    Returns:
+        2-D identity-like array.
+    """
+    if place is None:
+        place = get_device()
+    return _native_eye(n, m, k, dtype, place)
+
+
+def arange(*args, dtype=DType.int64, place=None):
+    """Create an array of evenly spaced values.
+
+    Called as arange(stop) or arange(start, stop, step).
+
+    Args:
+        dtype: Data type (default int64).
+        place: Device placement (default: current device).
+
+    Returns:
+        1-D array of evenly spaced values.
+    """
+    if place is None:
+        place = get_device()
+    return _native_arange(*args, dtype=dtype, place=place)
+
+
+def linspace(start, stop, num, dtype=DType.float32, place=None):
+    """Create an array of evenly spaced values over a closed interval.
+
+    Args:
+        start: First value.
+        stop: Last value (inclusive).
+        num: Number of samples.
+        dtype: Data type (default float32).
+        place: Device placement (default: current device).
+
+    Returns:
+        1-D array of num evenly spaced values.
+    """
+    if place is None:
+        place = get_device()
+    return _native_linspace(start, stop, num, dtype, place)
+
+
+def logspace(start, stop, num, base=10.0, dtype=DType.float32, place=None):
+    """Create an array of values evenly spaced on a log scale.
+
+    Args:
+        start: base ** start is the first value.
+        stop: base ** stop is the last value.
+        num: Number of samples.
+        base: Log base (default 10.0).
+        dtype: Data type (default float32).
+        place: Device placement (default: current device).
+
+    Returns:
+        1-D array of num log-spaced values.
+    """
+    if place is None:
+        place = get_device()
+    return _native_logspace(start, stop, num, base, dtype, place)
 
 
 __all__ = [
