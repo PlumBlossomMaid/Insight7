@@ -18,8 +18,8 @@ function welch_jl(x::InsightArray; fs::Float64=1.0, window::String="hann",
           x, fs, window, Int64(nperseg), Int64(noverlap), Int64(nfft),
           detrend, return_onesided ? Int32(1) : Int32(0), scaling,
           f_ref, p_ref)
-    f = InsightArray(f_ref[]); finalizer(_free, f)
-    pxx = InsightArray(p_ref[]); finalizer(_free, pxx)
+    f = _wrap_ptr(f_ref[], "welch_jl")
+    pxx = _wrap_ptr(p_ref[], "welch_jl")
     return (f, pxx)
 end
 
@@ -40,8 +40,8 @@ function periodogram_jl(x::InsightArray; fs::Float64=1.0,
            Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}),
           x, fs, window, Int64(nfft), detrend,
           return_onesided ? Int32(1) : Int32(0), scaling, f_ref, p_ref)
-    f = InsightArray(f_ref[]); finalizer(_free, f)
-    pxx = InsightArray(p_ref[]); finalizer(_free, pxx)
+    f = _wrap_ptr(f_ref[], "periodogram_jl")
+    pxx = _wrap_ptr(p_ref[], "periodogram_jl")
     return (f, pxx)
 end
 
@@ -60,8 +60,8 @@ function csd(x::InsightArray, y::InsightArray; fs::Float64=1.0,
            Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}),
           x, y, fs, window, Int64(nperseg), Int64(noverlap), Int64(nfft),
           f_ref, Pxx_ref)
-    f_arr = InsightArray(f_ref[]); finalizer(_free, f_arr)
-    Pxx_arr = InsightArray(Pxx_ref[]); finalizer(_free, Pxx_arr)
+    f_arr = _wrap_ptr(f_ref[], "csd")
+    Pxx_arr = _wrap_ptr(Pxx_ref[], "csd")
     return (f=f_arr, Pxx=Pxx_arr)
 end
 
@@ -80,8 +80,8 @@ function coherence(x::InsightArray, y::InsightArray; fs::Float64=1.0,
            Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}),
           x, y, fs, window, Int64(nperseg), Int64(noverlap), Int64(nfft),
           f_ref, Pxx_ref)
-    f_arr = InsightArray(f_ref[]); finalizer(_free, f_arr)
-    Pxx_arr = InsightArray(Pxx_ref[]); finalizer(_free, Pxx_arr)
+    f_arr = _wrap_ptr(f_ref[], "coherence")
+    Pxx_arr = _wrap_ptr(Pxx_ref[], "coherence")
     return (f=f_arr, Pxx=Pxx_arr)
 end
 
@@ -101,9 +101,9 @@ function spectrogram(x::InsightArray; fs::Float64=1.0,
            Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}),
           x, fs, window, Int64(nperseg), Int64(noverlap), Int64(nfft),
           f_ref, t_ref, Sxx_ref)
-    f_arr = InsightArray(f_ref[]); finalizer(_free, f_arr)
-    t_arr = InsightArray(t_ref[]); finalizer(_free, t_arr)
-    Sxx_arr = InsightArray(Sxx_ref[]); finalizer(_free, Sxx_arr)
+    f_arr = _wrap_ptr(f_ref[], "spectrogram")
+    t_arr = _wrap_ptr(t_ref[], "spectrogram")
+    Sxx_arr = _wrap_ptr(Sxx_ref[], "spectrogram")
     return (f=f_arr, t=t_arr, Sxx=Sxx_arr)
 end
 
@@ -123,9 +123,9 @@ function stft(x::InsightArray; fs::Float64=1.0,
            Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}, Ptr{Ptr{Cvoid}}),
           x, fs, window, Int64(nperseg), Int64(noverlap), Int64(nfft),
           f_ref, t_ref, Sxx_ref)
-    f_arr = InsightArray(f_ref[]); finalizer(_free, f_arr)
-    t_arr = InsightArray(t_ref[]); finalizer(_free, t_arr)
-    Sxx_arr = InsightArray(Sxx_ref[]); finalizer(_free, Sxx_arr)
+    f_arr = _wrap_ptr(f_ref[], "stft")
+    t_arr = _wrap_ptr(t_ref[], "stft")
+    Sxx_arr = _wrap_ptr(Sxx_ref[], "stft")
     return (f=f_arr, t=t_arr, Sxx=Sxx_arr)
 end
 
@@ -152,8 +152,5 @@ function lombscargle(x::InsightArray, y::InsightArray, freqs::InsightArray)
     ptr = ccall((:insight_jl_lombscargle, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Ptr{Cvoid}, Ptr{Cvoid}),
                 x, y, freqs)
-    if ptr == C_NULL
-        error("lombscargle failed")
-    end
-    return InsightArray(ptr)
+    return _wrap_ptr(ptr, "lombscargle")
 end

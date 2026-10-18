@@ -12,7 +12,7 @@ function read_bin(file::String; dtype::DataType=UInt8,
     ptr = ccall((:insight_jl_read_bin, LIB_INSIGHT), Ptr{Cvoid},
                 (Cstring, Int32, Int64, Int64),
                 file, Int32(dtype_code), Int64(num_samples), Int64(offset))
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "read_bin")
 end
 
 """
@@ -33,7 +33,7 @@ Pack array data into a binary representation.
 function pack_bin(data::InsightArray)::InsightArray
     ptr = ccall((:insight_jl_pack_bin, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid},), data)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "pack_bin")
 end
 
 """
@@ -47,7 +47,7 @@ function unpack_bin(binary::InsightArray, dtype::DataType;
     ptr = ccall((:insight_jl_unpack_bin, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Int32, Cstring),
                 binary, Int32(dtype_code), endianness)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "unpack_bin")
 end
 
 """
@@ -60,7 +60,7 @@ function read_sigmf(data_file::String; meta_file::String="",
     ptr = ccall((:insight_jl_read_sigmf, LIB_INSIGHT), Ptr{Cvoid},
                 (Cstring, Cstring, Int64, Int64),
                 data_file, meta_file, Int64(num_samples), Int64(offset))
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "read_sigmf")
 end
 
 """

@@ -9,7 +9,7 @@ Return a Gaussian B-spline of order `n`.
 function gauss_spline(x::InsightArray, n::Int)::InsightArray
     ptr = ccall((:insight_jl_gauss_spline, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Int32), x, Int32(n))
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "gauss_spline")
 end
 
 """
@@ -19,7 +19,7 @@ Return a cubic B-spline.
 """
 function cubic(x::InsightArray)::InsightArray
     ptr = ccall((:insight_jl_cubic, LIB_INSIGHT), Ptr{Cvoid}, (Ptr{Cvoid},), x)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "cubic")
 end
 
 """
@@ -30,5 +30,5 @@ Return a quadratic B-spline.
 function quadratic(x::InsightArray)::InsightArray
     ptr = ccall((:insight_jl_quadratic, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid},), x)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "quadratic")
 end
