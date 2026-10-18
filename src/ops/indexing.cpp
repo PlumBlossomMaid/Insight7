@@ -733,11 +733,24 @@ Array searchsorted(const Array &x, const Array &v, const std::string &side,
     sorted_x = take(sorted_x, sorter.value());
   }
 
-  Array result(v.shape(), DType::I64, v.place());
+  // F16/BF16/F8 compare raw bit patterns (sign-magnitude ordering is
+  // reversed for negatives); promote to F32 so comparison is numeric.
+  Array v_cmp = v;
+  if (sorted_x.dtype() == DType::F16 || sorted_x.dtype() == DType::BF16 ||
+      sorted_x.dtype() == DType::F8_E4M3 ||
+      sorted_x.dtype() == DType::F8_E5M2) {
+    sorted_x = sorted_x.to(DType::F32);
+    if (v_cmp.dtype() != DType::F32) {
+      v_cmp = v_cmp.to(DType::F32);
+    }
+  }
+
+  Array result(v_cmp.shape(), DType::I64, v_cmp.place());
 
   int side_code = (side == "left") ? 0 : 1;
 
-  ArrayIterator iter = indexing_iterator("searchsorted", {sorted_x, v}, result);
+  ArrayIterator iter =
+      indexing_iterator("searchsorted", {sorted_x, v_cmp}, result);
   auto arrays = iter.arrays();
   OpRegistry::launch_schema(
       "searchsorted", x.place(), x.dtype(),
