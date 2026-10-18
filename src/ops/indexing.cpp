@@ -420,29 +420,33 @@ Array scatter_reduce(const Array &x, int dim, const Array &index,
  * @return 1D array of selected elements
  */
 Array masked_select(const Array &x, const Array &mask) {
+  // masked_select kernels copy raw buffers from x->data and index them
+  // linearly, so materialize offset/strided/broadcast views up front.
+  Array x_c = x.contiguous();
   Array condition = mask;
   if (condition.dtype() != DType::BOOL) {
     condition = condition.to(DType::BOOL);
   }
-  if (condition.place() != x.place()) {
-    condition = condition.to(x.place());
+  if (condition.place() != x_c.place()) {
+    condition = condition.to(x_c.place());
   }
 
-  if (condition.shape() != x.shape()) {
-    condition = broadcast_to(condition, x.shape());
+  if (condition.shape() != x_c.shape()) {
+    condition = broadcast_to(condition, x_c.shape());
   }
+  condition = condition.contiguous();
 
   // First pass: count number of true elements
   Array flattened_cond = condition.reshape(Shape({condition.numel()}));
   Array cnt = count_nonzero(flattened_cond);
   int64_t count = cnt.item<int64_t>();
 
-  Array result(Shape({count}), x.dtype(), x.place());
+  Array result(Shape({count}), x_c.dtype(), x_c.place());
 
-  ArrayIterator iter = indexing_iterator("masked_select", {x, condition}, result);
+  ArrayIterator iter = indexing_iterator("masked_select", {x_c, condition}, result);
   auto arrays = iter.arrays();
   OpRegistry::launch_schema(
-      "masked_select", x.place(), x.dtype(),
+      "masked_select", x_c.place(), x_c.dtype(),
       {OpRegistry::array_arg(arrays[2].layout_ptr()),
        OpRegistry::array_arg(arrays[0].layout_ptr()),
        OpRegistry::array_arg(arrays[1].layout_ptr())},
@@ -513,12 +517,14 @@ Array compress(const Array &x, const Array &condition,
  */
 Array where(const Array &condition, const Array &x, const Array &y) {
   auto broadcasted = broadcast_arrays({condition, x, y});
-  Array cond = broadcasted[0];
+  // broadcast_to returns stride-0 views; where kernels index inputs linearly,
+  // so materialize the broadcast before launching.
+  Array cond = broadcasted[0].contiguous();
   if (cond.dtype() != DType::BOOL) {
     cond = cond.to(DType::BOOL);
   }
-  Array X = broadcasted[1];
-  Array Y = broadcasted[2];
+  Array X = broadcasted[1].contiguous();
+  Array Y = broadcasted[2].contiguous();
 
   Array result(cond.shape(), X.dtype(), X.place());
 
@@ -546,11 +552,14 @@ Array where(const Array &condition, const Array &x, const Array &y) {
  * @return 2D array of shape (ndim, nz_count) containing indices
  */
 Array nonzero(const Array &x) {
+  // nonzero kernels copy raw buffers from x->data and index them via strides;
+  // materialize offset/strided views up front so the copy and indexing agree.
+  Array x_c = x.contiguous();
   Array result;
   OpSchema schema = dynamic_indexing_schema("nonzero", 1);
   OpRegistry::launch_schema(
-      "nonzero", x.place(), x.dtype(),
-      {OpRegistry::array_arg(x.layout_ptr())},
+      "nonzero", x_c.place(), x_c.dtype(),
+      {OpRegistry::array_arg(x_c.layout_ptr())},
       dynamic_indexing_outputs(schema, {&result}));
 
   return Array(result.layout_ptr());
