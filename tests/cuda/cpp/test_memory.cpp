@@ -1,4 +1,5 @@
 // tests/cuda/cpp/test_memory.cpp
+#include "iluvatar_skip.h"
 #include "insight/c_api/memory.h"
 #include "insight/core/place.h"
 #include "insight/insight.h"
@@ -7,10 +8,7 @@
 class MemoryTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init();
-    if (!ins::is_device_available(ins::DeviceKind::GPU)) {
-      GTEST_SKIP() << "GPU not available";
-    }
+    INSIGHT_GPU_TEST_SETUP();
   }
 };
 

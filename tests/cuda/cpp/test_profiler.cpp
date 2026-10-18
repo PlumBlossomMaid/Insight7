@@ -1,4 +1,5 @@
 // tests/cuda/cpp/test_profiler.cpp
+#include "iluvatar_skip.h"
 #include "insight/c_api/place.h"
 #include "insight/c_api/profiler.h"
 #include "insight/core/array.h"
@@ -15,10 +16,7 @@ using namespace ins;
 class ProfilerTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init();
-    if (!is_device_available(DeviceKind::GPU)) {
-      GTEST_SKIP() << "GPU not available";
-    }
+    INSIGHT_GPU_TEST_SETUP();
   }
 };
 

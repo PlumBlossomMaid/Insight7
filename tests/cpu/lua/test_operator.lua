@@ -102,6 +102,33 @@ describe("Operator CPU Tests", function()
     assert.are.equal(12, b.numel)
   end)
 
+  it("string_slice_positive_step", function()
+    local a = ins.from_table({ 10.0, 20.0, 30.0, 40.0, 50.0 })
+    -- Lua 1-based "1:5:2" → C++ [0:4:2] → elements 1 and 3
+    local b = a["1:5:2"]
+    assert.are.equal(2, b.numel)
+    assert.near(10.0, b[1]:item(), 1e-9)
+    assert.near(30.0, b[2]:item(), 1e-9)
+  end)
+
+  it("string_slice_step_only", function()
+    local a = ins.from_table({ 10.0, 20.0, 30.0, 40.0, 50.0, 60.0 })
+    local b = a["::2"]
+    assert.are.equal(3, b.numel)
+    assert.near(10.0, b[1]:item(), 1e-9)
+    assert.near(30.0, b[2]:item(), 1e-9)
+    assert.near(50.0, b[3]:item(), 1e-9)
+  end)
+
+  it("string_slice_2d_step", function()
+    local a = ins.from_table({ { 1.0, 2.0, 3.0, 4.0 }, { 5.0, 6.0, 7.0, 8.0 } })
+    -- row 1, columns 1 and 3 (Lua 1-based)
+    local b = a["1:2,1:5:2"]
+    assert.are.equal(2, b.numel)
+    assert.near(1.0, b["1,1"]:item(), 1e-9)
+    assert.near(3.0, b["1,2"]:item(), 1e-9)
+  end)
+
   it("get_scalar", function()
     local a = ins.from_table({ 10.0, 20.0, 30.0 })
     local v = a:get(0)

@@ -37,6 +37,42 @@ TEST_F(RandomTest, DifferentSeedsProduceDifferentSequences) {
   EXPECT_FALSE(all_same);
 }
 
+TEST_F(RandomTest, GetSeedReturnsWhatWasSet) {
+  seed(1234567);
+  EXPECT_EQ(get_seed(), 1234567u);
+
+  seed(42);
+  EXPECT_EQ(get_seed(), 42u);
+}
+
+TEST_F(RandomTest, SameSeedProducesSameSequence) {
+  seed(42);
+  Array a = rand({100});
+
+  seed(42);
+  Array b = rand({100});
+
+  const float *a_data = a.data<float>();
+  const float *b_data = b.data<float>();
+  for (int i = 0; i < 100; ++i) {
+    EXPECT_EQ(a_data[i], b_data[i]) << "mismatch at index " << i;
+  }
+}
+
+TEST_F(RandomTest, SameSeedProducesSameSequenceRandn) {
+  seed(7);
+  Array a = randn({256}, DType::F64);
+
+  seed(7);
+  Array b = randn({256}, DType::F64);
+
+  const double *a_data = a.data<double>();
+  const double *b_data = b.data<double>();
+  for (int i = 0; i < 256; ++i) {
+    EXPECT_EQ(a_data[i], b_data[i]) << "mismatch at index " << i;
+  }
+}
+
 // ========== rand ==========
 
 TEST_F(RandomTest, RandShape) {

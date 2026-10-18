@@ -1,4 +1,5 @@
 // tests/cuda/test_elementwise.cu
+#include "iluvatar_skip.h"
 #include "insight/insight.h"
 #include <cmath>
 #include <complex>
@@ -9,8 +10,7 @@ using namespace ins;
 class ElementwiseTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init();
-    set_device(ins::GPUPlace(0));
+    INSIGHT_GPU_TEST_SETUP();
   }
 };
 

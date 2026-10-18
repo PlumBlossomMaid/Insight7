@@ -771,3 +771,56 @@ TEST_F(IndexingTest, PartialIndexTooManyThrows) {
   // 3 indices on 2D array should throw
   EXPECT_THROW(a.at({0, 1, 2}), std::exception);
 }
+TEST_F(IndexingTest, StringIndexNegativeOneWithSlice) {
+  Array a = arange_2d(4, 5);
+  Array last_col = a[":,-1"];
+  ASSERT_EQ(last_col.shape().ndim(), 1);
+  ASSERT_EQ(last_col.numel(), 4);
+  for (int i = 0; i < 4; ++i) {
+    EXPECT_FLOAT_EQ(last_col.at({i}).item<float>(),
+                    static_cast<float>(i * 5 + 4));
+  }
+
+  Array second_last = a[":,-2"];
+  ASSERT_EQ(second_last.numel(), 4);
+  for (int i = 0; i < 4; ++i) {
+    EXPECT_FLOAT_EQ(second_last.at({i}).item<float>(),
+                    static_cast<float>(i * 5 + 3));
+  }
+}
+
+TEST_F(IndexingTest, SliceStartBeyondDimIsEmpty) {
+  Array a = arange_1d(5);
+  EXPECT_EQ(a["10:"].numel(), 0);
+  EXPECT_EQ(a["5:"].numel(), 0);
+  EXPECT_EQ(a["4:2"].numel(), 0);
+  EXPECT_EQ(a.slice(0, 7, 9).numel(), 0);
+}
+
+TEST_F(IndexingTest, SliceOperatorPreservesReverseDefaults) {
+  Array a = arange_1d(5);
+  Array rev = a[Slice(std::nullopt, std::nullopt, -1)];
+  ASSERT_EQ(rev.numel(), 5);
+  for (int i = 0; i < 5; ++i) {
+    EXPECT_FLOAT_EQ(rev.at({i}).item<float>(), static_cast<float>(4 - i));
+  }
+
+  Array rev_str = a["::-1"];
+  ASSERT_EQ(rev_str.numel(), 5);
+  for (int i = 0; i < 5; ++i) {
+    EXPECT_FLOAT_EQ(rev_str.at({i}).item<float>(), static_cast<float>(4 - i));
+  }
+}
+
+TEST_F(IndexingTest, ViewReshapeUpdatesKernelVisibleLayout) {
+  // view() must refresh the C-ABI layout, otherwise kernels still see the
+  // original dims and reduce along the wrong extents.
+  Array a = arange_1d(6);
+  Array v = a.view(Shape({3, 2}));
+  ASSERT_EQ(v.shape().ndim(), 2);
+  EXPECT_EQ(v.layout_ptr()->ndim, 2);
+  EXPECT_EQ(v.layout_ptr()->dims[0], 3);
+  EXPECT_EQ(v.layout_ptr()->dims[1], 2);
+  EXPECT_EQ(v.layout_ptr()->strides[0], 2);
+  EXPECT_EQ(v.layout_ptr()->strides[1], 1);
+}
