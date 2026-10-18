@@ -341,9 +341,9 @@ Array mean(const Array &x, std::optional<int> axis, bool keepdim) {
   Array divisor = full(s_cast.shape(), inv_n, out_dtype, s_cast.place());
   Array result = mul(s_cast, divisor);
 
-  if (!keepdim && axis.has_value() && result.shape().ndim() > 0 &&
-      result.shape().dim(result.shape().ndim() - 1) == 1) {
-    result = result.squeeze(result.shape().ndim() - 1);
+  if (!keepdim && axis.has_value() && ax < result.shape().ndim() &&
+      result.shape().dim(ax) == 1) {
+    result = result.squeeze(ax);
   }
 
   return result;
