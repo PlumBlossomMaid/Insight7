@@ -224,8 +224,11 @@ static Shape reduction_output_shape(const ReductionInfo &info, bool keepdim) {
 static Array post_process_reduction(const Array &result,
                                     const ReductionInfo &info, bool keepdim,
                                     std::optional<int> axis) {
-  Array transposed = transpose_output(result, info);
-  return post_process_keepdim(transposed, info, keepdim, axis);
+  // The reduction kernel already writes results in the original axis order
+  // (the reduced axis is size-1 or dropped, so batch-linear output matches
+  // the row-major layout of info.out_shape). transpose_output is therefore
+  // unnecessary and would corrupt shapes like (2,1,4) into (2,4,1).
+  return post_process_keepdim(result, info, keepdim, axis);
 }
 
 // ============================================================================
