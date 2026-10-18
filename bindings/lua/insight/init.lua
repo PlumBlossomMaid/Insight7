@@ -168,6 +168,9 @@ local has_stringx, stringx = pcall(require, "pl.stringx")
 --- @class insight
 local M = {}
 
+-- Lua 5.1 / LuaJIT have no table.unpack (5.2+); keep wrap() portable.
+local _unpack = table.unpack or unpack
+
 -- Save native reference for internal use
 M._native = native
 
@@ -416,7 +419,7 @@ function M.wrap(arg_names, fn)
             pos[i] = t[i]
           end
         end
-        return fn(table.unpack(pos, 1, #arg_names))
+        return fn(_unpack(pos, 1, #arg_names))
       end
     end
     return fn(...)
