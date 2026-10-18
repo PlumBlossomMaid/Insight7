@@ -45,13 +45,42 @@ static void svd_f32(const float *src, float *u, float *s, float *vt, int m,
     }
   }
 
-  int info = LAPACKE_sgesvd(LAPACK_COL_MAJOR, jobu, jobvt, m, n, a, m, s, u,
-                            ldu, vt, ldvt, superb);
+  // LAPACK writes U and VT in column-major order; the output buffers are
+  // row-major, so gather into temporary column-major buffers and transpose.
+  int u_cols = full ? m : min_mn;
+  int vt_rows = full ? n : min_mn;
+  float *u_cm = (float *)malloc((size_t)m * u_cols * sizeof(float));
+  float *vt_cm = (float *)malloc((size_t)vt_rows * n * sizeof(float));
+  if (!u_cm || !vt_cm) {
+    cpu_set_last_error("svd: memory allocation failed");
+    free(a);
+    free(u_cm);
+    free(vt_cm);
+    if (superb)
+      free(superb);
+    return;
+  }
+
+  int info = LAPACKE_sgesvd(LAPACK_COL_MAJOR, jobu, jobvt, m, n, a, m, s,
+                            u_cm, ldu, vt_cm, ldvt, superb);
   if (info != 0) {
     cpu_set_last_error("svd: LAPACK sgesvd failed");
+  } else {
+    for (int i = 0; i < m; ++i) {
+      for (int j = 0; j < u_cols; ++j) {
+        u[i * u_cols + j] = u_cm[i + j * ldu];
+      }
+    }
+    for (int i = 0; i < vt_rows; ++i) {
+      for (int j = 0; j < n; ++j) {
+        vt[i * n + j] = vt_cm[i + j * ldvt];
+      }
+    }
   }
 
   free(a);
+  free(u_cm);
+  free(vt_cm);
   if (superb) {
     free(superb);
   }
@@ -87,14 +116,43 @@ static void svd_f64(const double *src, double *u, double *s, double *vt, int m,
     }
   }
 
-  int info = LAPACKE_dgesvd(LAPACK_COL_MAJOR, jobu, jobvt, m, n, a, m, s, u,
-                            ldu, vt, ldvt, superb);
+  // LAPACK writes U and VT in column-major order; the output buffers are
+  // row-major, so gather into temporary column-major buffers and transpose.
+  int u_cols = full ? m : min_mn;
+  int vt_rows = full ? n : min_mn;
+  double *u_cm = (double *)malloc((size_t)m * u_cols * sizeof(double));
+  double *vt_cm = (double *)malloc((size_t)vt_rows * n * sizeof(double));
+  if (!u_cm || !vt_cm) {
+    cpu_set_last_error("svd: memory allocation failed");
+    free(a);
+    free(u_cm);
+    free(vt_cm);
+    if (superb)
+      free(superb);
+    return;
+  }
+
+  int info = LAPACKE_dgesvd(LAPACK_COL_MAJOR, jobu, jobvt, m, n, a, m, s,
+                            u_cm, ldu, vt_cm, ldvt, superb);
 
   if (info != 0) {
     cpu_set_last_error("svd: LAPACK dgesvd failed");
+  } else {
+    for (int i = 0; i < m; ++i) {
+      for (int j = 0; j < u_cols; ++j) {
+        u[i * u_cols + j] = u_cm[i + j * ldu];
+      }
+    }
+    for (int i = 0; i < vt_rows; ++i) {
+      for (int j = 0; j < n; ++j) {
+        vt[i * n + j] = vt_cm[i + j * ldvt];
+      }
+    }
   }
 
   free(a);
+  free(u_cm);
+  free(vt_cm);
   if (superb)
     free(superb);
 }
