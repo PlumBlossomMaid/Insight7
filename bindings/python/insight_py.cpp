@@ -17,6 +17,7 @@
 #include "insight/core/shape.h"
 #include "insight/core/slice.h"
 #include "insight/init.h"
+#include "insight/ops/broadcast.h"
 #include "insight/ops/cast.h"
 #include "insight/ops/complex.h"
 #include "insight/ops/creation.h"
@@ -1002,6 +1003,21 @@ PYBIND11_MODULE(_insight, m) {
   m.def("ones_like", &ones_like, py::arg("arr"));
 
   // ====================================================================
+  // Broadcasting
+  // ====================================================================
+  m.def("broadcast_shape",
+        [](const Shape &a, const Shape &b) { return broadcast_shape(a, b); },
+        py::arg("a"), py::arg("b"));
+  m.def("broadcast_to",
+        [](const Array &x, const Shape &target_shape) {
+          return broadcast_to(x, target_shape);
+        },
+        py::arg("x"), py::arg("target_shape"));
+  m.def("broadcast_arrays",
+        [](const std::vector<Array> &arrays) { return broadcast_arrays(arrays); },
+        py::arg("arrays"));
+
+  // ====================================================================
   // Elementwise
   // ====================================================================
   m.def(
@@ -1038,10 +1054,19 @@ PYBIND11_MODULE(_insight, m) {
       [](const Array &a, const Array &b) { return not_equal(a, b); },
       py::arg("a"), py::arg("b"));
   m.def(
-      "greater", [](const Array &a, const Array &b) { return greater(a, b); },
+      "greater",
+      [](const Array &a, const Array &b) { return greater(a, b); },
+      py::arg("a"), py::arg("b"));
+  m.def(
+      "greater_than",
+      [](const Array &a, const Array &b) { return greater_than(a, b); },
       py::arg("a"), py::arg("b"));
   m.def(
       "less", [](const Array &a, const Array &b) { return less(a, b); },
+      py::arg("a"), py::arg("b"));
+  m.def(
+      "less_than",
+      [](const Array &a, const Array &b) { return less_than(a, b); },
       py::arg("a"), py::arg("b"));
   m.def(
       "greater_equal",
@@ -1082,10 +1107,20 @@ PYBIND11_MODULE(_insight, m) {
       "bitwise_xor",
       [](const Array &a, const Array &b) { return bitwise_xor(a, b); },
       py::arg("a"), py::arg("b"));
+  m.def(
+      "bitwise_left_shift",
+      [](const Array &a, const Array &b) { return bitwise_left_shift(a, b); },
+      py::arg("a"), py::arg("b"));
+  m.def(
+      "bitwise_right_shift",
+      [](const Array &a, const Array &b) { return bitwise_right_shift(a, b); },
+      py::arg("a"), py::arg("b"));
 
   // ====================================================================
   // Unary math
   // ====================================================================
+  m.def("bitwise_not", [](const Array &x) { return bitwise_not(x); },
+        py::arg("x"));
   m.def("abs", [](const Array &x) { return ins::abs(x); }, py::arg("x"));
   m.def("negative", [](const Array &x) { return negative(x); }, py::arg("x"));
   m.def("square", [](const Array &x) { return ins::square(x); }, py::arg("x"));
@@ -1298,6 +1333,33 @@ PYBIND11_MODULE(_insight, m) {
       },
       py::arg("x"), py::arg("axis") = std::nullopt, py::arg("keepdims") = false,
       py::arg("ddof") = 0);
+  m.def(
+      "nanmedian",
+      [](const Array &x, std::optional<int> axis, bool keepdims) {
+        return nanmedian(x, axis, keepdims);
+      },
+      py::arg("x"), py::arg("axis") = std::nullopt,
+      py::arg("keepdims") = false);
+  m.def(
+      "nanquantile",
+      [](const Array &x, double q, std::optional<int> axis, bool keepdims) {
+        return nanquantile(x, q, axis, keepdims);
+      },
+      py::arg("x"), py::arg("q"), py::arg("axis") = std::nullopt,
+      py::arg("keepdims") = false);
+  m.def(
+      "nanquantile",
+      [](const Array &x, const Array &q, std::optional<int> axis,
+         bool keepdims) { return nanquantile(x, q, axis, keepdims); },
+      py::arg("x"), py::arg("q"), py::arg("axis") = std::nullopt,
+      py::arg("keepdims") = false);
+  m.def(
+      "bincount",
+      [](const Array &x, std::optional<Array> weights, int64_t minlength) {
+        return bincount(x, weights, minlength);
+      },
+      py::arg("x"), py::arg("weights") = std::nullopt,
+      py::arg("minlength") = 0);
 
   // ====================================================================
   // Manipulation
@@ -1360,6 +1422,10 @@ PYBIND11_MODULE(_insight, m) {
   m.def("inv", &inv, py::arg("x"));
   m.def("pinv", &pinv, py::arg("x"), py::arg("rcond") = -1.0);
   m.def("solve", &solve, py::arg("a"), py::arg("b"));
+  m.def("cholesky_solve", &cholesky_solve, py::arg("A"), py::arg("B"),
+        py::arg("lower") = true);
+  m.def("solve_triangular", &solve_triangular, py::arg("A"), py::arg("B"),
+        py::arg("lower") = true, py::arg("unit_diag") = false);
   m.def("lstsq", &lstsq, py::arg("a"), py::arg("b"), py::arg("rcond") = -1.0);
   m.def("svd", &svd, py::arg("x"), py::arg("full_matrices") = true);
   m.def("svdvals", &svdvals, py::arg("x"));
@@ -2960,11 +3026,25 @@ PYBIND11_MODULE(_insight, m) {
         return cast(x, dtype, copy);
       },
       py::arg("x"), py::arg("dtype"), py::arg("copy") = true);
+  m.def(
+      "cast_like",
+      [](const Array &input, const Array &other, bool copy) {
+        return cast_like(input, other, copy);
+      },
+      py::arg("input"), py::arg("other"), py::arg("copy") = true);
 
   // ====================================================================
   // Indexing
   // ====================================================================
   m.def("take", &take, py::arg("x"), py::arg("indices"),
+        py::arg("axis") = std::nullopt);
+  m.def("take_along_axis", &take_along_axis, py::arg("x"),
+        py::arg("indices"), py::arg("axis"));
+  m.def("put", &put, py::arg("x"), py::arg("indices"), py::arg("values"),
+        py::arg("axis") = std::nullopt);
+  m.def("put_along_axis", &put_along_axis, py::arg("x"), py::arg("indices"),
+        py::arg("values"), py::arg("axis"));
+  m.def("compress", &compress, py::arg("x"), py::arg("condition"),
         py::arg("axis") = std::nullopt);
   m.def("nonzero", &nonzero, py::arg("x"));
   m.def("flatnonzero", &flatnonzero, py::arg("x"));
@@ -2991,6 +3071,11 @@ PYBIND11_MODULE(_insight, m) {
           py::arg("return_inverse") = false, py::arg("return_counts") = false);
     m.def("topk", &topk, py::arg("x"), py::arg("k"), py::arg("axis") = -1,
           py::arg("largest") = true, py::arg("sorted") = true);
+    m.def("partition", &partition, py::arg("x"), py::arg("kth"),
+          py::arg("axis") = -1);
+    m.def("argpartition", &argpartition, py::arg("x"), py::arg("kth"),
+          py::arg("axis") = -1);
+    m.def("lexsort", &lexsort, py::arg("keys"), py::arg("axis") = -1);
     m.def("gather", &gather, py::arg("x"), py::arg("dim"), py::arg("index"));
     m.def("scatter", &scatter, py::arg("x"), py::arg("dim"), py::arg("index"),
           py::arg("src"));
@@ -3012,6 +3097,12 @@ PYBIND11_MODULE(_insight, m) {
   m.def("get_seed", &get_seed);
   m.def("rand_like", &rand_like, py::arg("x"));
   m.def("randn_like", &randn_like, py::arg("x"));
+  m.def("randint_like", &randint_like, py::arg("x"), py::arg("low"),
+        py::arg("high"), py::arg("dtype") = DType::UNKNOWN);
+  m.def("normal_like", &normal_like, py::arg("x"), py::arg("mean"),
+        py::arg("std"), py::arg("dtype") = DType::UNKNOWN);
+  m.def("uniform_like", &uniform_like, py::arg("x"), py::arg("low"),
+        py::arg("high"), py::arg("dtype") = DType::UNKNOWN);
   m.def(
       "exponential",
       [](double scale, const Shape &shape, DType dtype, const Place &place) {

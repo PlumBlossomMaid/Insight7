@@ -135,6 +135,7 @@ try:
 
     # Wrapper modules — each provides docstrings and argument validation
     from .creation import *  # noqa: F401,F403
+    from .broadcast import *  # noqa: F401,F403
     from .elementwise import *  # noqa: F401,F403
     from .unary import *  # noqa: F401,F403
     from .reduction import *  # noqa: F401,F403
@@ -333,7 +334,10 @@ __all__ = [
     "from_array",
     "zeros_like",
     "ones_like",
-    # Elementwise
+    # Broadcasting
+    "broadcast_shape",
+    "broadcast_to",
+    "broadcast_arrays",
     "add",
     "sub",
     "mul",
@@ -345,7 +349,9 @@ __all__ = [
     "equal",
     "not_equal",
     "greater",
+    "greater_than",
     "less",
+    "less_than",
     "greater_equal",
     "less_equal",
     "logical_and",
@@ -355,7 +361,9 @@ __all__ = [
     "bitwise_and",
     "bitwise_or",
     "bitwise_xor",
-    # Unary
+    "bitwise_left_shift",
+    "bitwise_right_shift",
+    "bitwise_not",
     "abs",
     "negative",
     "square",
@@ -421,7 +429,9 @@ __all__ = [
     "nanmin",
     "nanstd",
     "nanvar",
-    # Manipulation
+    "nanmedian",
+    "nanquantile",
+    "bincount",
     "concat",
     "stack",
     "vstack",
@@ -459,9 +469,10 @@ __all__ = [
     "inv",
     "pinv",
     "solve",
+    "cholesky_solve",
+    "solve_triangular",
     "lstsq",
     "svd",
-    "svdvals",
     "eigh",
     "eigvalsh",
     "eig",
@@ -485,6 +496,8 @@ __all__ = [
     "ifftn",
     "rfft",
     "irfft",
+    "hfft",
+    "ihfft",
     "fftfreq",
     "rfftfreq",
     # Complex
@@ -593,6 +606,9 @@ __all__ = [
     "get_seed",
     "rand_like",
     "randn_like",
+    "randint_like",
+    "normal_like",
+    "uniform_like",
     "exponential",
     "gamma",
     "beta",
@@ -600,8 +616,14 @@ __all__ = [
     "poisson",
     # Cast & Indexing
     "cast",
+    "cast_like",
     "take",
-    "nonzero",
+    "put",
+    "put_along_axis",
+    "compress",
+    "partition",
+    "argpartition",
+    "lexsort",
     "flatnonzero",
     "argsort",
     "sort",

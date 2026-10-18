@@ -3,6 +3,7 @@
 Functions:
     fft, ifft, fft2, ifft2, fftn, ifftn
     rfft, irfft, rfft2, irfft2, rfftn, irfftn
+    hfft, ihfft
     fftfreq, rfftfreq, fftshift, ifftshift, next_fast_len
 """
 
@@ -29,6 +30,8 @@ from insight._insight import (
     irfft2 as _native_irfft2,
     rfftn as _native_rfftn,
     irfftn as _native_irfftn,
+    hfft as _native_hfft,
+    ihfft as _native_ihfft,
 )
 
 
@@ -330,6 +333,26 @@ def irfftn(
     return _native_irfftn(x, s, axes, norm)
 
 
+def hfft(
+    x: "Array",
+    n: int = -1,
+    axis: int = -1,
+    norm: str = "backward",
+) -> "Array":
+    """1-D FFT of a Hermitian-symmetric complex input."""
+    return _native_hfft(x, n, axis, norm)
+
+
+def ihfft(
+    x: "Array",
+    n: int = -1,
+    axis: int = -1,
+    norm: str = "backward",
+) -> "Array":
+    """1-D inverse Hermitian FFT from real input."""
+    return _native_ihfft(x, n, axis, norm)
+
+
 def fftfreq(n: int, d: float = 1.0) -> "Array":
     """Compute the discrete Fourier transform sample frequencies.
 
@@ -427,4 +450,6 @@ __all__ = [
     "irfft2",
     "rfftn",
     "irfftn",
+    "hfft",
+    "ihfft",
 ]
