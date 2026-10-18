@@ -26,6 +26,11 @@ namespace ins {
 // ============================================================================
 
 static DType get_working_dtype(DType dtype) {
+  // Complex inputs would silently lose their imaginary part when cast to the
+  // real working dtype; no linalg kernel is registered for complex yet, so
+  // reject them explicitly instead of returning wrong results.
+  INS_CHECK(!is_complex(dtype),
+            "linalg: complex inputs are not supported yet");
   if (is_integer(dtype) || dtype == DType::BOOL) {
     return DType::F64;
   }
