@@ -690,6 +690,13 @@ Array bincount(const Array &x, std::optional<Array> weights,
   // Compute output length
   int64_t max_val = 0;
   if (x.numel() > 0) {
+    Array mn = min(x);
+    int64_t min_val = (x.dtype() == DType::I32)
+                          ? static_cast<int64_t>(mn.item<int32_t>())
+                          : mn.item<int64_t>();
+    INS_CHECK(min_val >= 0,
+              "bincount: x argument must have no negative elements, got ",
+              min_val);
     Array m = max(x);
     max_val = (x.dtype() == DType::I32)
                   ? static_cast<int64_t>(m.item<int32_t>())

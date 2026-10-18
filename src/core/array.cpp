@@ -652,8 +652,13 @@ Array Array::slice(const std::vector<Slice> &slices) const {
 Array Array::operator[](int64_t index) const { return at({index}); }
 
 Array Array::operator[](const Slice &slice) const {
-  return this->slice(0, slice.start.value_or(0),
-                     slice.stop.value_or(shape_.dim(0)), slice.step);
+  INS_CHECK(shape_.ndim() > 0, "operator[]: cannot slice a 0-d array");
+  // Pass the Slice through unmodified: substituting defaults here would
+  // discard nullopt and break reverse slices, whose defaults depend on the
+  // sign of the step.
+  std::vector<Slice> slices(shape_.ndim(), Slice::all());
+  slices[0] = slice;
+  return this->slice(slices);
 }
 
 // Helper: parse a single dimension spec (":", "1:-1", "5", etc.)

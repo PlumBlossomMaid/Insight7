@@ -399,7 +399,16 @@ Array lfilter(const Array &b, const Array &a, const Array &x, int axis) {
 
   // FIR case (a has only one element)
   if (a.numel() == 1) {
-    return firfilter(b, x, axis);
+    // firfilter returns a full convolution (len(b) + len(x) - 1); scipy.lfilter
+    // always returns len(x), so crop along the filtered axis.
+    Array y = firfilter(b, x, axis);
+    int fir_ndim = x.shape().ndim();
+    int fir_ax = (axis < 0) ? axis + fir_ndim : axis;
+    int64_t fir_n = x.shape().dim(fir_ax);
+    if (y.shape().dim(fir_ax) > fir_n) {
+      y = slice(y, {fir_ax}, {0}, {fir_n});
+    }
+    return y;
   }
 
   // IIR case: dispatch to backend kernel
@@ -699,7 +708,9 @@ Array resample_poly(const Array &x, int64_t up, int64_t down, int axis) {
       mul(x, full(x.shape(), static_cast<double>(up), x.dtype(), cpu));
   if (x_scaled.place().kind() != DeviceKind::CPU)
     x_scaled = x_scaled.to(cpu);
-  put(up_arr, indices, x_scaled);
+  // put is not in-place; it returns a new array, so the scatter result must be
+  // captured or up_arr stays all zeros.
+  up_arr = put(up_arr, indices, x_scaled);
 
   // Apply FIR filter
   DType work_dtype = (x.dtype() == DType::F32) ? DType::F32 : DType::F64;
