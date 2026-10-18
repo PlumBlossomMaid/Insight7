@@ -898,18 +898,24 @@ Array lexsort(const Array &keys, int axis) {
 
   const Shape &trans_shape = transposed.shape();
 
-  // Determine batch dimensions (all except last axis)
+  // keys are laid out as [batch..., nkeys, last_dim]: the axis being sorted
+  // is last, the dimension immediately before it holds the individual keys,
+  // and any leading dimensions are independent sort groups.
   int64_t last_dim = trans_shape.dim(ndim - 1);
+  int64_t nkeys = (ndim >= 2) ? trans_shape.dim(ndim - 2) : 1;
   int64_t batch_size = 1;
-  for (int i = 0; i < ndim - 1; ++i) {
+  for (int i = 0; i < ndim - 2; ++i) {
     batch_size *= trans_shape.dim(i);
   }
 
-  // Number of keys = total_size / (batch_size * last_dim)
-  int64_t total = transposed.numel();
-  int64_t nkeys = total / (batch_size * last_dim);
-
-  Array result(keys.shape(), DType::I64, keys.place());
+  // Result has one entry per sorted element (NumPy semantics), or per
+  // (batch, element) when multiple independent sort groups exist.
+  std::vector<int64_t> result_dims;
+  for (int i = 0; i < ndim - 2; ++i) {
+    result_dims.push_back(trans_shape.dim(i));
+  }
+  result_dims.push_back(last_dim);
+  Array result(Shape(result_dims), DType::I64, keys.place());
 
   ArrayIterator iter = indexing_iterator("lexsort", {transposed}, result);
   auto arrays = iter.arrays();
