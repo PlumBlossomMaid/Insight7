@@ -151,9 +151,11 @@ Array flip(const Array &x, std::optional<int> axis) {
 
   int ax = normalize_axis(axis.value(), x.shape().ndim(), "flip");
 
+  // flip kernel is stride-aware but not offset-aware; copy offset views first.
+  Array x_c = x.contiguous();
   Array result(x.shape(), x.dtype(), x.place());
 
-  launch_manipulation_kernel("flip", x, result, ax);
+  launch_manipulation_kernel("flip", x_c, result, ax);
 
   return result;
 }
@@ -388,7 +390,9 @@ Array pad(const Array &x, const std::vector<int64_t> &pad_width,
   Array result(out_shape, x.dtype(), x.place());
 
   int64_t *pad_width_ptr = const_cast<int64_t *>(pad_width.data());
-  launch_manipulation_kernel("pad", x, result, pad_width_ptr, constant_value);
+  // pad kernel recomputes row-major input strides; copy offset views first.
+  Array x_c = x.contiguous();
+  launch_manipulation_kernel("pad", x_c, result, pad_width_ptr, constant_value);
 
   return result;
 }
@@ -399,9 +403,11 @@ Array pad(const Array &x, const std::vector<int64_t> &pad_width,
 
 Array roll(const Array &x, int shift, std::optional<int> axis) {
   int ax = axis.has_value() ? normalize_axis(axis.value(), x.shape().ndim(), "roll") : -1;
+  // roll kernel linearly reads the input; copy offset views first.
+  Array x_c = x.contiguous();
   Array result(x.shape(), x.dtype(), x.place());
 
-  launch_manipulation_kernel("roll", x, result, shift, ax);
+  launch_manipulation_kernel("roll", x_c, result, shift, ax);
 
   return result;
 }
@@ -436,7 +442,9 @@ Array diag(const Array &x, int k) {
     INS_THROW("diag: input must be 1D or 2D");
   }
 
-  launch_manipulation_kernel("diag", x, result, k);
+  // diag kernel linearly reads the input; copy offset views first.
+  Array x_c = x.contiguous();
+  launch_manipulation_kernel("diag", x_c, result, k);
 
   return result;
 }
@@ -508,14 +516,18 @@ Array diagonal(const Array &x, int offset, int axis1, int axis2) {
 // ============================================================================
 
 Array tril(const Array &x, int k) {
+  // tril kernel linearly reads the input; copy offset views first.
+  Array x_c = x.contiguous();
   Array result(x.shape(), x.dtype(), x.place());
-  launch_manipulation_kernel("tril", x, result, k);
+  launch_manipulation_kernel("tril", x_c, result, k);
   return result;
 }
 
 Array triu(const Array &x, int k) {
+  // triu kernel linearly reads the input; copy offset views first.
+  Array x_c = x.contiguous();
   Array result(x.shape(), x.dtype(), x.place());
-  launch_manipulation_kernel("triu", x, result, k);
+  launch_manipulation_kernel("triu", x_c, result, k);
   return result;
 }
 

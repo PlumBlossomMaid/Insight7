@@ -224,6 +224,12 @@ int insight_array_is_contiguous(const InsightArray *array) {
     return 0;
   if (array->ndim == 0 || array->numel <= 1)
     return 1;
+  // A view produced by slicing (e.g. A["1:3, :"]) keeps dense strides but
+  // starts partway into the parent buffer. Kernels that linearly read from
+  // arr->data would silently compute on the wrong elements, so offset views
+  // of more than one element are treated as non-contiguous.
+  if (array->offset != 0)
+    return 0;
   int64_t expected_stride = 1;
   for (int32_t i = array->ndim - 1; i >= 0; --i) {
     if (array->strides[i] != expected_stride)

@@ -211,48 +211,59 @@ C_Status pow_kernel_cpu(void **inputs, void **outputs) {
 
   switch (a->dtype) {
   case INSIGHT_DTYPE_BOOL:
-    pow_loop_bool((const bool *)a->data, a_strides, (const bool *)b->data,
-                  b_strides, (bool *)out->data, out_strides, ndim, dims, n);
+    pow_loop_bool((const bool *)a->data + a->offset, a_strides,
+                  (const bool *)b->data + b->offset, b_strides,
+                  (bool *)out->data + out->offset, out_strides, ndim, dims, n);
     break;
   case INSIGHT_DTYPE_U8:
-    pow_loop_uint64((const uint64_t *)a->data, a_strides,
-                    (const uint64_t *)b->data, b_strides, (uint64_t *)out->data,
-                    out_strides, ndim, dims, n);
+    pow_loop_uint64((const uint64_t *)a->data + a->offset, a_strides,
+                    (const uint64_t *)b->data + b->offset, b_strides,
+                    (uint64_t *)out->data + out->offset, out_strides, ndim,
+                    dims, n);
     break;
   case INSIGHT_DTYPE_I8:
   case INSIGHT_DTYPE_I16:
   case INSIGHT_DTYPE_I32:
   case INSIGHT_DTYPE_I64:
-    pow_loop_int64((const int64_t *)a->data, a_strides,
-                   (const int64_t *)b->data, b_strides, (int64_t *)out->data,
-                   out_strides, ndim, dims, n);
+    pow_loop_int64((const int64_t *)a->data + a->offset, a_strides,
+                   (const int64_t *)b->data + b->offset, b_strides,
+                   (int64_t *)out->data + out->offset, out_strides, ndim, dims,
+                   n);
     break;
   case INSIGHT_DTYPE_U16:
   case INSIGHT_DTYPE_U32:
   case INSIGHT_DTYPE_U64:
-    pow_loop_uint64((const uint64_t *)a->data, a_strides,
-                    (const uint64_t *)b->data, b_strides, (uint64_t *)out->data,
-                    out_strides, ndim, dims, n);
+    pow_loop_uint64((const uint64_t *)a->data + a->offset, a_strides,
+                    (const uint64_t *)b->data + b->offset, b_strides,
+                    (uint64_t *)out->data + out->offset, out_strides, ndim,
+                    dims, n);
     break;
   case INSIGHT_DTYPE_F32:
-    pow_loop_float((const float *)a->data, a_strides, (const float *)b->data,
-                   b_strides, (float *)out->data, out_strides, ndim, dims, n);
+    pow_loop_float((const float *)a->data + a->offset, a_strides,
+                   (const float *)b->data + b->offset, b_strides,
+                   (float *)out->data + out->offset, out_strides, ndim, dims, n);
     break;
   case INSIGHT_DTYPE_F64:
-    pow_loop_double((const double *)a->data, a_strides, (const double *)b->data,
-                    b_strides, (double *)out->data, out_strides, ndim, dims, n);
+    pow_loop_double((const double *)a->data + a->offset, a_strides,
+                    (const double *)b->data + b->offset, b_strides,
+                    (double *)out->data + out->offset, out_strides, ndim, dims,
+                    n);
     break;
   case INSIGHT_DTYPE_C32:
-    pow_loop_float_complex((const std::complex<float> *)a->data, a_strides,
-                           (const std::complex<float> *)b->data, b_strides,
-                           (std::complex<float> *)out->data, out_strides, ndim,
-                           dims, n);
+    pow_loop_float_complex((const std::complex<float> *)a->data + a->offset,
+                           a_strides,
+                           (const std::complex<float> *)b->data + b->offset,
+                           b_strides,
+                           (std::complex<float> *)out->data + out->offset,
+                           out_strides, ndim, dims, n);
     break;
   case INSIGHT_DTYPE_C64:
-    pow_loop_double_complex((const std::complex<double> *)a->data, a_strides,
-                            (const std::complex<double> *)b->data, b_strides,
-                            (std::complex<double> *)out->data, out_strides,
-                            ndim, dims, n);
+    pow_loop_double_complex((const std::complex<double> *)a->data + a->offset,
+                            a_strides,
+                            (const std::complex<double> *)b->data + b->offset,
+                            b_strides,
+                            (std::complex<double> *)out->data + out->offset,
+                            out_strides, ndim, dims, n);
     break;
   case INSIGHT_DTYPE_F16: {
     const uint16_t *a_data = (const uint16_t *)a->data;
