@@ -442,8 +442,65 @@ Array diag(const Array &x, int k) {
 }
 
 Array diagonal(const Array &x, int offset, int axis1, int axis2) {
-  // For 2D arrays, this is similar to diag
-  return diag(x, offset);
+  int ndim = x.shape().ndim();
+  INS_CHECK(ndim >= 2, "diagonal: input must be at least 2D");
+  int ax1 = normalize_axis(axis1, ndim, "diagonal");
+  int ax2 = normalize_axis(axis2, ndim, "diagonal");
+  INS_CHECK(ax1 != ax2, "diagonal: axis1 and axis2 must be different");
+
+  // 2D fast path: diagonal of a 2D array with default axes == diag().
+  if (ndim == 2 && ax1 == 0 && ax2 == 1) {
+    return diag(x, offset);
+  }
+
+  // Move the two diagonal axes to the last two positions, keep the remaining
+  // axes in their original relative order ([rest..., ax1, ax2]).
+  std::vector<int> perm;
+  for (int i = 0; i < ndim; ++i) {
+    if (i != ax1 && i != ax2) {
+      perm.push_back(i);
+    }
+  }
+  perm.push_back(ax1);
+  perm.push_back(ax2);
+  Array moved = x.transpose(perm);
+  moved = moved.contiguous();
+
+  int64_t m = moved.shape().dim(ndim - 2);
+  int64_t n = moved.shape().dim(ndim - 1);
+
+  // Diagonal length for the given offset (same rule as diag()).
+  int64_t diag_len;
+  if (offset >= 0) {
+    diag_len = std::min(m, n - offset);
+  } else {
+    diag_len = std::min(m + offset, n);
+  }
+  if (diag_len < 0)
+    diag_len = 0;
+
+  // Output shape: [rest..., diag_len]
+  std::vector<int64_t> out_dims;
+  for (int i = 0; i < ndim - 2; ++i) {
+    out_dims.push_back(moved.shape().dim(i));
+  }
+  out_dims.push_back(diag_len);
+  Array result(Shape(out_dims), x.dtype(), x.place());
+
+  // Extract the diagonal of each (m, n) plane via the existing diag kernel.
+  int64_t batch = 1;
+  for (int i = 0; i < ndim - 2; ++i) {
+    batch *= moved.shape().dim(i);
+  }
+  Array flat = moved.reshape(Shape({batch, m, n}));
+  for (int64_t b = 0; b < batch; ++b) {
+    Array plane = flat.slice(0, b, b + 1, 1).squeeze(0); // [m, n]
+    Array diag_plane = diag(plane, offset);              // [diag_len]
+    Array out_view = result.slice(0, b, b + 1, 1).squeeze(0);
+    out_view = diag_plane; // view assignment writes through to result
+  }
+
+  return result;
 }
 
 // ============================================================================
