@@ -717,7 +717,8 @@ Array Array::operator[](const std::string &spec) const {
   std::vector<Slice> slices;
   bool any_slice = false;
 
-  for (const auto &p : parts) {
+  for (size_t i = 0; i < parts.size(); ++i) {
+    const auto &p = parts[i];
     std::optional<Slice> s;
     std::optional<int64_t> idx;
     parse_dim_spec(p, s, idx);
@@ -726,9 +727,14 @@ Array Array::operator[](const std::string &spec) const {
       slices.push_back(s.value());
       any_slice = true;
     } else {
-      // Integer index: convert to a slice that selects a single element
-      // We'll apply at() for pure integer indexing below
-      slices.push_back(Slice(idx.value(), idx.value() + 1, 1));
+      // Integer index: convert to a slice that selects a single element.
+      // Normalize negative indices per-dimension so that -1 selects the
+      // last element; a raw Slice(-1, 0, 1) normalizes to an empty dim.
+      int64_t v = idx.value();
+      if (v < 0 && i < static_cast<size_t>(shape_.ndim())) {
+        v += shape_.dim(static_cast<int>(i));
+      }
+      slices.push_back(Slice(v, v + 1, 1));
     }
   }
 
@@ -925,8 +931,15 @@ Array Array::view(const Shape &new_shape) const {
   }
 
   result.shape_ = new_shape;
-  result.strides_ = Strides(new_shape);
+  result.compute_strides();
 
+  // Refresh the C-ABI layout so kernels observe the reshaped dims/strides
+  // (compute_strides() updates strides_ and layout_.strides only).
+  result.layout_.ndim = new_shape.ndim();
+  result.layout_.numel = new_shape.numel();
+  for (int i = 0; i < new_shape.ndim(); ++i) {
+    result.layout_.dims[i] = new_shape.dim(i);
+  }
   result.layout_.is_view = 1;
 
   result.place_ = place_;

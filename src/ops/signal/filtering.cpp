@@ -942,16 +942,37 @@ Array upfirdn(const Array &h, const Array &x, int64_t p, int64_t q) {
   int64_t h_len = h.numel();
   int64_t x_len = x.numel();
 
+  // Copy inputs into double work buffers, reading by the actual array dtype
+  // (work_dtype may be F32; data<double>() would misinterpret the buffer).
+  std::vector<double> x_data(x_len);
+  if (work_dtype == DType::F32) {
+    const float *xf = x_cpu.data<float>();
+    for (int64_t i = 0; i < x_len; ++i)
+      x_data[i] = static_cast<double>(xf[i]);
+  } else {
+    const double *xd = x_cpu.data<double>();
+    for (int64_t i = 0; i < x_len; ++i)
+      x_data[i] = xd[i];
+  }
+  std::vector<double> h_data(h_len);
+  if (work_dtype == DType::F32) {
+    const float *hf = h_cpu.data<float>();
+    for (int64_t i = 0; i < h_len; ++i)
+      h_data[i] = static_cast<double>(hf[i]);
+  } else {
+    const double *hd = h_cpu.data<double>();
+    for (int64_t i = 0; i < h_len; ++i)
+      h_data[i] = hd[i];
+  }
+
   // Upsample: insert zeros between samples
   int64_t up_len = x_len * p;
   std::vector<double> up_data(up_len, 0.0);
-  const double *x_data = x_cpu.data<double>();
   for (int64_t i = 0; i < x_len; ++i) {
     up_data[i * p] = x_data[i];
   }
 
   // Apply FIR filter (direct convolution)
-  const double *h_data = h_cpu.data<double>();
   int64_t conv_len = up_len + h_len - 1;
   std::vector<double> conv_data(conv_len, 0.0);
 
@@ -1016,21 +1037,43 @@ Array channelize_poly(const Array &x, const Array &h, int64_t n_channels) {
   // Number of output frames
   int64_t n_frames = x_len / n_channels;
 
+  // Copy inputs into double work buffers, reading by the actual array dtype
+  // (work_dtype may be F32; data<double>() would misinterpret the buffer).
+  std::vector<double> h_raw(h_len);
+  if (work_dtype == DType::F32) {
+    const float *hf = h_cpu.data<float>();
+    for (int64_t i = 0; i < h_len; ++i)
+      h_raw[i] = static_cast<double>(hf[i]);
+  } else {
+    const double *hd = h_cpu.data<double>();
+    for (int64_t i = 0; i < h_len; ++i)
+      h_raw[i] = hd[i];
+  }
+  std::vector<double> x_raw(x_len);
+  if (work_dtype == DType::F32) {
+    const float *xf = x_cpu.data<float>();
+    for (int64_t i = 0; i < x_len; ++i)
+      x_raw[i] = static_cast<double>(xf[i]);
+  } else {
+    const double *xd = x_cpu.data<double>();
+    for (int64_t i = 0; i < x_len; ++i)
+      x_raw[i] = xd[i];
+  }
+
   // Reshape prototype filter into polyphase matrix [n_channels x n_taps]
   int64_t n_taps = (h_len + n_channels - 1) / n_channels;
   // Pad h to n_channels * n_taps
   int64_t h_padded_len = n_channels * n_taps;
   std::vector<double> h_padded(h_padded_len, 0.0);
-  const double *h_data = h_cpu.data<double>();
   for (int64_t i = 0; i < h_len; ++i)
-    h_padded[i] = h_data[i];
+    h_padded[i] = h_raw[i];
 
   // Reshape into [n_channels x n_taps] (row-major: row k = h_padded[k],
   // k+n_channels, k+2*n_channels, ...)
   // polyphase[k][j] = h_padded[k + j * n_channels]
 
   // Reshape input into [n_frames x n_channels]
-  const double *x_data = x_cpu.data<double>();
+  const double *x_data = x_raw.data();
 
   // Output: [n_channels x n_frames]
   int64_t out_rows = n_channels;
