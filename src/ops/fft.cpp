@@ -521,6 +521,13 @@ Array fftn(const Array &x, const std::vector<int64_t> &s,
     }
   }
 
+  // Normalize negative axes before they are used to index pad_width/dims,
+  // otherwise fft2 default axes {-2,-1} would underflow the pad_width vector.
+  for (auto &ax : target_axes) {
+    if (ax < 0)
+      ax += ndim;
+  }
+
   Array result = x;
 
   // Pad or truncate along axes
@@ -564,6 +571,13 @@ Array ifftn(const Array &x, const std::vector<int64_t> &s,
     for (int i = 0; i < ndim; ++i) {
       target_axes.push_back(i);
     }
+  }
+
+  // Normalize negative axes before they are used to index pad_width/dims,
+  // otherwise fft2 default axes {-2,-1} would underflow the pad_width vector.
+  for (auto &ax : target_axes) {
+    if (ax < 0)
+      ax += ndim;
   }
 
   Array result = x;
@@ -610,6 +624,13 @@ Array rfftn(const Array &x, const std::vector<int64_t> &s,
     for (int i = 0; i < ndim; ++i) {
       target_axes.push_back(i);
     }
+  }
+
+  // Normalize negative axes before they are used to index pad_width/dims,
+  // otherwise fft2 default axes {-2,-1} would underflow the pad_width vector.
+  for (auto &ax : target_axes) {
+    if (ax < 0)
+      ax += ndim;
   }
 
   Array result = x;
@@ -662,6 +683,13 @@ Array irfftn(const Array &x, const std::vector<int64_t> &s,
     }
   }
 
+  // Normalize negative axes before they are used to index pad_width/dims,
+  // otherwise fft2 default axes {-2,-1} would underflow the pad_width vector.
+  for (auto &ax : target_axes) {
+    if (ax < 0)
+      ax += ndim;
+  }
+
   Array result = x;
 
   // Apply ifft on all axes except the last
@@ -670,10 +698,11 @@ Array irfftn(const Array &x, const std::vector<int64_t> &s,
     result = result.contiguous();
   }
 
-  // Apply irfft on the last axis
+  // Apply irfft on the last axis. s is aligned positionally with axes, so
+  // the output length for the last axis is s.back(); using the axis value to
+  // index s is wrong (negative axes, or axes not in order).
   int last_axis = target_axes.back();
-  int64_t out_len =
-      (s.size() > static_cast<size_t>(last_axis)) ? s[last_axis] : -1;
+  int64_t out_len = (!s.empty()) ? s.back() : -1;
   result = irfft(result, out_len, last_axis, norm);
 
   return result;
