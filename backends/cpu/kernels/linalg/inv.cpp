@@ -105,6 +105,11 @@ C_Status inv_kernel_cpu(void **inputs, void **outputs) {
   } else {
     inv_f64((double *)x->data, (double *)out->data, n);
   }
+
+  const char *err = cpu_get_last_error();
+  if (err && err[0] != '\0') {
+    return C_FAILED;
+  }
   return C_SUCCESS;
 }
 
