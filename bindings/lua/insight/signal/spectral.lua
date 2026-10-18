@@ -8,7 +8,8 @@ local sig = native.signal
 
 local M = {}
 
-local _wrap = require("insight._wrap")
+local rule = require("argrule.rule")
+local argrule = require("argrule")
 
 --- Estimate power spectral density using Welch's method.
 -- @tparam Array x Input signal array.
@@ -19,9 +20,7 @@ local _wrap = require("insight._wrap")
 -- @int[opt] nfft FFT length.
 -- @string[opt="density"] scaling 'density' or 'spectrum'.
 -- @treturn table Table with fields 'f' (frequencies) and 'Pxx' (PSD).
-M.welch = _wrap(
-  { "x", "fs", "window", "nperseg", "noverlap", "nfft", "scaling" },
-  function(x, fs, window, nperseg, noverlap, nfft, scaling)
+M.welch = rule { { name = "x", type = argrule.any, opt = true }, { name = "fs", type = argrule.any, opt = true }, { name = "window", type = argrule.any, opt = true }, { name = "nperseg", type = argrule.any, opt = true }, { name = "noverlap", type = argrule.any, opt = true }, { name = "nfft", type = argrule.any, opt = true }, { name = "scaling", type = argrule.any, opt = true } }(function(x, fs, window, nperseg, noverlap, nfft, scaling)
     return sig.welch(x, fs or 1.0, window or "hann", nperseg or 256, noverlap or 128, nfft or 256, scaling or "density")
   end
 )
@@ -33,7 +32,7 @@ M.welch = _wrap(
 -- @int[opt] nfft FFT length.
 -- @string[opt="density"] scaling 'density' or 'spectrum'.
 -- @treturn table Table with fields 'f' (frequencies) and 'Pxx' (PSD).
-M.periodogram = _wrap({ "x", "fs", "window", "nfft", "scaling" }, function(x, fs, window, nfft, scaling)
+M.periodogram = rule { { name = "x", type = argrule.any, opt = true }, { name = "fs", type = argrule.any, opt = true }, { name = "window", type = argrule.any, opt = true }, { name = "nfft", type = argrule.any, opt = true }, { name = "scaling", type = argrule.any, opt = true } }(function(x, fs, window, nfft, scaling)
   return sig.periodogram(x, fs or 1.0, window or "hann", nfft or 256, scaling or "density")
 end)
 
@@ -46,9 +45,7 @@ end)
 -- @int[opt] noverlap Number of overlapping points.
 -- @int[opt] nfft FFT length.
 -- @treturn table Table with fields 'f' (frequencies) and 'Pxy' (CSD).
-M.csd = _wrap(
-  { "x", "y", "fs", "window", "nperseg", "noverlap", "nfft" },
-  function(x, y, fs, window, nperseg, noverlap, nfft)
+M.csd = rule { { name = "x", type = argrule.any, opt = true }, { name = "y", type = argrule.any, opt = true }, { name = "fs", type = argrule.any, opt = true }, { name = "window", type = argrule.any, opt = true }, { name = "nperseg", type = argrule.any, opt = true }, { name = "noverlap", type = argrule.any, opt = true }, { name = "nfft", type = argrule.any, opt = true } }(function(x, y, fs, window, nperseg, noverlap, nfft)
     return sig.csd(x, y, fs or 1.0, window or "hann", nperseg or 256, noverlap or 128, nfft or 256)
   end
 )
@@ -62,9 +59,7 @@ M.csd = _wrap(
 -- @int[opt] noverlap Number of overlapping points.
 -- @int[opt] nfft FFT length.
 -- @treturn table Table with fields 'f' (frequencies) and 'Cxy' (coherence).
-M.coherence = _wrap(
-  { "x", "y", "fs", "window", "nperseg", "noverlap", "nfft" },
-  function(x, y, fs, window, nperseg, noverlap, nfft)
+M.coherence = rule { { name = "x", type = argrule.any, opt = true }, { name = "y", type = argrule.any, opt = true }, { name = "fs", type = argrule.any, opt = true }, { name = "window", type = argrule.any, opt = true }, { name = "nperseg", type = argrule.any, opt = true }, { name = "noverlap", type = argrule.any, opt = true }, { name = "nfft", type = argrule.any, opt = true } }(function(x, y, fs, window, nperseg, noverlap, nfft)
     return sig.coherence(x, y, fs or 1.0, window or "hann", nperseg or 256, noverlap or 128, nfft or 256)
   end
 )
@@ -77,9 +72,7 @@ M.coherence = _wrap(
 -- @int[opt] noverlap Number of overlapping points.
 -- @int[opt] nfft FFT length.
 -- @treturn table Table with fields 'f' (frequencies), 't' (times), 'Sxx' (spectrogram).
-M.spectrogram = _wrap(
-  { "x", "fs", "window", "nperseg", "noverlap", "nfft" },
-  function(x, fs, window, nperseg, noverlap, nfft)
+M.spectrogram = rule { { name = "x", type = argrule.any, opt = true }, { name = "fs", type = argrule.any, opt = true }, { name = "window", type = argrule.any, opt = true }, { name = "nperseg", type = argrule.any, opt = true }, { name = "noverlap", type = argrule.any, opt = true }, { name = "nfft", type = argrule.any, opt = true } }(function(x, fs, window, nperseg, noverlap, nfft)
     return sig.spectrogram(x, fs or 1.0, window or "hann", nperseg or 256, noverlap or 128, nfft or 256)
   end
 )
@@ -92,7 +85,7 @@ M.spectrogram = _wrap(
 -- @int[opt] noverlap Number of overlapping points.
 -- @int[opt] nfft FFT length.
 -- @treturn table Table with fields 'f' (frequencies), 't' (times), 'Zxx' (STFT).
-M.stft = _wrap({ "x", "fs", "window", "nperseg", "noverlap", "nfft" }, function(x, fs, window, nperseg, noverlap, nfft)
+M.stft = rule { { name = "x", type = argrule.any, opt = true }, { name = "fs", type = argrule.any, opt = true }, { name = "window", type = argrule.any, opt = true }, { name = "nperseg", type = argrule.any, opt = true }, { name = "noverlap", type = argrule.any, opt = true }, { name = "nfft", type = argrule.any, opt = true } }(function(x, fs, window, nperseg, noverlap, nfft)
   return sig.stft(x, fs or 1.0, window or "hann", nperseg or 256, noverlap or 128, nfft or 256)
 end)
 
@@ -101,7 +94,7 @@ end)
 -- @number freq Frequency in Hz.
 -- @number fs Sampling frequency in Hz.
 -- @treturn table Table with fields 'strength' and 'angle'.
-M.vectorstrength = _wrap({ "signal", "freq", "fs" }, function(signal, freq, fs)
+M.vectorstrength = rule { { name = "signal", type = argrule.any, opt = true }, { name = "freq", type = argrule.any, opt = true }, { name = "fs", type = argrule.any, opt = true } }(function(signal, freq, fs)
   return sig.vectorstrength(signal, freq, fs)
 end)
 
@@ -110,7 +103,7 @@ end)
 -- @array y Sample values (1D, same length as x).
 -- @array freqs Frequencies to evaluate (1D, in Hz).
 -- @treturn Array Power spectral density at each frequency.
-M.lombscargle = _wrap({ "x", "y", "freqs" }, function(x, y, freqs)
+M.lombscargle = rule { { name = "x", type = argrule.any, opt = true }, { name = "y", type = argrule.any, opt = true }, { name = "freqs", type = argrule.any, opt = true } }(function(x, y, freqs)
   return sig.lombscargle(x, y, freqs)
 end)
 

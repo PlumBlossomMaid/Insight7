@@ -4,6 +4,7 @@
 -- 运行: luajit radar_detection.lua --device gpu --seed 42 --iterations 50
 
 local ins = require("insight")
+local parse_args = require("insight._cli")
 
 -- ============================================================
 -- 物理参数
@@ -317,41 +318,9 @@ local function run_frame(delays, dopplers, device, seed, external_noise_r, exter
 end
 
 -- ============================================================
--- CLI 解析
--- ============================================================
-local args = {
-  device = "cpu",
-  seed = 42,
-  iterations = 0,
-  timer = false,
-  info = false,
-  profiler = false,
-}
-
-local i = 1
-while i <= #arg do
-  if arg[i] == "--device" and i < #arg then
-    args.device = arg[i + 1]
-    i = i + 1
-  elseif arg[i] == "--seed" and i < #arg then
-    args.seed = tonumber(arg[i + 1])
-    i = i + 1
-  elseif arg[i] == "--iterations" and i < #arg then
-    args.iterations = tonumber(arg[i + 1])
-    i = i + 1
-  elseif arg[i] == "--timer" then
-    args.timer = true
-  elseif arg[i] == "--info" then
-    args.info = true
-  elseif arg[i] == "--profiler" then
-    args.profiler = true
-  end
-  i = i + 1
-end
-
--- ============================================================
 -- 主流程
 -- ============================================================
+local args = parse_args(arg)
 ins.init()
 
 local n_frames = args.iterations > 0 and args.iterations or 1

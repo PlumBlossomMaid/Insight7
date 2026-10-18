@@ -8,7 +8,8 @@ local sig = native.signal
 
 local M = {}
 
-local _wrap = require("insight._wrap")
+local rule = require("argrule.rule")
+local argrule = require("argrule")
 
 local function lua_axis_to_cpp(axis)
   if axis == nil then
@@ -27,7 +28,7 @@ end
 -- @int[opt=1] order Number of points on each side to compare.
 -- @string[opt="clip"] mode Edge handling mode.
 -- @treturn userdata Vector of index Arrays.
-M.argrelextrema = _wrap({ "x", "comparator", "axis", "order", "mode" }, function(x, comparator, axis, order, mode)
+M.argrelextrema = rule { { name = "x", type = argrule.any, opt = true }, { name = "comparator", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true }, { name = "order", type = argrule.any, opt = true }, { name = "mode", type = argrule.any, opt = true } }(function(x, comparator, axis, order, mode)
   return sig.argrelextrema(x, comparator, lua_axis_to_cpp(axis), order or 1, mode or "clip")
 end)
 
@@ -37,7 +38,7 @@ end)
 -- @int[opt=1] order Number of points on each side to compare.
 -- @string[opt="clip"] mode Edge handling mode.
 -- @treturn userdata Vector of index Arrays.
-M.argrelmax = _wrap({ "x", "axis", "order", "mode" }, function(x, axis, order, mode)
+M.argrelmax = rule { { name = "x", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true }, { name = "order", type = argrule.any, opt = true }, { name = "mode", type = argrule.any, opt = true } }(function(x, axis, order, mode)
   return sig.argrelmax(x, lua_axis_to_cpp(axis), order or 1, mode or "clip")
 end)
 
@@ -47,7 +48,7 @@ end)
 -- @int[opt=1] order Number of points on each side to compare.
 -- @string[opt="clip"] mode Edge handling mode.
 -- @treturn userdata Vector of index Arrays.
-M.argrelmin = _wrap({ "x", "axis", "order", "mode" }, function(x, axis, order, mode)
+M.argrelmin = rule { { name = "x", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true }, { name = "order", type = argrule.any, opt = true }, { name = "mode", type = argrule.any, opt = true } }(function(x, axis, order, mode)
   return sig.argrelmin(x, lua_axis_to_cpp(axis), order or 1, mode or "clip")
 end)
 

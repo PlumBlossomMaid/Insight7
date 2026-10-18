@@ -8,28 +8,29 @@
 local native = require("_insight")
 local M = {}
 
-local _wrap = require("insight._wrap")
+local rule = require("argrule.rule")
+local argrule = require("argrule")
 
 --- Take elements from an array along an axis by index.
 -- @tparam Array x Input array.
 -- @tparam Array indices Indices of elements to take.
 -- @int[opt] axis Axis along which to take. If nil, operates on flattened array.
 -- @treturn Array Gathered elements.
-M.take = _wrap({ "x", "indices", "axis" }, function(x, indices, axis)
+M.take = rule { { name = "x", type = argrule.any, opt = true }, { name = "indices", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true } }(function(x, indices, axis)
   return native.take(x, indices, axis)
 end)
 
 --- Return indices of non-zero elements.
 -- @tparam Array x Input array.
 -- @treturn Array Indices of non-zero elements.
-M.nonzero = _wrap({ "x" }, function(x)
+M.nonzero = rule { { name = "x", type = argrule.any, opt = true } }(function(x)
   return native.nonzero(x)
 end)
 
 --- Return indices of non-zero elements (flattened).
 -- @tparam Array x Input array.
 -- @treturn Array Flat indices of non-zero elements.
-M.flatnonzero = _wrap({ "x" }, function(x)
+M.flatnonzero = rule { { name = "x", type = argrule.any, opt = true } }(function(x)
   return native.flatnonzero(x)
 end)
 
@@ -37,7 +38,7 @@ end)
 -- @tparam Array x Input array.
 -- @int[opt=-1] axis Axis along which to sort. -1 is last axis.
 -- @treturn Array Index array for sorting.
-M.argsort = _wrap({ "x", "axis" }, function(x, axis)
+M.argsort = rule { { name = "x", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true } }(function(x, axis)
   return native.argsort(x, axis or -1)
 end)
 
@@ -45,14 +46,14 @@ end)
 -- @tparam Array x Input array.
 -- @int[opt=-1] axis Axis along which to sort. -1 is last axis.
 -- @treturn Array Sorted array.
-M.sort = _wrap({ "x", "axis" }, function(x, axis)
+M.sort = rule { { name = "x", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true } }(function(x, axis)
   return native.sort(x, axis or -1)
 end)
 
 --- Return unique elements of the array.
 -- @tparam Array x Input array.
 -- @treturn UniqueResult Table with fields: values, indices, inverse, counts.
-M.unique = _wrap({ "x" }, function(x)
+M.unique = rule { { name = "x", type = argrule.any, opt = true } }(function(x)
   return native.unique(x)
 end)
 
@@ -62,7 +63,7 @@ end)
 -- @int[opt=-1] axis Axis along which to search. -1 is last axis.
 -- @bool[opt=true] largest If true, return largest; otherwise smallest.
 -- @treturn Array Top-k values.
-M.topk = _wrap({ "x", "k", "axis", "largest" }, function(x, k, axis, largest)
+M.topk = rule { { name = "x", type = argrule.any, opt = true }, { name = "k", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true }, { name = "largest", type = argrule.any, opt = true } }(function(x, k, axis, largest)
   return native.topk(x, k, axis or -1, largest == nil and true or largest)
 end)
 
@@ -71,7 +72,7 @@ end)
 -- @tparam Array indices Indices to gather.
 -- @int[opt=1] axis Axis along which to gather.
 -- @treturn Array Gathered values.
-M.gather = _wrap({ "x", "indices", "axis" }, function(x, indices, axis)
+M.gather = rule { { name = "x", type = argrule.any, opt = true }, { name = "indices", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true } }(function(x, indices, axis)
   return native.gather(x, axis == nil and 1 or axis, indices)
 end)
 
@@ -81,7 +82,7 @@ end)
 -- @tparam Array src Source values to scatter.
 -- @int[opt=1] axis Axis along which to scatter.
 -- @treturn Array Updated array.
-M.scatter = _wrap({ "x", "indices", "src", "axis" }, function(x, indices, src, axis)
+M.scatter = rule { { name = "x", type = argrule.any, opt = true }, { name = "indices", type = argrule.any, opt = true }, { name = "src", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true } }(function(x, indices, src, axis)
   return native.scatter(x, axis == nil and 1 or axis, indices, src)
 end)
 
@@ -91,7 +92,7 @@ end)
 -- @tparam Array src Source values to add.
 -- @int[opt=1] axis Axis along which to scatter-add.
 -- @treturn Array Updated array.
-M.scatter_add = _wrap({ "x", "indices", "src", "axis" }, function(x, indices, src, axis)
+M.scatter_add = rule { { name = "x", type = argrule.any, opt = true }, { name = "indices", type = argrule.any, opt = true }, { name = "src", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true } }(function(x, indices, src, axis)
   return native.scatter_add(x, axis == nil and 1 or axis, indices, src)
 end)
 
@@ -102,7 +103,7 @@ end)
 -- @string reduce Reduction type ("add", "mul", "mean", "amax", "amin").
 -- @int[opt=1] axis Axis along which to scatter-reduce.
 -- @treturn Array Updated array.
-M.scatter_reduce = _wrap({ "x", "indices", "src", "reduce", "axis" }, function(x, indices, src, reduce, axis)
+M.scatter_reduce = rule { { name = "x", type = argrule.any, opt = true }, { name = "indices", type = argrule.any, opt = true }, { name = "src", type = argrule.any, opt = true }, { name = "reduce", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true } }(function(x, indices, src, reduce, axis)
   return native.scatter_reduce(x, axis == nil and 1 or axis, indices, src, reduce)
 end)
 
@@ -111,21 +112,21 @@ end)
 -- @tparam Array xp Known x-coordinates (must be sorted).
 -- @tparam Array fp Known y-coordinates.
 -- @treturn Array Interpolated values.
-M.interp = _wrap({ "x", "xp", "fp" }, function(x, xp, fp)
+M.interp = rule { { name = "x", type = argrule.any, opt = true }, { name = "xp", type = argrule.any, opt = true }, { name = "fp", type = argrule.any, opt = true } }(function(x, xp, fp)
   return native.interp(x, xp, fp)
 end)
 
 --- Return an array of indices (meshgrid-like).
 -- @tparam table dimensions Shape of the output grid.
 -- @treturn Array Index arrays.
-M.indices = _wrap({ "dimensions" }, function(dimensions)
+M.indices = rule { { name = "dimensions", type = argrule.any, opt = true } }(function(dimensions)
   return native.indices(dimensions)
 end)
 
 --- Construct open mesh from sequences (for advanced indexing).
 -- @tparam table args Sequence of 1-D arrays.
 -- @treturn table List of open mesh arrays.
-M.ix_ = _wrap({}, function(...)
+M.ix_ = rule {  }(function(...)
   return native.ix_(...)
 end)
 

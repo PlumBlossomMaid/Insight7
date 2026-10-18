@@ -5,6 +5,7 @@
 --       LD_LIBRARY_PATH=build/backends/cpu luarocks exec lua demos/lua/feature_extraction.lua --device cpu
 
 local ins = require("_insight")
+local parse_args = require("insight._cli")
 
 -- ============================================================
 -- 物理参数
@@ -347,41 +348,9 @@ local function run_frame(seed_val, external_noise, prof)
 end
 
 -- ============================================================
--- CLI 参数解析
--- ============================================================
-local function parse_args()
-  local args = { device = "cpu", seed = 42, iterations = 0, timer = false, info = false, profiler = false }
-  local i = 1
-  while i <= #arg do
-    if arg[i] == "--device" and i < #arg then
-      args.device = arg[i + 1]
-      i = i + 2
-    elseif arg[i] == "--seed" and i < #arg then
-      args.seed = tonumber(arg[i + 1])
-      i = i + 2
-    elseif arg[i] == "--iterations" and i < #arg then
-      args.iterations = tonumber(arg[i + 1])
-      i = i + 2
-    elseif arg[i] == "--timer" then
-      args.timer = true
-      i = i + 1
-    elseif arg[i] == "--info" then
-      args.info = true
-      i = i + 1
-    elseif arg[i] == "--profiler" then
-      args.profiler = true
-      i = i + 1
-    else
-      i = i + 1
-    end
-  end
-  return args
-end
-
--- ============================================================
 -- MAIN
 -- ============================================================
-local args = parse_args()
+local args = parse_args(arg)
 ins.init()
 
 local n_frames = args.iterations > 0 and args.iterations or 1

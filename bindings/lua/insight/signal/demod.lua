@@ -6,13 +6,14 @@ local sig = native.signal
 
 local M = {}
 
-local _wrap = require("insight._wrap")
+local rule = require("argrule.rule")
+local argrule = require("argrule")
 
 --- Demodulate an FM signal.
 -- @tparam Array x Input FM signal array.
 -- @int[opt=-1] axis Axis along which to demodulate. -1 is last axis.
 -- @treturn Array Demodulated signal.
-M.fm_demod = _wrap({ "x", "axis" }, function(x, axis)
+M.fm_demod = rule { { name = "x", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true } }(function(x, axis)
   return sig.fm_demod(x, axis or -1)
 end)
 

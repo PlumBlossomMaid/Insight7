@@ -43,7 +43,7 @@ build = {
     ]],
 
     install_command = [[
-        mkdir -p "$(LIBDIR)" "$(LUADIR)/insight" && \
+        mkdir -p "$(LIBDIR)" "$(LUADIR)/insight" "$(LUADIR)/argrule" && \
         cp build.luarocks/bindings/lua/_insight.so "$(LIBDIR)/" 2>/dev/null; \
         cp build.luarocks/bindings/lua/_insight.dll "$(LIBDIR)/" 2>/dev/null; \
         for f in build.luarocks/backends/*/*insight*backend*.so \
@@ -52,6 +52,7 @@ build = {
         done; \
         cp bindings/lua/insight/init.lua "$(LUADIR)/insight/" && \
         cp bindings/lua/insight/*.lua "$(LUADIR)/insight/" 2>/dev/null; \
+        cp bindings/lua/argrule/*.lua "$(LUADIR)/argrule/"; \
         true
     ]],
 }

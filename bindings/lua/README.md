@@ -6,7 +6,16 @@ for ergonomic signal processing and scientific computing in Lua.
 
 ## Installation
 
-### From luarocks (after CMake build)
+### Lua-only dependency: argrule
+
+Insight7's Lua wrapper layer vendors the Lua-only `argrule` source under `bindings/lua/argrule`, so the dual positional/named calling convention does not require a separate LuaRocks dependency. The installed Lua modules include both `insight` and `argrule`.
+
+For source-tree execution, include the binding path:
+
+```bash
+export LUA_PATH="bindings/lua/?.lua;bindings/lua/?/init.lua;;"
+```
+
 
 ```bash
 # Build C++ backend + Lua binding first
@@ -259,7 +268,7 @@ local w2 = ins.signal.hann{n=256}
 ## Dual Calling Convention
 
 All Insight functions support both **positional** and **named-table** argument styles,
-powered by a shared `_wrap.lua` utility:
+powered by the vendored `argrule` module (`bindings/lua/argrule`):
 
 ```lua
 -- Positional arguments
@@ -275,15 +284,14 @@ local y = ins.signal.filtfilt{b=b, a=a, x=signal}
 local y2 = ins.signal.filtfilt(b, a, signal)
 ```
 
-The `_wrap` utility (in `insight/_wrap.lua`) automatically detects whether the caller
-is using positional or table-style arguments by checking for non-numeric keys.
+The `argrule` rules (declared per wrapper module) validate argument names, types,
+and defaults, and render usage errors when a call does not match the rule.
 
 ## Module Structure
 
 ```
 insight/
 ├── init.lua            # Main entry point, loads all submodules
-├── _wrap.lua           # Shared dual calling convention utility
 ├── elementwise.lua     # add, sub, mul, div, pow, comparisons, logical ops
 ├── unary.lua           # abs, sqrt, exp, log, sin, cos, floor, ceil, ...
 ├── reduction.lua       # sum, mean, max, min, prod, argmax, argmin, var, std, ...

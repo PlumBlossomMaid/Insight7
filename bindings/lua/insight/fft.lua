@@ -8,7 +8,8 @@
 local native = require("_insight")
 local M = {}
 
-local _wrap = require("insight._wrap")
+local rule = require("argrule.rule")
+local argrule = require("argrule")
 
 --- 1-D discrete Fourier transform.
 -- @tparam Array x Input array.
@@ -16,7 +17,7 @@ local _wrap = require("insight._wrap")
 -- @int[opt=-1] axis Axis along which to compute. -1 is last axis.
 -- @string[opt="backward"] norm Normalization mode.
 -- @treturn Array FFT result.
-M.fft = _wrap({ "x", "n", "axis", "norm" }, function(x, n, axis, norm)
+M.fft = rule { { name = "x", type = argrule.any, opt = true }, { name = "n", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true }, { name = "norm", type = argrule.any, opt = true } }(function(x, n, axis, norm)
   return native.fft(x, n or -1, axis or -1, norm or "backward")
 end)
 
@@ -26,7 +27,7 @@ end)
 -- @int[opt=-1] axis Axis along which to compute.
 -- @string[opt="backward"] norm Normalization mode.
 -- @treturn Array IFFT result.
-M.ifft = _wrap({ "x", "n", "axis", "norm" }, function(x, n, axis, norm)
+M.ifft = rule { { name = "x", type = argrule.any, opt = true }, { name = "n", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true }, { name = "norm", type = argrule.any, opt = true } }(function(x, n, axis, norm)
   return native.ifft(x, n or -1, axis or -1, norm or "backward")
 end)
 
@@ -36,7 +37,7 @@ end)
 -- @int[opt=-1] axis Axis along which to compute.
 -- @string[opt="backward"] norm Normalization mode.
 -- @treturn Array Complex FFT result (positive frequencies only).
-M.rfft = _wrap({ "x", "n", "axis", "norm" }, function(x, n, axis, norm)
+M.rfft = rule { { name = "x", type = argrule.any, opt = true }, { name = "n", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true }, { name = "norm", type = argrule.any, opt = true } }(function(x, n, axis, norm)
   return native.rfft(x, n or -1, axis or -1, norm or "backward")
 end)
 
@@ -46,7 +47,7 @@ end)
 -- @int[opt=-1] axis Axis along which to compute.
 -- @string[opt="backward"] norm Normalization mode.
 -- @treturn Array Real-valued IFFT result.
-M.irfft = _wrap({ "x", "n", "axis", "norm" }, function(x, n, axis, norm)
+M.irfft = rule { { name = "x", type = argrule.any, opt = true }, { name = "n", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true }, { name = "norm", type = argrule.any, opt = true } }(function(x, n, axis, norm)
   return native.irfft(x, n or -1, axis or -1, norm or "backward")
 end)
 
@@ -54,7 +55,7 @@ end)
 -- @int n Window length.
 -- @number[opt=1] d Sample spacing.
 -- @treturn Array Frequency vector.
-M.fftfreq = _wrap({ "n", "d" }, function(n, d)
+M.fftfreq = rule { { name = "n", type = argrule.any, opt = true }, { name = "d", type = argrule.any, opt = true } }(function(n, d)
   return native.fftfreq(n, d or 1.0)
 end)
 
@@ -62,21 +63,21 @@ end)
 -- @int n Window length.
 -- @number[opt=1] d Sample spacing.
 -- @treturn Array Frequency vector (non-negative only).
-M.rfftfreq = _wrap({ "n", "d" }, function(n, d)
+M.rfftfreq = rule { { name = "n", type = argrule.any, opt = true }, { name = "d", type = argrule.any, opt = true } }(function(n, d)
   return native.rfftfreq(n, d or 1.0)
 end)
 
 --- Shift zero-frequency component to center of spectrum.
 -- @tparam Array x Input frequency-domain array.
 -- @treturn Array Shifted array.
-M.fftshift = _wrap({ "x" }, function(x)
+M.fftshift = rule { { name = "x", type = argrule.any, opt = true } }(function(x)
   return native.fftshift(x)
 end)
 
 --- Inverse of fftshift.
 -- @tparam Array x Input shifted array.
 -- @treturn Array Un-shifted array.
-M.ifftshift = _wrap({ "x" }, function(x)
+M.ifftshift = rule { { name = "x", type = argrule.any, opt = true } }(function(x)
   return native.ifftshift(x)
 end)
 
@@ -84,7 +85,7 @@ end)
 -- @int target Target length.
 -- @bool[opt=true] real If true, consider real FFT efficiency.
 -- @int Fast FFT length >= target.
-M.next_fast_len = _wrap({ "target", "real" }, function(target, real)
+M.next_fast_len = rule { { name = "target", type = argrule.any, opt = true }, { name = "real", type = argrule.any, opt = true } }(function(target, real)
   return native.next_fast_len(target, real == nil and true or real)
 end)
 
@@ -92,7 +93,7 @@ end)
 -- @tparam Array x Hermitian-symmetric input.
 -- @int[opt=-1] n Output length.
 -- @treturn Array Real-valued FFT result.
-M.hfft = _wrap({ "x", "n" }, function(x, n)
+M.hfft = rule { { name = "x", type = argrule.any, opt = true }, { name = "n", type = argrule.any, opt = true } }(function(x, n)
   return native.hfft(x, n or -1)
 end)
 
@@ -100,35 +101,35 @@ end)
 -- @tparam Array x Real input.
 -- @int[opt=-1] n Output length.
 -- @treturn Array Hermitian-symmetric output.
-M.ihfft = _wrap({ "x", "n" }, function(x, n)
+M.ihfft = rule { { name = "x", type = argrule.any, opt = true }, { name = "n", type = argrule.any, opt = true } }(function(x, n)
   return native.ihfft(x, n or -1)
 end)
 
 --- 2-D real-input discrete Fourier transform.
 -- @tparam Array x Real input array.
 -- @treturn Array Complex 2-D FFT result.
-M.rfft2 = _wrap({ "x" }, function(x)
+M.rfft2 = rule { { name = "x", type = argrule.any, opt = true } }(function(x)
   return native.rfft2(x)
 end)
 
 --- Inverse of rfft2 (2-D complex to real).
 -- @tparam Array x Complex input from rfft2.
 -- @treturn Array Real-valued 2-D IFFT result.
-M.irfft2 = _wrap({ "x" }, function(x)
+M.irfft2 = rule { { name = "x", type = argrule.any, opt = true } }(function(x)
   return native.irfft2(x)
 end)
 
 --- N-D real-input discrete Fourier transform.
 -- @tparam Array x Real input array.
 -- @treturn Array Complex N-D FFT result.
-M.rfftn = _wrap({ "x" }, function(x)
+M.rfftn = rule { { name = "x", type = argrule.any, opt = true } }(function(x)
   return native.rfftn(x)
 end)
 
 --- Inverse of rfftn (N-D complex to real).
 -- @tparam Array x Complex input from rfftn.
 -- @treturn Array Real-valued N-D IFFT result.
-M.irfftn = _wrap({ "x" }, function(x)
+M.irfftn = rule { { name = "x", type = argrule.any, opt = true } }(function(x)
   return native.irfftn(x)
 end)
 
