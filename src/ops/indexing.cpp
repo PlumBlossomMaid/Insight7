@@ -254,6 +254,9 @@ Array put(const Array &x, const Array &indices, const Array &values,
   }
 
   Array val = values;
+  if (val.dtype() != x.dtype()) {
+    val = val.to(x.dtype());
+  }
   if (val.numel() == 1) {
     val = broadcast_to(val, Shape({idx.numel()}));
   }
