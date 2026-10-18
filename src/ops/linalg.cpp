@@ -237,6 +237,10 @@ Array matmul(const Array &a, const Array &b) {
       b_full.push_back(n);
       a_work = broadcast_to(a_work, Shape(a_full));
       b_work = broadcast_to(b_work, Shape(b_full));
+      // broadcast_to returns stride-0 views; the matmul kernel requires
+      // dense inputs (cpu_ensure_contiguous only validates, never fixes).
+      a_work = a_work.contiguous();
+      b_work = b_work.contiguous();
     }
   }
 
