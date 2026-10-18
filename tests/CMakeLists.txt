@@ -65,8 +65,44 @@ function(copy_all_backend_dlls TARGET_NAME)
     endif()
 endfunction()
 
+# Copy FFTW3 dependency DLLs next to the test binary. The CPU backend
+# (insight_cpu_backend.dll) links fftw3 at runtime; Windows only searches the
+# exe directory (plus PATH) when resolving DLL imports, so the FFTW3 DLLs must
+# sit beside the test executable or LoadLibrary fails and all FFT tests skip
+# with "Failed to load CPU backend".
+function(copy_fftw3_dlls TARGET_NAME)
+    if(NOT WIN32 OR NOT INSIGHT_USE_FFTW3 OR NOT FFTW3_FOUND)
+        return()
+    endif()
+    set(_fftw_dlls "")
+    foreach(_lib ${FFTW3_LIBRARIES})
+        get_filename_component(_lib_dir "${_lib}" DIRECTORY)
+        get_filename_component(_lib_base "${_lib}" NAME_WE)
+        # vcpkg layout: lib/fftw3.lib -> bin/fftw3.dll; local layout may vary.
+        set(_dll_candidates
+            "${_lib_dir}/../bin/${_lib_base}.dll"
+            "${_lib_dir}/${_lib_base}.dll"
+        )
+        foreach(_dll ${_dll_candidates})
+            if(EXISTS "${_dll}")
+                list(APPEND _fftw_dlls "${_dll}")
+                break()
+            endif()
+        endforeach()
+    endforeach()
+    if(_fftw_dlls AND TARGET ${TARGET_NAME})
+        add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                ${_fftw_dlls}
+                $<TARGET_FILE_DIR:${TARGET_NAME}>
+            COMMENT "Copying FFTW3 dependency DLLs to ${TARGET_NAME}"
+        )
+    endif()
+endfunction()
+
 # CPU 测试
 copy_all_backend_dlls(insight_tests_cpu)
+copy_fftw3_dlls(insight_tests_cpu)
 
 # GPU 测试（如果需要）
 if(INSIGHT_WITH_CUDA)

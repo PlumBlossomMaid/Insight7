@@ -148,9 +148,12 @@ else()
     message(STATUS "FFTW3 support disabled")
 endif()
 
-# FFTW3 include dir needs to be visible to consumers (CPU backend kernels)
+# FFTW3 include dir is only needed by the CPU backend kernels, so keep it
+# PRIVATE here — PUBLIC would leak the whole vcpkg include root into every
+# consumer (e.g. tests), where a stale copy of an unrelated header may win
+# over the project's own version.
 if(FFTW3_FOUND AND FFTW3_INCLUDE_DIRS)
-    target_include_directories(insight_core PUBLIC ${FFTW3_INCLUDE_DIRS})
+    target_include_directories(insight_core PRIVATE ${FFTW3_INCLUDE_DIRS})
 endif()
 
 # ========== libsndfile (audio I/O) ==========

@@ -17,6 +17,7 @@
 #include "insight/ops/creation.h"
 #include "insight/ops/elementwise.h"
 #include "insight/ops/manipulation.h"
+#include "insight/ops/unary.h"
 #include <climits>
 #include <cmath>
 #include <functional>
@@ -405,15 +406,36 @@ Array irfft(const Array &x, int n, int axis, const std::string &norm) {
 }
 
 // ============================================================================
-// Hermitian FFT (Aliases)
+// Hermitian FFT (NumPy semantics)
 // ============================================================================
+//
+// NumPy defines hfft/ihfft in terms of rfft/irfft with a conjugated input
+// and swapped norm direction (see numpy.fft._pocketfft):
+//   hfft(a, n, norm)  = irfft(conj(a), n, axis, swap(norm))
+//   ihfft(x, n, norm) = conj(rfft(x, n, axis, swap(norm)))
+// where swap() maps "backward" <-> "forward" and keeps "ortho".
+
+static std::string swap_norm_direction(const std::string &norm) {
+  if (norm == "backward")
+    return "forward";
+  if (norm == "forward")
+    return "backward";
+  return "ortho";
+}
 
 Array hfft(const Array &x, int n, int axis, const std::string &norm) {
-  return irfft(x, n, axis, norm);
+  INS_CHECK(x.defined(), "hfft: input is undefined");
+
+  // irfft requires complex input; NumPy accepts real input too.
+  Array input = is_complex(x.dtype()) ? x : to_complex(x);
+  return irfft(conj(input), n, axis, swap_norm_direction(norm));
 }
 
 Array ihfft(const Array &x, int n, int axis, const std::string &norm) {
-  return rfft(x, n, axis, norm);
+  INS_CHECK(x.defined(), "ihfft: input is undefined");
+
+  Array r = rfft(x, n, axis, swap_norm_direction(norm));
+  return conj(r);
 }
 
 // ============================================================================
