@@ -508,3 +508,163 @@ TEST_F(LinalgTestGPU, SvdF32) {
 TEST_F(LinalgTestGPU, Cov) {
   if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: Cov uses F64 (hardware limit)";
 }
+
+// ========== tensordot ==========
+
+TEST_F(LinalgTestGPU, TensordotAxes1) {
+  Array a = make_gpu_matrix_f64(2, 3, {1, 2, 3, 4, 5, 6});
+  Array b = make_gpu_matrix_f64(3, 2, {7, 8, 9, 10, 11, 12});
+  Array c = tensordot(a, b, 1);
+  EXPECT_EQ(c.shape(), Shape({2, 2}));
+  Array cpu_c = c.to(CPUPlace());
+  const double *d = cpu_c.data<double>();
+  EXPECT_NEAR(d[0], 58.0, 1e-8);
+  EXPECT_NEAR(d[1], 64.0, 1e-8);
+  EXPECT_NEAR(d[2], 139.0, 1e-8);
+  EXPECT_NEAR(d[3], 154.0, 1e-8);
+}
+
+TEST_F(LinalgTestGPU, TensordotExplicitAxesLists) {
+  Array a = make_gpu_matrix_f64(2, 2, {1, 2, 3, 4});
+  Array b = make_gpu_matrix_f64(2, 2, {5, 6, 7, 8});
+  Array c = tensordot(a, b, {1}, {0});
+  EXPECT_EQ(c.shape(), Shape({2, 2}));
+  Array cpu_c = c.to(CPUPlace());
+  const double *d = cpu_c.data<double>();
+  EXPECT_NEAR(d[0], 1.0 * 5.0 + 2.0 * 7.0, 1e-8);
+  EXPECT_NEAR(d[1], 1.0 * 6.0 + 2.0 * 8.0, 1e-8);
+  EXPECT_NEAR(d[2], 3.0 * 5.0 + 4.0 * 7.0, 1e-8);
+  EXPECT_NEAR(d[3], 3.0 * 6.0 + 4.0 * 8.0, 1e-8);
+}
+
+TEST_F(LinalgTestGPU, TensordotScalar) {
+  Array a = make_gpu_matrix_f64(2, 2, {1, 2, 3, 4});
+  Array b = make_gpu_matrix_f64(2, 2, {5, 6, 7, 8});
+  Array c = tensordot(a, b); // full contraction -> scalar
+  EXPECT_EQ(c.shape(), Shape({}));
+  Array cpu_c = c.to(CPUPlace());
+  EXPECT_NEAR(cpu_c.item<double>(), 70.0, 1e-8);
+}
+
+// ========== kron ==========
+
+TEST_F(LinalgTestGPU, KronBasic) {
+  Array a = make_gpu_vector_f64({1, 2});
+  Array b = make_gpu_vector_f64({0, 5, 6});
+  Array c = kron(a, b);
+  EXPECT_EQ(c.shape(), Shape({6}));
+  Array cpu_c = c.to(CPUPlace());
+  const double *d = cpu_c.data<double>();
+  std::vector<double> expect = {0, 5, 6, 0, 10, 12};
+  for (int i = 0; i < 6; ++i)
+    EXPECT_NEAR(d[i], expect[i], 1e-8);
+}
+
+TEST_F(LinalgTestGPU, Kron2D) {
+  Array a = make_gpu_matrix_f64(2, 2, {1, 2, 3, 4});
+  Array b = make_gpu_matrix_f64(2, 2, {0, 5, 6, 7});
+  Array c = kron(a, b);
+  EXPECT_EQ(c.shape(), Shape({4, 4}));
+  Array cpu_c = c.to(CPUPlace());
+  const double *d = cpu_c.data<double>();
+  std::vector<double> expect = {0, 5, 0, 10, 6, 7, 12, 14, 0, 15, 0, 20,
+                                18, 21, 24, 28};
+  for (int i = 0; i < 16; ++i)
+    EXPECT_NEAR(d[i], expect[i], 1e-8);
+}
+
+// ========== cross ==========
+
+TEST_F(LinalgTestGPU, Cross3D) {
+  Array a = make_gpu_vector_f64({1, 0, 0});
+  Array b = make_gpu_vector_f64({0, 1, 0});
+  Array c = cross(a, b);
+  EXPECT_EQ(c.shape(), Shape({3}));
+  Array cpu_c = c.to(CPUPlace());
+  const double *d = cpu_c.data<double>();
+  EXPECT_NEAR(d[0], 0.0, 1e-8);
+  EXPECT_NEAR(d[1], 0.0, 1e-8);
+  EXPECT_NEAR(d[2], 1.0, 1e-8);
+}
+
+TEST_F(LinalgTestGPU, CrossBatched) {
+  Array a = make_gpu_matrix_f64(2, 3, {1, 0, 0, 0, 1, 0});
+  Array b = make_gpu_matrix_f64(2, 3, {0, 1, 0, 1, 0, 0});
+  Array c = cross(a, b, 1);
+  EXPECT_EQ(c.shape(), Shape({2, 3}));
+  Array cpu_c = c.to(CPUPlace());
+  const double *d = cpu_c.data<double>();
+  EXPECT_NEAR(d[0], 0.0, 1e-8);
+  EXPECT_NEAR(d[1], 0.0, 1e-8);
+  EXPECT_NEAR(d[2], 1.0, 1e-8);
+  EXPECT_NEAR(d[3], 0.0, 1e-8);
+  EXPECT_NEAR(d[4], 0.0, 1e-8);
+  EXPECT_NEAR(d[5], -1.0, 1e-8);
+}
+
+// ========== multi_dot ==========
+
+TEST_F(LinalgTestGPU, MultiDotThree) {
+  Array a = make_gpu_matrix_f64(2, 3, {1, 2, 3, 4, 5, 6});
+  Array b = make_gpu_matrix_f64(3, 2, {7, 8, 9, 10, 11, 12});
+  Array c = make_gpu_matrix_f64(2, 2, {1, 2, 3, 4});
+  Array m = multi_dot({a, b, c});
+  EXPECT_EQ(m.shape(), Shape({2, 2}));
+  Array cpu_m = m.to(CPUPlace());
+  Array abc = matmul(matmul(a, b), c);
+  Array cpu_abc = abc.to(CPUPlace());
+  const double *x = cpu_m.data<double>();
+  const double *y = cpu_abc.data<double>();
+  for (int i = 0; i < 4; ++i)
+    EXPECT_NEAR(x[i], y[i], 1e-8);
+}
+
+// ========== einsum ==========
+
+TEST_F(LinalgTestGPU, EinsumMatmul) {
+  Array a = make_gpu_matrix_f64(2, 3, {1, 2, 3, 4, 5, 6});
+  Array b = make_gpu_matrix_f64(3, 2, {7, 8, 9, 10, 11, 12});
+  Array e = einsum("ij,jk->ik", {a, b});
+  EXPECT_EQ(e.shape(), Shape({2, 2}));
+  Array cpu_e = e.to(CPUPlace());
+  const double *d = cpu_e.data<double>();
+  EXPECT_NEAR(d[0], 58.0, 1e-8);
+  EXPECT_NEAR(d[1], 64.0, 1e-8);
+  EXPECT_NEAR(d[2], 139.0, 1e-8);
+  EXPECT_NEAR(d[3], 154.0, 1e-8);
+}
+
+TEST_F(LinalgTestGPU, EinsumTranspose) {
+  Array a = make_gpu_matrix_f64(2, 3, {1, 2, 3, 4, 5, 6});
+  Array e = einsum("ij->ji", {a});
+  EXPECT_EQ(e.shape(), Shape({3, 2}));
+  Array cpu_e = e.to(CPUPlace());
+  const double *d = cpu_e.data<double>();
+  EXPECT_NEAR(d[0], 1.0, 1e-8);
+  EXPECT_NEAR(d[1], 4.0, 1e-8);
+  EXPECT_NEAR(d[2], 2.0, 1e-8);
+  EXPECT_NEAR(d[3], 5.0, 1e-8);
+  EXPECT_NEAR(d[4], 3.0, 1e-8);
+  EXPECT_NEAR(d[5], 6.0, 1e-8);
+}
+
+TEST_F(LinalgTestGPU, EinsumVectorDot) {
+  Array a = make_gpu_vector_f64({1, 2, 3});
+  Array b = make_gpu_vector_f64({4, 5, 6});
+  Array e = einsum("i,i->", {a, b});
+  EXPECT_EQ(e.shape(), Shape({}));
+  Array cpu_e = e.to(CPUPlace());
+  EXPECT_NEAR(cpu_e.item<double>(), 32.0, 1e-8);
+}
+
+TEST_F(LinalgTestGPU, EinsumOuter) {
+  Array a = make_gpu_vector_f64({1, 2});
+  Array b = make_gpu_vector_f64({3, 4, 5});
+  Array e = einsum("i,j->ij", {a, b});
+  EXPECT_EQ(e.shape(), Shape({2, 3}));
+  Array cpu_e = e.to(CPUPlace());
+  const double *d = cpu_e.data<double>();
+  EXPECT_NEAR(d[0], 3.0, 1e-8);
+  EXPECT_NEAR(d[4], 8.0, 1e-8);
+  EXPECT_NEAR(d[5], 10.0, 1e-8);
+}

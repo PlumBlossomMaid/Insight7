@@ -8,14 +8,20 @@
  */
 
 #include "insight/ops/linalg.h"
+#include "insight/core/axis.h"
 #include "insight/core/op_registry.h"
 #include "insight/core/op_schema.h"
 #include "insight/ops/broadcast.h"
 #include "insight/ops/creation.h"
 #include "insight/ops/elementwise.h"
+#include "insight/ops/manipulation.h"
 #include "insight/ops/reduction.h"
 #include "insight/utils/promotion.h"
+#include <algorithm>
 #include <cmath>
+#include <functional>
+#include <limits>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -879,6 +885,591 @@ Array cov(const Array &x, bool rowvar, int ddof) {
   }
 
   return result;
+}
+
+// ============================================================================
+// tensordot - Tensor dot product
+// ============================================================================
+
+Array tensordot(const Array &a, const Array &b,
+                const std::vector<int> &axes_a,
+                const std::vector<int> &axes_b) {
+  INS_CHECK(a.defined() && b.defined(), "tensordot: input is undefined");
+  INS_CHECK(axes_a.size() == axes_b.size(),
+            "tensordot: axes lists must have the same length");
+  INS_CHECK(a.shape().ndim() >= static_cast<int>(axes_a.size()) &&
+                b.shape().ndim() >= static_cast<int>(axes_b.size()),
+            "tensordot: too many axes for input ndim");
+
+  std::vector<int> a_axes, b_axes;
+  for (int ax : axes_a)
+    a_axes.push_back(normalize_axis(ax, a.shape().ndim(), "tensordot"));
+  for (int ax : axes_b)
+    b_axes.push_back(normalize_axis(ax, b.shape().ndim(), "tensordot"));
+
+  // Contracted dimensions must match.
+  for (size_t i = 0; i < a_axes.size(); ++i) {
+    INS_CHECK(a.shape().dim(a_axes[i]) == b.shape().dim(b_axes[i]),
+              "tensordot: contracted dimensions must match");
+  }
+
+  // Keep axes: everything not contracted, in original order.
+  std::vector<int> a_keep, b_keep;
+  for (int i = 0; i < a.shape().ndim(); ++i) {
+    if (std::find(a_axes.begin(), a_axes.end(), i) == a_axes.end())
+      a_keep.push_back(i);
+  }
+  for (int i = 0; i < b.shape().ndim(); ++i) {
+    if (std::find(b_axes.begin(), b_axes.end(), i) == b_axes.end())
+      b_keep.push_back(i);
+  }
+
+  // Promote to a common dtype before computing.
+  DType work_dtype = promote_types(a.dtype(), b.dtype());
+  Array a_work = (a.dtype() == work_dtype) ? a : a.to(work_dtype);
+  Array b_work = (b.dtype() == work_dtype) ? b : b.to(work_dtype);
+  if (a_work.place() != b_work.place()) {
+    b_work = b_work.to(a_work.place());
+  }
+
+  // a: [keep_a..., contract...] -> 2D (prod_keep_a, prod_contract)
+  std::vector<int> a_perm(a_keep);
+  a_perm.insert(a_perm.end(), a_axes.begin(), a_axes.end());
+  Array a_p = permute(a_work, a_perm);
+  std::vector<int64_t> a_dims = a_p.shape().dims();
+  int64_t prod_keep_a = 1, prod_contract = 1;
+  for (size_t i = 0; i < a_dims.size(); ++i) {
+    if (i < a_keep.size())
+      prod_keep_a *= a_dims[i];
+    else
+      prod_contract *= a_dims[i];
+  }
+  Array a2 = reshape(a_p, Shape({prod_keep_a, prod_contract}));
+
+  // b: [contract..., keep_b...] -> 2D (prod_contract, prod_keep_b)
+  std::vector<int> b_perm(b_axes);
+  b_perm.insert(b_perm.end(), b_keep.begin(), b_keep.end());
+  Array b_p = permute(b_work, b_perm);
+  std::vector<int64_t> b_dims = b_p.shape().dims();
+  int64_t prod_keep_b = 1;
+  int64_t prod_contract_b = 1;
+  for (size_t i = 0; i < b_dims.size(); ++i) {
+    if (i < b_axes.size())
+      prod_contract_b *= b_dims[i];
+    else
+      prod_keep_b *= b_dims[i];
+  }
+  INS_CHECK(prod_contract_b == prod_contract,
+            "tensordot: contracted dimensions must match");
+  Array b2 = reshape(b_p, Shape({prod_contract, prod_keep_b}));
+
+  Array prod = matmul(a2, b2); // (prod_keep_a, prod_keep_b)
+
+  // Output shape: a keep dims followed by b keep dims.
+  std::vector<int64_t> out_dims;
+  for (int i = 0; i < a.shape().ndim(); ++i) {
+    if (std::find(a_axes.begin(), a_axes.end(), i) == a_axes.end())
+      out_dims.push_back(a.shape().dim(i));
+  }
+  for (int i = 0; i < b.shape().ndim(); ++i) {
+    if (std::find(b_axes.begin(), b_axes.end(), i) == b_axes.end())
+      out_dims.push_back(b.shape().dim(i));
+  }
+
+  // reshape handles the scalar case (out_dims empty) since prod is 1x1.
+  Array result = reshape(prod, Shape(out_dims));
+  if (result.dtype() != work_dtype) {
+    result = result.to(work_dtype);
+  }
+  return result;
+}
+
+Array tensordot(const Array &a, const Array &b, int axes) {
+  INS_CHECK(a.defined() && b.defined(), "tensordot: input is undefined");
+  INS_CHECK(axes >= 0, "tensordot: axes must be non-negative");
+
+  int ndim_a = a.shape().ndim();
+  int ndim_b = b.shape().ndim();
+  INS_CHECK(axes <= ndim_a && axes <= ndim_b,
+            "tensordot: axes exceeds input ndim");
+
+  std::vector<int> axes_a(axes), axes_b(axes);
+  for (int i = 0; i < axes; ++i) {
+    axes_a[i] = ndim_a - axes + i;
+    axes_b[i] = i;
+  }
+  return tensordot(a, b, axes_a, axes_b);
+}
+
+// ============================================================================
+// kron - Kronecker product
+// ============================================================================
+
+Array kron(const Array &a, const Array &b) {
+  INS_CHECK(a.defined() && b.defined(), "kron: input is undefined");
+
+  int ndim = std::max(a.shape().ndim(), b.shape().ndim());
+
+  // Left-pad both shapes to the same ndim.
+  std::vector<int64_t> a_pad(ndim, 1), b_pad(ndim, 1);
+  for (int i = 0; i < a.shape().ndim(); ++i)
+    a_pad[ndim - a.shape().ndim() + i] = a.shape().dim(i);
+  for (int i = 0; i < b.shape().ndim(); ++i)
+    b_pad[ndim - b.shape().ndim() + i] = b.shape().dim(i);
+
+  // Interleave: a -> [a0,1,a1,1,...], b -> [1,b0,1,b1,...]
+  std::vector<int64_t> a_inter, b_inter;
+  for (int i = 0; i < ndim; ++i) {
+    a_inter.push_back(a_pad[i]);
+    a_inter.push_back(1);
+    b_inter.push_back(1);
+    b_inter.push_back(b_pad[i]);
+  }
+  Array a2 = reshape(a, Shape(a_inter));
+  Array b2 = reshape(b, Shape(b_inter));
+
+  Array prod = mul(a2, b2); // broadcasting gives [a0,b0,a1,b1,...]
+
+  std::vector<int64_t> out_dims;
+  for (int i = 0; i < ndim; ++i)
+    out_dims.push_back(a_pad[i] * b_pad[i]);
+  return reshape(prod, Shape(out_dims));
+}
+
+// ============================================================================
+// cross - Cross product of 3-vectors along an axis
+// ============================================================================
+
+Array cross(const Array &a, const Array &b, int axis) {
+  INS_CHECK(a.defined() && b.defined(), "cross: input is undefined");
+  INS_CHECK(a.shape() == b.shape(), "cross: inputs must have the same shape");
+
+  int ax = normalize_axis(axis, a.shape().ndim(), "cross");
+  INS_CHECK(a.shape().dim(ax) == 3, "cross: axis must have size 3");
+
+  Array a0 = a.slice(ax, 0, 1);
+  Array a1 = a.slice(ax, 1, 2);
+  Array a2 = a.slice(ax, 2, 3);
+  Array b0 = b.slice(ax, 0, 1);
+  Array b1 = b.slice(ax, 1, 2);
+  Array b2 = b.slice(ax, 2, 3);
+
+  // c = (a1*b2 - a2*b1, a2*b0 - a0*b2, a0*b1 - a1*b0)
+  Array c0 = sub(mul(a1, b2), mul(a2, b1));
+  Array c1 = sub(mul(a2, b0), mul(a0, b2));
+  Array c2 = sub(mul(a0, b1), mul(a1, b0));
+
+  return concat({c0, c1, c2}, ax);
+}
+
+// ============================================================================
+// multi_dot - Optimal-order chain matrix multiplication
+// ============================================================================
+
+Array multi_dot(const std::vector<Array> &arrays) {
+  INS_CHECK(arrays.size() >= 2, "multi_dot: need at least two matrices");
+
+  int n = static_cast<int>(arrays.size());
+  std::vector<Array> works(n);
+  DType work_dtype = arrays[0].dtype();
+  for (size_t i = 1; i < arrays.size(); ++i)
+    work_dtype = promote_types(work_dtype, arrays[i].dtype());
+
+  Place place = arrays[0].place();
+  for (size_t i = 0; i < arrays.size(); ++i) {
+    INS_CHECK(arrays[i].shape().ndim() == 2,
+              "multi_dot: all inputs must be 2D");
+    works[i] = (arrays[i].dtype() == work_dtype) ? arrays[i]
+                                                  : arrays[i].to(work_dtype);
+    if (works[i].place() != place) {
+      works[i] = works[i].to(place);
+    }
+  }
+  for (size_t i = 1; i < works.size(); ++i) {
+    INS_CHECK(works[i - 1].shape().dim(1) == works[i].shape().dim(0),
+              "multi_dot: incompatible matrix dimensions");
+  }
+
+  // Dimensions chain: p[0] x p[1] x ... x p[n].
+  std::vector<int64_t> p(n + 1);
+  p[0] = works[0].shape().dim(0);
+  for (int i = 0; i < n; ++i)
+    p[i + 1] = works[i].shape().dim(1);
+
+  // DP for optimal parenthesization.
+  std::vector<std::vector<int64_t>> cost(n, std::vector<int64_t>(n, 0));
+  std::vector<std::vector<int>> split(n, std::vector<int>(n, -1));
+  for (int len = 2; len <= n; ++len) {
+    for (int i = 0; i <= n - len; ++i) {
+      int j = i + len - 1;
+      cost[i][j] = std::numeric_limits<int64_t>::max();
+      for (int k = i; k < j; ++k) {
+        int64_t c = cost[i][k] + cost[k + 1][j] + p[i] * p[k + 1] * p[j + 1];
+        if (c < cost[i][j]) {
+          cost[i][j] = c;
+          split[i][j] = k;
+        }
+      }
+    }
+  }
+
+  // Recursively multiply using the optimal split.
+  std::function<Array(int, int)> solve = [&](int i, int j) -> Array {
+    if (i == j)
+      return works[i];
+    int k = split[i][j];
+    return matmul(solve(i, k), solve(k + 1, j));
+  };
+
+  Array result = solve(0, n - 1);
+  if (result.dtype() != work_dtype) {
+    result = result.to(work_dtype);
+  }
+  return result;
+}
+
+// ============================================================================
+// einsum - Einstein summation
+// ============================================================================
+
+namespace {
+
+// Parsed subscript: per-operand label lists plus output labels.
+struct EinsumSpec {
+  std::vector<std::vector<char>> terms;
+  std::vector<char> output;
+  bool explicit_output = false;
+};
+
+// Parse "ij,jk->ik" into terms {"ij","jk"} and output "ik".
+EinsumSpec parse_einsum(const std::string &subscripts, size_t operand_count) {
+  EinsumSpec spec;
+  size_t arrow = subscripts.find("->");
+  std::string lhs = (arrow == std::string::npos) ? subscripts
+                                                 : subscripts.substr(0, arrow);
+  std::string rhs = (arrow == std::string::npos)
+                        ? ""
+                        : subscripts.substr(arrow + 2);
+  spec.explicit_output = (arrow != std::string::npos);
+
+  size_t start = 0;
+  while (start <= lhs.size()) {
+    size_t comma = lhs.find(',', start);
+    if (comma == std::string::npos)
+      comma = lhs.size();
+    std::string term = lhs.substr(start, comma - start);
+    if (!term.empty()) {
+      std::vector<char> labels;
+      for (char c : term) {
+        if (c == '.')
+          INS_THROW("einsum: ellipsis '...' is not supported yet");
+        labels.push_back(c);
+      }
+      spec.terms.push_back(labels);
+    }
+    if (comma == lhs.size())
+      break;
+    start = comma + 1;
+  }
+
+  for (char c : rhs) {
+    if (c == '.')
+      INS_THROW("einsum: ellipsis '...' is not supported yet");
+    spec.output.push_back(c);
+  }
+
+  INS_CHECK(spec.terms.size() == operand_count,
+            "einsum: operand count does not match subscripts");
+  for (size_t i = 0; i < spec.terms.size(); ++i) {
+    // Repeated labels within one operand (diagonal) are not supported.
+    std::vector<char> seen = spec.terms[i];
+    std::sort(seen.begin(), seen.end());
+    for (size_t k = 1; k < seen.size(); ++k) {
+      if (seen[k] == seen[k - 1])
+        INS_THROW("einsum: repeated labels within one operand are not "
+                  "supported (diagonal)");
+    }
+  }
+
+  if (!spec.explicit_output) {
+    // Implicit output: labels appearing exactly once, in alphabetical order.
+    std::map<char, int> count;
+    for (const auto &term : spec.terms) {
+      for (char c : term)
+        count[c]++;
+    }
+    for (const auto &kv : count) {
+      if (kv.second == 1)
+        spec.output.push_back(kv.first);
+    }
+  }
+  return spec;
+}
+
+// Common matmul fast path for exactly two operands with a shared
+// contraction set and no broadcast overlap in the output labels.
+bool einsum_try_matmul(const EinsumSpec &spec, const std::vector<Array> &ops,
+                       Array &out) {
+  if (spec.terms.size() != 2)
+    return false;
+
+  const std::vector<char> &la = spec.terms[0];
+  const std::vector<char> &lb = spec.terms[1];
+
+  // Common labels (contracted unless they also appear in the output).
+  std::vector<char> common;
+  for (char c : la) {
+    if (std::find(lb.begin(), lb.end(), c) != lb.end() &&
+        std::find(common.begin(), common.end(), c) == common.end())
+      common.push_back(c);
+  }
+  // If any common label appears in the output, broadcasting is needed ->
+  // fall back to the generic path.
+  for (char c : common) {
+    if (std::find(spec.output.begin(), spec.output.end(), c) !=
+        spec.output.end())
+      return false;
+  }
+
+  // Keep labels (in operand order).
+  std::vector<char> keep_a, keep_b;
+  for (char c : la) {
+    if (std::find(common.begin(), common.end(), c) == common.end())
+      keep_a.push_back(c);
+  }
+  for (char c : lb) {
+    if (std::find(common.begin(), common.end(), c) == common.end())
+      keep_b.push_back(c);
+  }
+
+  // Common axes in each operand.
+  std::vector<int> common_axes_a, common_axes_b;
+  for (char c : common) {
+    common_axes_a.push_back(static_cast<int>(std::find(la.begin(), la.end(), c) -
+                                             la.begin()));
+    common_axes_b.push_back(static_cast<int>(std::find(lb.begin(), lb.end(), c) -
+                                             lb.begin()));
+  }
+  // Contracted dimensions must match.
+  for (size_t i = 0; i < common.size(); ++i) {
+    if (ops[0].shape().dim(common_axes_a[i]) !=
+        ops[1].shape().dim(common_axes_b[i]))
+      return false;
+  }
+
+  DType work_dtype = promote_types(ops[0].dtype(), ops[1].dtype());
+  Array a_work = (ops[0].dtype() == work_dtype) ? ops[0] : ops[0].to(work_dtype);
+  Array b_work = (ops[1].dtype() == work_dtype) ? ops[1] : ops[1].to(work_dtype);
+  if (a_work.place() != b_work.place()) {
+    b_work = b_work.to(a_work.place());
+  }
+
+  // a: [keep_a..., common...]
+  std::vector<int> perm_a;
+  for (char c : keep_a)
+    perm_a.push_back(
+        static_cast<int>(std::find(la.begin(), la.end(), c) - la.begin()));
+  for (char c : common)
+    perm_a.push_back(
+        static_cast<int>(std::find(la.begin(), la.end(), c) - la.begin()));
+  Array a_p = permute(a_work, perm_a);
+
+  // b: [common..., keep_b...]
+  std::vector<int> perm_b;
+  for (char c : common)
+    perm_b.push_back(
+        static_cast<int>(std::find(lb.begin(), lb.end(), c) - lb.begin()));
+  for (char c : keep_b)
+    perm_b.push_back(
+        static_cast<int>(std::find(lb.begin(), lb.end(), c) - lb.begin()));
+  Array b_p = permute(b_work, perm_b);
+
+  int64_t prod_keep_a = 1, prod_contract = 1, prod_keep_b = 1;
+  std::vector<int64_t> keep_a_dims, keep_b_dims;
+  for (size_t i = 0; i < keep_a.size(); ++i)
+    keep_a_dims.push_back(a_p.shape().dim(i));
+  for (size_t i = 0; i < common.size(); ++i)
+    prod_contract *= a_p.shape().dim(keep_a.size() + i);
+  for (size_t i = 0; i < keep_b.size(); ++i)
+    keep_b_dims.push_back(b_p.shape().dim(common.size() + i));
+  for (int64_t d : keep_a_dims)
+    prod_keep_a *= d;
+  for (int64_t d : keep_b_dims)
+    prod_keep_b *= d;
+
+  Array a2 = reshape(a_p, Shape({prod_keep_a, prod_contract}));
+  Array b2 = reshape(b_p, Shape({prod_contract, prod_keep_b}));
+  Array prod = matmul(a2, b2); // (prod_keep_a, prod_keep_b)
+
+  std::vector<int64_t> mid_dims(keep_a_dims);
+  mid_dims.insert(mid_dims.end(), keep_b_dims.begin(), keep_b_dims.end());
+  Array mid = reshape(prod, Shape(mid_dims));
+
+  // Sum over keep labels that are not in the output.
+  std::vector<char> keep_all(keep_a);
+  keep_all.insert(keep_all.end(), keep_b.begin(), keep_b.end());
+
+  // Surviving labels (those in the output) keep their keep_all order.
+  std::vector<char> surviving;
+  std::vector<int64_t> surviving_dims;
+  for (size_t i = 0; i < keep_all.size(); ++i) {
+    if (std::find(spec.output.begin(), spec.output.end(), keep_all[i]) !=
+        spec.output.end()) {
+      surviving.push_back(keep_all[i]);
+      surviving_dims.push_back(mid.shape().dim(i));
+    }
+  }
+
+  Array res = mid;
+  // Reduce from the back so axis indices stay valid.
+  for (int i = static_cast<int>(keep_all.size()) - 1; i >= 0; --i) {
+    if (std::find(spec.output.begin(), spec.output.end(), keep_all[i]) ==
+        spec.output.end()) {
+      res = sum(res, i, false);
+    }
+  }
+
+  // Permute surviving axes (in keep_all order) to output label order.
+  std::vector<int> perm_out;
+  std::vector<int64_t> out_dims;
+  for (char c : spec.output) {
+    auto it = std::find(surviving.begin(), surviving.end(), c);
+    if (it == surviving.end())
+      return false; // output label not produced by the matmul path
+    int pos = static_cast<int>(it - surviving.begin());
+    perm_out.push_back(pos);
+    out_dims.push_back(surviving_dims[pos]);
+  }
+  Array permuted = (!perm_out.empty() && perm_out.size() == res.shape().ndim())
+                       ? permute(res, perm_out)
+                       : res;
+  out = reshape(permuted, Shape(out_dims));
+  if (out.dtype() != work_dtype) {
+    out = out.to(work_dtype);
+  }
+  return true;
+}
+
+} // namespace
+
+Array einsum(const std::string &subscripts, const std::vector<Array> &operands) {
+  INS_CHECK(!operands.empty(), "einsum: no operands provided");
+  for (const Array &op : operands) {
+    INS_CHECK(op.defined(), "einsum: input is undefined");
+  }
+
+  EinsumSpec spec = parse_einsum(subscripts, operands.size());
+  for (size_t i = 0; i < spec.terms.size(); ++i) {
+    INS_CHECK(spec.terms[i].size() ==
+                  static_cast<size_t>(operands[i].shape().ndim()),
+              "einsum: subscript labels must match operand ndim");
+  }
+
+  Array result;
+  if (einsum_try_matmul(spec, operands, result)) {
+    return result;
+  }
+
+  // ---- Generic path: broadcast all operands to the full label space,
+  // multiply, then sum over non-output labels and permute to output order.
+
+  // Global label order: output labels first (in order), then remaining
+  // labels in order of first appearance.
+  std::vector<char> global;
+  for (char c : spec.output) {
+    if (std::find(global.begin(), global.end(), c) == global.end())
+      global.push_back(c);
+  }
+  for (const auto &term : spec.terms) {
+    for (char c : term) {
+      if (std::find(global.begin(), global.end(), c) == global.end())
+        global.push_back(c);
+    }
+  }
+
+  // Full shape over all global labels (1 where an operand lacks the label).
+  std::vector<int64_t> full_shape(global.size(), 1);
+  for (size_t t = 0; t < spec.terms.size(); ++t) {
+    for (size_t i = 0; i < spec.terms[t].size(); ++i) {
+      char c = spec.terms[t][i];
+      int gi = static_cast<int>(
+          std::find(global.begin(), global.end(), c) - global.begin());
+      int64_t d = operands[t].shape().dim(i);
+      if (full_shape[gi] != 1 && full_shape[gi] != d)
+        INS_THROW("einsum: label '", std::string(1, c),
+                  "' has incompatible dimensions");
+      full_shape[gi] = d;
+    }
+  }
+
+  DType work_dtype = operands[0].dtype();
+  for (size_t i = 1; i < operands.size(); ++i)
+    work_dtype = promote_types(work_dtype, operands[i].dtype());
+
+  Array acc;
+  for (size_t t = 0; t < spec.terms.size(); ++t) {
+    // Permute operand axes to the global label order.
+    std::vector<int> perm;
+    for (size_t gi = 0; gi < global.size(); ++gi) {
+      char c = global[gi];
+      auto it = std::find(spec.terms[t].begin(), spec.terms[t].end(), c);
+      if (it != spec.terms[t].end()) {
+        perm.push_back(
+            static_cast<int>(it - spec.terms[t].begin()));
+      }
+    }
+    // Missing labels are size-1; reshape inserts them. term_full starts
+    // from all-1s (NOT from full_shape, which mixes in other operands'
+    // dims and would inflate the element count).
+    std::vector<int64_t> term_full(global.size(), 1);
+    for (size_t i = 0; i < spec.terms[t].size(); ++i) {
+      char c = spec.terms[t][i];
+      int gi = static_cast<int>(
+          std::find(global.begin(), global.end(), c) - global.begin());
+      term_full[gi] = operands[t].shape().dim(i);
+    }
+    Array t_work =
+        (operands[t].dtype() == work_dtype) ? operands[t]
+                                            : operands[t].to(work_dtype);
+    if (!acc.defined()) {
+      acc = reshape(permute(t_work, perm), Shape(term_full));
+    } else {
+      if (acc.place() != t_work.place()) {
+        t_work = t_work.to(acc.place());
+      }
+      acc = mul(acc, reshape(permute(t_work, perm), Shape(term_full)));
+    }
+  }
+
+  // Broadcast to the full shape (mul already broadcast-combined labels, but
+  // ensure any label present in only some operands is expanded).
+  acc = broadcast_to(acc, Shape(full_shape));
+
+  // Sum over labels not in the output.
+  for (int gi = static_cast<int>(global.size()) - 1; gi >= 0; --gi) {
+    if (std::find(spec.output.begin(), spec.output.end(), global[gi]) ==
+        spec.output.end()) {
+      acc = sum(acc, gi, false);
+    }
+  }
+
+  // Permute to output label order.
+  std::vector<int> perm_out;
+  std::vector<int64_t> out_dims;
+  for (char c : spec.output) {
+    int gi = static_cast<int>(
+        std::find(global.begin(), global.end(), c) - global.begin());
+    perm_out.push_back(gi);
+    out_dims.push_back(full_shape[gi]);
+  }
+  Array permuted = (!perm_out.empty() && perm_out.size() == acc.shape().ndim())
+                       ? permute(acc, perm_out)
+                       : acc;
+  Array result2 = reshape(permuted, Shape(out_dims));
+  if (result2.dtype() != work_dtype) {
+    result2 = result2.to(work_dtype);
+  }
+  return result2;
 }
 
 } // namespace ins

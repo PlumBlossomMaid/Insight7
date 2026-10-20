@@ -1064,3 +1064,258 @@ TEST_F(LinalgTest, Cov) {
     EXPECT_NEAR(c_data[1], 5.0f / 3.0f, 1e-4f);
   }
 }
+
+// ========== tensordot ==========
+
+TEST_F(LinalgTest, TensordotAxes1) {
+  Array a = create_matrix_f64(2, 3, {1, 2, 3, 4, 5, 6});
+  Array b = create_matrix_f64(3, 2, {7, 8, 9, 10, 11, 12});
+  Array c = tensordot(a, b, 1);
+  EXPECT_EQ(c.shape(), Shape({2, 2}));
+  EXPECT_TRUE(check_matrix_equal(c, create_matrix_f64(2, 2, {58, 64, 139, 154})));
+}
+
+TEST_F(LinalgTest, TensordotDefaultAxes2) {
+  Array a = to_array(std::vector<double>{1.0, 2.0, 3.0, 4.0}, Shape({2, 2}));
+  Array b = to_array(std::vector<double>{5.0, 6.0, 7.0, 8.0}, Shape({2, 2}));
+  Array c = tensordot(a, b); // full contraction -> scalar
+  EXPECT_EQ(c.shape(), Shape({}));
+  EXPECT_NEAR(c.item<double>(), 70.0, 1e-10);
+}
+
+TEST_F(LinalgTest, TensordotExplicitAxesLists) {
+  Array a = to_array(std::vector<double>{1.0, 2.0, 3.0, 4.0}, Shape({2, 2}));
+  Array b = to_array(std::vector<double>{5.0, 6.0, 7.0, 8.0}, Shape({2, 2}));
+  Array c = tensordot(a, b, {1}, {0});
+  EXPECT_EQ(c.shape(), Shape({2, 2}));
+  // c[i,j] = sum_k a[i,k]*b[k,j]
+  const double *d = c.data<double>();
+  EXPECT_NEAR(d[0], 1.0 * 5.0 + 2.0 * 7.0, 1e-10);
+  EXPECT_NEAR(d[1], 1.0 * 6.0 + 2.0 * 8.0, 1e-10);
+  EXPECT_NEAR(d[2], 3.0 * 5.0 + 4.0 * 7.0, 1e-10);
+  EXPECT_NEAR(d[3], 3.0 * 6.0 + 4.0 * 8.0, 1e-10);
+}
+
+TEST_F(LinalgTest, TensordotHigherDim) {
+  // a: (2,3,4), contract a's last axis (4) with b's first axis (4).
+  Array a = to_array(std::vector<double>(24, 1.0), Shape({2, 3, 4}));
+  std::vector<double> bvals(12);
+  for (int i = 0; i < 12; ++i)
+    bvals[i] = i + 1.0;
+  Array b = to_array(bvals, Shape({4, 3}));
+  Array c = tensordot(a, b, 1); // -> (2,3,3)
+  EXPECT_EQ(c.shape(), Shape({2, 3, 3}));
+  const double *d = c.data<double>();
+  // out[i,j,m] = sum_k a[i,j,k]*b[k,m] = sum_k 1*b[k,m] = column sums of b
+  double col0 = 1 + 4 + 7 + 10;
+  double col1 = 2 + 5 + 8 + 11;
+  double col2 = 3 + 6 + 9 + 12;
+  for (int i = 0; i < 2; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      EXPECT_NEAR(d[(i * 3 + j) * 3 + 0], col0, 1e-8);
+      EXPECT_NEAR(d[(i * 3 + j) * 3 + 1], col1, 1e-8);
+      EXPECT_NEAR(d[(i * 3 + j) * 3 + 2], col2, 1e-8);
+    }
+  }
+}
+
+// ========== kron ==========
+
+TEST_F(LinalgTest, KronBasic) {
+  Array a = create_vector_f64({1, 2});
+  Array b = create_vector_f64({0, 5, 6});
+  Array c = kron(a, b);
+  EXPECT_EQ(c.shape(), Shape({6}));
+  const double *d = c.data<double>();
+  for (int i = 0; i < 3; ++i)
+    EXPECT_NEAR(d[i], 1.0 * (0.0 + 5.0 * (i % 3 == 1) + 6.0 * (i % 3 == 2)),
+                1e-10);
+  for (int i = 0; i < 3; ++i)
+    EXPECT_NEAR(d[3 + i], 2.0 * (0.0 + 5.0 * (i % 3 == 1) + 6.0 * (i % 3 == 2)),
+                1e-10);
+}
+
+TEST_F(LinalgTest, Kron2D) {
+  Array a = create_matrix_f64(2, 2, {1.0, 2.0, 3.0, 4.0});
+  Array b = create_matrix_f64(2, 2, {0.0, 5.0, 6.0, 7.0});
+  Array c = kron(a, b);
+  EXPECT_EQ(c.shape(), Shape({4, 4}));
+  const double *d = c.data<double>();
+  // Verified against np.kron: rows are a[i,j]*b expanded as a 2x2 block.
+  std::vector<double> expect = {0, 5, 0, 10, 6, 7, 12, 14, 0, 15, 0, 20,
+                                18, 21, 24, 28};
+  for (int i = 0; i < 16; ++i)
+    EXPECT_NEAR(d[i], expect[i], 1e-10);
+}
+
+TEST_F(LinalgTest, KronDifferentNdim) {
+  Array a = create_matrix_f64(2, 1, {1.0, 2.0});
+  Array b = create_vector_f64({3.0, 4.0});
+  Array c = kron(a, b);
+  EXPECT_EQ(c.shape(), Shape({2, 2}));
+  const double *d = c.data<double>();
+  EXPECT_NEAR(d[0], 3.0, 1e-10);
+  EXPECT_NEAR(d[1], 4.0, 1e-10);
+  EXPECT_NEAR(d[2], 6.0, 1e-10);
+  EXPECT_NEAR(d[3], 8.0, 1e-10);
+}
+
+// ========== cross ==========
+
+TEST_F(LinalgTest, Cross3D) {
+  Array a = create_vector_f64({1.0, 0.0, 0.0});
+  Array b = create_vector_f64({0.0, 1.0, 0.0});
+  Array c = cross(a, b);
+  EXPECT_EQ(c.shape(), Shape({3}));
+  const double *d = c.data<double>();
+  EXPECT_NEAR(d[0], 0.0, 1e-10);
+  EXPECT_NEAR(d[1], 0.0, 1e-10);
+  EXPECT_NEAR(d[2], 1.0, 1e-10);
+}
+
+TEST_F(LinalgTest, CrossBatched) {
+  // a: [ (1,0,0), (0,1,0) ], b: [ (0,1,0), (1,0,0) ] along axis 1
+  std::vector<double> avals = {1, 0, 0, 0, 1, 0};
+  std::vector<double> bvals = {0, 1, 0, 1, 0, 0};
+  Array a = create_matrix_f64(2, 3, avals);
+  Array b = create_matrix_f64(2, 3, bvals);
+  Array c = cross(a, b, 1);
+  EXPECT_EQ(c.shape(), Shape({2, 3}));
+  const double *d = c.data<double>();
+  EXPECT_NEAR(d[0], 0.0, 1e-10);
+  EXPECT_NEAR(d[1], 0.0, 1e-10);
+  EXPECT_NEAR(d[2], 1.0, 1e-10);
+  EXPECT_NEAR(d[3], 0.0, 1e-10);
+  EXPECT_NEAR(d[4], 0.0, 1e-10);
+  EXPECT_NEAR(d[5], -1.0, 1e-10);
+}
+
+TEST_F(LinalgTest, CrossAxis0) {
+  // a: [ (1,0,0) ]^T shape (3,1)
+  Array a = create_matrix_f64(3, 1, {1.0, 0.0, 0.0});
+  Array b = create_matrix_f64(3, 1, {0.0, 1.0, 0.0});
+  Array c = cross(a, b, 0);
+  EXPECT_EQ(c.shape(), Shape({3, 1}));
+  const double *d = c.data<double>();
+  EXPECT_NEAR(d[0], 0.0, 1e-10);
+  EXPECT_NEAR(d[1], 0.0, 1e-10);
+  EXPECT_NEAR(d[2], 1.0, 1e-10);
+}
+
+// ========== multi_dot ==========
+
+TEST_F(LinalgTest, MultiDotThree) {
+  Array a = create_matrix_f64(2, 3, {1, 2, 3, 4, 5, 6});
+  Array b = create_matrix_f64(3, 2, {7, 8, 9, 10, 11, 12});
+  Array c = create_matrix_f64(2, 2, {1, 2, 3, 4});
+  Array m = multi_dot({a, b, c});
+  EXPECT_EQ(m.shape(), Shape({2, 2}));
+  // compare to (a@b)@c
+  Array ab = matmul(a, b);
+  Array abc = matmul(ab, c);
+  const double *x = m.data<double>();
+  const double *y = abc.data<double>();
+  for (int i = 0; i < 4; ++i)
+    EXPECT_NEAR(x[i], y[i], 1e-10);
+}
+
+TEST_F(LinalgTest, MultiDotFour) {
+  Array a = create_matrix_f64(2, 3, {1, 2, 3, 4, 5, 6});
+  Array b = create_matrix_f64(3, 4, std::vector<double>(12, 0.5));
+  Array c = create_matrix_f64(4, 2, std::vector<double>(8, 0.25));
+  Array d = create_matrix_f64(2, 2, {1, 0, 0, 1});
+  Array m = multi_dot({a, b, c, d});
+  EXPECT_EQ(m.shape(), Shape({2, 2}));
+  Array expect = matmul(matmul(matmul(a, b), c), d);
+  const double *x = m.data<double>();
+  const double *y = expect.data<double>();
+  for (int i = 0; i < 4; ++i)
+    EXPECT_NEAR(x[i], y[i], 1e-10);
+}
+
+// ========== einsum ==========
+
+TEST_F(LinalgTest, EinsumMatmul) {
+  Array a = create_matrix_f64(2, 3, {1, 2, 3, 4, 5, 6});
+  Array b = create_matrix_f64(3, 2, {7, 8, 9, 10, 11, 12});
+  Array e = einsum("ij,jk->ik", {a, b});
+  EXPECT_EQ(e.shape(), Shape({2, 2}));
+  EXPECT_TRUE(check_matrix_equal(e, create_matrix_f64(2, 2, {58, 64, 139, 154})));
+}
+
+TEST_F(LinalgTest, EinsumImplicitOutput) {
+  Array a = create_matrix_f64(2, 3, {1, 2, 3, 4, 5, 6});
+  Array b = create_matrix_f64(3, 2, {7, 8, 9, 10, 11, 12});
+  Array e = einsum("ij,jk", {a, b}); // implicit "->ik"
+  EXPECT_EQ(e.shape(), Shape({2, 2}));
+  EXPECT_TRUE(check_matrix_equal(e, create_matrix_f64(2, 2, {58, 64, 139, 154})));
+}
+
+TEST_F(LinalgTest, EinsumTranspose) {
+  Array a = create_matrix_f64(2, 3, {1, 2, 3, 4, 5, 6});
+  Array e = einsum("ij->ji", {a});
+  EXPECT_EQ(e.shape(), Shape({3, 2}));
+  const double *d = e.data<double>();
+  // transpose of (2,3) is (3,2): rows [1,4],[2,5],[3,6]
+  EXPECT_NEAR(d[0], 1.0, 1e-10);
+  EXPECT_NEAR(d[1], 4.0, 1e-10);
+  EXPECT_NEAR(d[2], 2.0, 1e-10);
+  EXPECT_NEAR(d[3], 5.0, 1e-10);
+  EXPECT_NEAR(d[4], 3.0, 1e-10);
+  EXPECT_NEAR(d[5], 6.0, 1e-10);
+}
+
+TEST_F(LinalgTest, EinsumDiagonalNotSupported) {
+  Array a = create_matrix_f64(3, 3, {1, 2, 3, 4, 5, 6, 7, 8, 9});
+  // Repeated labels within one operand (diagonal) are documented as
+  // unsupported; expect an exception rather than a wrong result.
+  EXPECT_THROW(einsum("ii->", {a}), ins::Exception);
+}
+
+TEST_F(LinalgTest, EinsumFullSum) {
+  Array a = create_matrix_f64(2, 3, {1, 2, 3, 4, 5, 6});
+  Array e = einsum("ij->", {a});
+  EXPECT_EQ(e.shape(), Shape({}));
+  EXPECT_NEAR(e.item<double>(), 21.0, 1e-10);
+}
+
+TEST_F(LinalgTest, EinsumVectorDot) {
+  Array a = create_vector_f64({1, 2, 3});
+  Array b = create_vector_f64({4, 5, 6});
+  Array e = einsum("i,i->", {a, b});
+  EXPECT_EQ(e.shape(), Shape({}));
+  EXPECT_NEAR(e.item<double>(), 32.0, 1e-10);
+}
+
+TEST_F(LinalgTest, EinsumOuter) {
+  Array a = create_vector_f64({1, 2});
+  Array b = create_vector_f64({3, 4, 5});
+  Array e = einsum("i,j->ij", {a, b});
+  EXPECT_EQ(e.shape(), Shape({2, 3}));
+  const double *d = e.data<double>();
+  EXPECT_NEAR(d[0], 3.0, 1e-10);
+  EXPECT_NEAR(d[4], 8.0, 1e-10);
+  EXPECT_NEAR(d[5], 10.0, 1e-10);
+}
+
+TEST_F(LinalgTest, EinsumRowSum) {
+  Array a = create_matrix_f64(2, 3, {1, 2, 3, 4, 5, 6});
+  Array e = einsum("ij->i", {a});
+  EXPECT_EQ(e.shape(), Shape({2}));
+  const double *d = e.data<double>();
+  EXPECT_NEAR(d[0], 6.0, 1e-10);
+  EXPECT_NEAR(d[1], 15.0, 1e-10);
+}
+
+TEST_F(LinalgTest, EinsumThreeTerm) {
+  Array a = create_matrix_f64(2, 3, {1, 2, 3, 4, 5, 6});
+  Array b = create_matrix_f64(3, 2, {7, 8, 9, 10, 11, 12});
+  Array c = create_matrix_f64(2, 2, {1, 2, 3, 4});
+  Array e = einsum("ij,jk,kl->il", {a, b, c});
+  EXPECT_EQ(e.shape(), Shape({2, 2}));
+  Array abc = matmul(matmul(a, b), c);
+  const double *x = e.data<double>();
+  const double *y = abc.data<double>();
+  for (int i = 0; i < 4; ++i)
+    EXPECT_NEAR(x[i], y[i], 1e-10);
+}
