@@ -9,11 +9,14 @@
 
 #include "insight/ops/manipulation.h"
 #include "insight/core/axis.h"
+#include "insight/core/dtype.h"
 #include "insight/core/exception.h"
 #include "insight/core/op_registry.h"
 #include "insight/core/op_schema.h"
+#include "insight/ops/broadcast.h"
 #include "insight/ops/creation.h"
 #include "insight/ops/elementwise.h"
+#include "insight/ops/reduction.h"
 
 namespace ins {
 
@@ -575,6 +578,258 @@ Array diff(const Array &x, int n, int axis) {
   }
 
   return result;
+}
+
+// ============================================================================
+// ediff1d (NumPy-compatible, composite)
+// ============================================================================
+
+Array ediff1d(const Array &x, std::optional<Array> to_end,
+              std::optional<Array> to_begin) {
+  INS_CHECK(x.defined(), "ediff1d: input is undefined");
+
+  Array flat = ravel(x); // flatten to 1D
+  Array d;
+  if (flat.numel() >= 2) {
+    d = diff(flat, 1, 0); // out[i] = x[i+1] - x[i]
+  } else {
+    d = Array(Shape({0}), flat.dtype(), flat.place());
+  }
+
+  if (to_begin.has_value()) {
+    Array b = ravel(to_begin.value());
+    if (b.dtype() != d.dtype())
+      b = b.to(d.dtype());
+    d = (d.numel() == 0) ? b : concat({b, d}, 0);
+  }
+  if (to_end.has_value()) {
+    Array e = ravel(to_end.value());
+    if (e.dtype() != d.dtype())
+      e = e.to(d.dtype());
+    d = (d.numel() == 0) ? e : concat({d, e}, 0);
+  }
+  return d;
+}
+
+// ============================================================================
+// meshgrid (NumPy-compatible, broadcast views)
+// ============================================================================
+
+std::vector<Array> meshgrid(const std::vector<Array> &xi,
+                            const std::string &indexing) {
+  INS_CHECK(indexing == "xy" || indexing == "ij",
+            "meshgrid: indexing must be 'xy' or 'ij'");
+  INS_CHECK(!xi.empty(), "meshgrid: no inputs provided");
+
+  int ndim = static_cast<int>(xi.size());
+  std::vector<int64_t> dims(ndim);
+  for (int i = 0; i < ndim; ++i) {
+    INS_CHECK(xi[i].defined(), "meshgrid: input ", i, " is undefined");
+    INS_CHECK(xi[i].shape().ndim() == 1, "meshgrid: inputs must be 1-D");
+    dims[i] = xi[i].numel();
+  }
+
+  // Build the 'ij' grid: xi[i] broadcast along axis i into (n0, ..., nk-1).
+  Shape full_shape(dims);
+  std::vector<Array> out(ndim);
+  for (int i = 0; i < ndim; ++i) {
+    std::vector<int64_t> view_dims(ndim, 1);
+    view_dims[i] = dims[i];
+    out[i] = broadcast_to(xi[i].reshape(Shape(view_dims)), full_shape);
+  }
+
+  // 'xy' swaps the roles of the first two axes (NumPy semantics).
+  if (indexing == "xy" && ndim >= 2) {
+    for (Array &arr : out) {
+      arr = swapaxes(arr, 0, 1);
+    }
+  }
+  return out;
+}
+
+// ============================================================================
+// trapz (NumPy-compatible, composite)
+// ============================================================================
+
+Array trapz(const Array &y, std::optional<Array> x, double dx, int axis) {
+  INS_CHECK(y.defined(), "trapz: input is undefined");
+  int ndim = y.shape().ndim();
+  int ax = normalize_axis(axis, ndim, "trapz");
+  int64_t n = y.shape().dim(ax);
+  INS_CHECK(n >= 2, "trapz: axis size must be at least 2");
+
+  // NumPy promotes integer inputs to float64 (trapezoid halves).
+  DType rtype = is_integer(y.dtype()) ? DType::F64 : y.dtype();
+  Array ywork = (y.dtype() == rtype) ? y : y.to(rtype);
+
+  std::vector<Slice> slices_front(ndim, Slice::all());
+  std::vector<Slice> slices_back(ndim, Slice::all());
+  slices_front[ax] = Slice(0, n - 1);
+  slices_back[ax] = Slice(1, n);
+
+  Array y_front = ywork.slice(slices_front);
+  Array y_back = ywork.slice(slices_back);
+  Array sum_pair = add(y_front, y_back); // (..., n-1, ...)
+
+  Array widths;
+  if (x.has_value()) {
+    Array xa = x.value();
+    if (xa.shape().ndim() == 1) {
+      INS_CHECK(xa.numel() == n, "trapz: 1-D x length must match axis size");
+      Array xd = diff(xa, 1, 0); // (n-1,)
+      std::vector<int64_t> wdims(ndim, 1);
+      wdims[ax] = n - 1;
+      widths = broadcast_to(xd.reshape(Shape(wdims)), sum_pair.shape());
+    } else {
+      INS_CHECK(xa.shape() == y.shape(), "trapz: x shape must match y");
+      Array x_front = xa.slice(slices_front);
+      Array x_back = xa.slice(slices_back);
+      widths = sub(x_back, x_front);
+    }
+  } else {
+    std::vector<int64_t> wdims(ndim, 1);
+    wdims[ax] = n - 1;
+    widths = full(Shape(wdims), dx, rtype, y.place());
+  }
+
+  Array weighted = mul(sum_pair, widths); // (a + b) * width
+  Array integral = sum(weighted, ax);     // reduce along the axis
+  Array half = full(Shape({1}), 0.5, integral.dtype(), integral.place());
+  return mul(integral, half);
+}
+
+// ============================================================================
+// gradient (NumPy-compatible, composite)
+// ============================================================================
+
+static Array gradient_axis(const Array &f, double dx, int axis) {
+  int ndim = f.shape().ndim();
+  int ax = normalize_axis(axis, ndim, "gradient");
+  int64_t n = f.shape().dim(ax);
+  INS_CHECK(n >= 2, "gradient: axis size must be at least 2");
+
+  DType rtype = is_integer(f.dtype()) ? DType::F64 : f.dtype();
+  Array work = (f.dtype() == rtype) ? f : f.to(rtype);
+
+  // Boundary points use one-sided differences.
+  std::vector<Slice> s0(ndim, Slice::all());
+  std::vector<Slice> s1(ndim, Slice::all());
+  std::vector<Slice> sn2(ndim, Slice::all());
+  std::vector<Slice> sn1(ndim, Slice::all());
+  s0[ax] = Slice(0, 1);
+  s1[ax] = Slice(1, 2);
+  sn2[ax] = Slice(n - 2, n - 1);
+  sn1[ax] = Slice(n - 1, n);
+
+  Array first = div(sub(work.slice(s1), work.slice(s0)),
+                    full(Shape({1}), dx, rtype, f.place()));
+  Array last = div(sub(work.slice(sn1), work.slice(sn2)),
+                   full(Shape({1}), dx, rtype, f.place()));
+
+  if (n == 2) {
+    return concat({first, last}, ax);
+  }
+
+  // Interior points use central differences: (f[i+1] - f[i-1]) / (2*dx).
+  std::vector<Slice> si0(ndim, Slice::all());
+  std::vector<Slice> si2(ndim, Slice::all());
+  si0[ax] = Slice(0, n - 2);
+  si2[ax] = Slice(2, n);
+  Array inner = div(sub(work.slice(si2), work.slice(si0)),
+                    full(Shape({1}), 2.0 * dx, rtype, f.place()));
+
+  return concat({first, inner, last}, ax);
+}
+
+Array gradient(const Array &f, double dx, int axis) {
+  INS_CHECK(f.defined(), "gradient: input is undefined");
+  return gradient_axis(f, dx, axis);
+}
+
+std::vector<Array> gradient(const Array &f, double dx) {
+  INS_CHECK(f.defined(), "gradient: input is undefined");
+  std::vector<Array> out;
+  out.reserve(f.shape().ndim());
+  for (int i = 0; i < f.shape().ndim(); ++i) {
+    out.push_back(gradient_axis(f, dx, i));
+  }
+  return out;
+}
+
+// ============================================================================
+// one_hot (Paddle-compatible, composite)
+// ============================================================================
+
+Array one_hot(const Array &indices, int64_t num_classes, DType dtype) {
+  INS_CHECK(indices.defined(), "one_hot: input is undefined");
+  INS_CHECK(num_classes == -1 || num_classes >= 1,
+            "one_hot: num_classes must be >= 1 (or -1 to infer)");
+
+  // Class indices must be integers; promote to int64 for comparison.
+  Array idx = (indices.dtype() == DType::I64) ? indices : indices.to(DType::I64);
+
+  if (num_classes < 0) {
+    INS_CHECK(idx.numel() > 0, "one_hot: cannot infer num_classes from empty input");
+    Array m = max(idx);
+    num_classes = m.item<int64_t>() + 1;
+  }
+
+  // out[..., i] = 1.0 if indices[..., i] == i. Broadcast idx as [..., 1]
+  // against class labels shaped [1, ..., 1, num_classes].
+  std::vector<int64_t> idx_dims = idx.shape().dims();
+  idx_dims.push_back(1);
+  Array idx_u = idx.reshape(Shape(idx_dims)); // [..., 1]
+
+  std::vector<int64_t> cls_dims(idx_dims.size(), 1);
+  cls_dims.back() = num_classes;
+  Array cls =
+      arange(num_classes, DType::I64, idx.place()).reshape(Shape(cls_dims));
+
+  Array hot = equal(idx_u, cls); // [..., num_classes] (bool)
+  return hot.to(dtype);
+}
+
+// ============================================================================
+// histogram (NumPy-compatible, composite)
+// ============================================================================
+
+std::vector<Array> histogram(const Array &x, int64_t bins,
+                             std::optional<std::pair<double, double>> range) {
+  INS_CHECK(x.defined(), "histogram: input is undefined");
+  INS_CHECK(bins > 0, "histogram: bins must be positive");
+  INS_CHECK(x.numel() > 0, "histogram: input must be non-empty");
+
+  Array flat = ravel(x);
+
+  double lo, hi;
+  if (range.has_value()) {
+    lo = range->first;
+    hi = range->second;
+  } else {
+    lo = min(flat).item<double>();
+    hi = max(flat).item<double>();
+    if (lo == hi) {
+      // NumPy widens a degenerate range by 1.0 so the single value lands
+      // in the middle bin.
+      hi = lo + 1.0;
+    }
+  }
+
+  double width = (hi - lo) / bins;
+  DType ftype = DType::F64;
+
+  // bin index = clamp(floor((x - lo) / width), 0, bins - 1)
+  Array xf = flat.to(ftype);
+  Array scaled =
+      div(sub(xf, full(Shape({1}), lo, ftype, x.place())),
+          full(Shape({1}), width, ftype, x.place()));
+  Array idx = floor(scaled).to(DType::I64);
+  idx = maximum(idx, full(Shape({1}), 0, DType::I64, x.place()));
+  idx = minimum(idx, full(Shape({1}), bins - 1, DType::I64, x.place()));
+
+  Array hist = bincount(idx, std::nullopt, bins);
+  Array bin_edges = linspace(lo, hi, bins + 1, ftype, x.place());
+  return {hist, bin_edges};
 }
 
 // ============================================================================

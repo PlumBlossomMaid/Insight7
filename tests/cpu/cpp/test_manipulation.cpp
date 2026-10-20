@@ -787,3 +787,370 @@ TEST_F(ManipulationTest, ScalarIndexAssign) {
   EXPECT_FLOAT_EQ(data[4], 99.0f); // (1,1) = row*3 + col = 1*3+1 = 4
   EXPECT_FLOAT_EQ(data[8], 8.0f);
 }
+
+// ========== ediff1d tests ==========
+
+TEST_F(ManipulationTest, Ediff1dBasic) {
+  Array a = to_array({1.0, 2.0, 4.0, 7.0, 11.0});
+  Array d = ediff1d(a);
+  EXPECT_EQ(d.shape(), Shape({4}));
+  const double *data = d.data<double>();
+  EXPECT_NEAR(data[0], 1.0, 1e-6);
+  EXPECT_NEAR(data[1], 2.0, 1e-6);
+  EXPECT_NEAR(data[2], 3.0, 1e-6);
+  EXPECT_NEAR(data[3], 4.0, 1e-6);
+}
+
+TEST_F(ManipulationTest, Ediff1dFlatten2D) {
+  Array m = to_array({1.0, 2.0, 4.0, 7.0, 11.0, 16.0}, Shape({2, 3}));
+  Array d = ediff1d(m); // flattens to [1,2,4,7,11,16]
+  EXPECT_EQ(d.shape(), Shape({5}));
+  const double *data = d.data<double>();
+  EXPECT_NEAR(data[0], 1.0, 1e-6);
+  EXPECT_NEAR(data[1], 2.0, 1e-6);
+  EXPECT_NEAR(data[2], 3.0, 1e-6);
+  EXPECT_NEAR(data[3], 4.0, 1e-6);
+  EXPECT_NEAR(data[4], 5.0, 1e-6);
+}
+
+TEST_F(ManipulationTest, Ediff1dToBeginToEnd) {
+  Array a = to_array({1.0, 2.0, 4.0, 7.0});
+  Array begin = to_array({0.0});
+  Array end = to_array({99.0, 100.0});
+  Array d = ediff1d(a, end, begin);
+  // to_begin(1) + diff(3) + to_end(2) = 6
+  EXPECT_EQ(d.shape(), Shape({6}));
+  const double *data = d.data<double>();
+  EXPECT_NEAR(data[0], 0.0, 1e-6);   // to_begin
+  EXPECT_NEAR(data[1], 1.0, 1e-6);   // 2-1
+  EXPECT_NEAR(data[2], 2.0, 1e-6);   // 4-2
+  EXPECT_NEAR(data[3], 3.0, 1e-6);   // 7-4
+  EXPECT_NEAR(data[4], 99.0, 1e-6);  // to_end
+  EXPECT_NEAR(data[5], 100.0, 1e-6);
+}
+
+TEST_F(ManipulationTest, Ediff1dIntKeepsDtype) {
+  Array a = to_array({1, 3, 5, 7, 9});
+  Array d = ediff1d(a);
+  EXPECT_EQ(d.dtype(), DType::I32);
+  const int32_t *data = d.data<int32_t>();
+  EXPECT_EQ(data[0], 2);
+  EXPECT_EQ(data[1], 2);
+  EXPECT_EQ(data[2], 2);
+  EXPECT_EQ(data[3], 2);
+}
+
+TEST_F(ManipulationTest, Ediff1dSingleElement) {
+  Array a = to_array({5.0});
+  Array d = ediff1d(a);
+  EXPECT_EQ(d.numel(), 0);
+}
+
+// ========== meshgrid tests ==========
+
+TEST_F(ManipulationTest, Meshgrid2DXY) {
+  Array x = to_array({1.0, 2.0, 3.0});
+  Array y = to_array({4.0, 5.0});
+  std::vector<Array> g = meshgrid({x, y}, "xy"); // NumPy default
+
+  ASSERT_EQ(g.size(), 2u);
+  // 'xy' swaps the first two axes: X shape is (len(y), len(x)).
+  EXPECT_EQ(g[0].shape(), Shape({2, 3}));
+  EXPECT_EQ(g[1].shape(), Shape({2, 3}));
+
+  Array X = g[0].contiguous();
+  Array Y = g[1].contiguous();
+  const double *xd = X.data<double>();
+  const double *yd = Y.data<double>();
+  // X[i][j] = x[j]
+  EXPECT_NEAR(xd[0], 1.0, 1e-6);
+  EXPECT_NEAR(xd[1], 2.0, 1e-6);
+  EXPECT_NEAR(xd[2], 3.0, 1e-6);
+  EXPECT_NEAR(xd[3], 1.0, 1e-6);
+  // Y[i][j] = y[i]
+  EXPECT_NEAR(yd[0], 4.0, 1e-6);
+  EXPECT_NEAR(yd[3], 5.0, 1e-6);
+}
+
+TEST_F(ManipulationTest, Meshgrid2DIJ) {
+  Array x = to_array({1.0, 2.0, 3.0});
+  Array y = to_array({4.0, 5.0});
+  std::vector<Array> g = meshgrid({x, y}, "ij");
+
+  EXPECT_EQ(g[0].shape(), Shape({3, 2}));
+  EXPECT_EQ(g[1].shape(), Shape({3, 2}));
+
+  Array X = g[0].contiguous();
+  Array Y = g[1].contiguous();
+  const double *xd = X.data<double>();
+  const double *yd = Y.data<double>();
+  // X[i][j] = x[i]
+  EXPECT_NEAR(xd[0], 1.0, 1e-6);
+  EXPECT_NEAR(xd[2], 2.0, 1e-6);
+  EXPECT_NEAR(xd[4], 3.0, 1e-6);
+  // Y[i][j] = y[j]
+  EXPECT_NEAR(yd[0], 4.0, 1e-6);
+  EXPECT_NEAR(yd[1], 5.0, 1e-6);
+}
+
+TEST_F(ManipulationTest, Meshgrid3D) {
+  Array x = to_array({1.0, 2.0});
+  Array y = to_array({3.0, 4.0, 5.0});
+  Array z = to_array({6.0, 7.0, 8.0, 9.0});
+  std::vector<Array> g = meshgrid({x, y, z}, "ij");
+
+  ASSERT_EQ(g.size(), 3u);
+  for (const Array &arr : g) {
+    EXPECT_EQ(arr.shape(), Shape({2, 3, 4}));
+  }
+  Array X = g[0].contiguous();
+  const double *xd = X.data<double>();
+  EXPECT_NEAR(xd[0], 1.0, 1e-6);  // (0,0,0)
+  EXPECT_NEAR(xd[12], 2.0, 1e-6); // (1,0,0)
+}
+
+TEST_F(ManipulationTest, MeshgridSingleInput) {
+  Array x = to_array({1.0, 2.0, 3.0});
+  std::vector<Array> g = meshgrid({x});
+  ASSERT_EQ(g.size(), 1u);
+  EXPECT_EQ(g[0].shape(), Shape({3}));
+}
+
+// ========== trapz tests ==========
+
+TEST_F(ManipulationTest, Trapz1DUniform) {
+  Array y = to_array({1.0, 2.0, 3.0});
+  Array r = trapz(y); // dx = 1.0: (1+2)/2 + (2+3)/2 = 4.0
+  EXPECT_NEAR(r.item<double>(), 4.0, 1e-6);
+}
+
+TEST_F(ManipulationTest, Trapz1DDx) {
+  Array y = to_array({1.0, 2.0, 3.0});
+  Array r = trapz(y, std::nullopt, 2.0);
+  EXPECT_NEAR(r.item<double>(), 8.0, 1e-6); // 2 * 4.0
+}
+
+TEST_F(ManipulationTest, Trapz2DAxis1) {
+  std::vector<float> data = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+  Array m = to_array(data, Shape({2, 3}));
+  // Row 0: (1+2)/2 + (2+3)/2 = 4 ; Row 1: (4+5)/2 + (5+6)/2 = 10
+  Array r = trapz(m, std::nullopt, 1.0, 1);
+  EXPECT_EQ(r.shape(), Shape({2}));
+  const float *rd = r.data<float>();
+  EXPECT_NEAR(rd[0], 4.0f, 1e-5);
+  EXPECT_NEAR(rd[1], 10.0f, 1e-5);
+}
+
+TEST_F(ManipulationTest, TrapzWithX) {
+  Array y = to_array({1.0, 2.0, 4.0});
+  Array x = to_array({0.0, 0.5, 1.0});
+  // widths: 0.5, 0.5 -> (1+2)/2*0.5 + (2+4)/2*0.5 = 0.75 + 1.5 = 2.25
+  Array r = trapz(y, x);
+  EXPECT_NEAR(r.item<double>(), 2.25, 1e-6);
+}
+
+TEST_F(ManipulationTest, TrapzIntPromotesF64) {
+  Array y = to_array({1, 2, 3});
+  Array r = trapz(y);
+  EXPECT_EQ(r.dtype(), DType::F64);
+  EXPECT_NEAR(r.item<double>(), 4.0, 1e-9);
+}
+
+TEST_F(ManipulationTest, Trapz2DXAlongAxis0) {
+  std::vector<float> data = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+  Array y = to_array(data, Shape({2, 3}));
+  std::vector<float> xdata = {0.0f, 1.0f, 3.0f, 0.0f, 2.0f, 4.0f};
+  Array x = to_array(xdata, Shape({2, 3}));
+  // Along axis 0 the segment widths are x[1] - x[0] = [0, 1, 1].
+  // Segment heights: y[0] + y[1] = [5, 7, 9].
+  // integral = (5*0 + 7*1 + 9*1) / 2 = 8
+  Array r = trapz(y, x, 1.0, 0);
+  EXPECT_EQ(r.shape(), Shape({3}));
+  const float *rd = r.data<float>();
+  EXPECT_NEAR(rd[0], 0.0f, 1e-5);
+  EXPECT_NEAR(rd[1], 3.5f, 1e-5);
+  EXPECT_NEAR(rd[2], 4.5f, 1e-5);
+}
+
+// ========== gradient tests ==========
+
+TEST_F(ManipulationTest, Gradient1D) {
+  Array f = to_array({1.0, 2.0, 4.0, 7.0, 11.0});
+  Array g = gradient(f, 1.0, -1);
+  EXPECT_EQ(g.shape(), Shape({5}));
+  const double *gd = g.data<double>();
+  EXPECT_NEAR(gd[0], 1.0, 1e-6);   // (2-1)/1
+  EXPECT_NEAR(gd[1], 1.5, 1e-6);   // (4-1)/2
+  EXPECT_NEAR(gd[2], 2.5, 1e-6);   // (7-2)/2
+  EXPECT_NEAR(gd[3], 3.5, 1e-6);   // (11-4)/2
+  EXPECT_NEAR(gd[4], 4.0, 1e-6);   // (11-7)/1
+}
+
+TEST_F(ManipulationTest, GradientWithDx) {
+  Array f = to_array({1.0, 2.0, 4.0, 7.0, 11.0});
+  Array g = gradient(f, 2.0, 0);
+  const double *gd = g.data<double>();
+  EXPECT_NEAR(gd[0], 0.5, 1e-6);   // (2-1)/2
+  EXPECT_NEAR(gd[1], 0.75, 1e-6);  // (4-1)/4
+  EXPECT_NEAR(gd[4], 2.0, 1e-6);   // (11-7)/2
+}
+
+TEST_F(ManipulationTest, Gradient2DAxis) {
+  std::vector<float> data = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+  Array m = to_array(data, Shape({2, 3}));
+  // axis 0: rows differ by 3 -> all 3.0
+  Array g0 = gradient(m, 1.0, 0);
+  const float *g0d = g0.data<float>();
+  for (int64_t i = 0; i < 6; ++i) {
+    EXPECT_NEAR(g0d[i], 3.0f, 1e-5);
+  }
+  // axis 1: consecutive diff 1 -> all 1.0
+  Array g1 = gradient(m, 1.0, 1);
+  const float *g1d = g1.data<float>();
+  for (int64_t i = 0; i < 6; ++i) {
+    EXPECT_NEAR(g1d[i], 1.0f, 1e-5);
+  }
+}
+
+TEST_F(ManipulationTest, GradientAllAxes) {
+  std::vector<float> data = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+  Array m = to_array(data, Shape({2, 3}));
+  std::vector<Array> gs = gradient(m, 1.0);
+  ASSERT_EQ(gs.size(), 2u);
+  EXPECT_EQ(gs[0].shape(), Shape({2, 3}));
+  EXPECT_EQ(gs[1].shape(), Shape({2, 3}));
+}
+
+TEST_F(ManipulationTest, GradientIntPromotesF64) {
+  Array f = to_array({1, 2, 4, 7, 11});
+  Array g = gradient(f, 1.0, 0);
+  EXPECT_EQ(g.dtype(), DType::F64);
+  const double *gd = g.data<double>();
+  EXPECT_NEAR(gd[0], 1.0, 1e-9);
+  EXPECT_NEAR(gd[1], 1.5, 1e-9);
+}
+
+TEST_F(ManipulationTest, GradientN2) {
+  Array f = to_array({1.0, 3.0});
+  Array g = gradient(f, 1.0, 0);
+  EXPECT_EQ(g.shape(), Shape({2}));
+  const double *gd = g.data<double>();
+  EXPECT_NEAR(gd[0], 2.0, 1e-6); // (3-1)/1
+  EXPECT_NEAR(gd[1], 2.0, 1e-6); // (3-1)/1
+}
+
+// ========== repeat_interleave / one_hot / histogram tests ==========
+
+TEST_F(ManipulationTest, RepeatInterleaveFlatten) {
+  Array a = to_array({1.0, 2.0, 3.0});
+  Array r = repeat_interleave(a, 2);
+  EXPECT_EQ(r.shape(), Shape({6}));
+  const double *data = r.data<double>();
+  EXPECT_NEAR(data[0], 1.0, 1e-6);
+  EXPECT_NEAR(data[1], 1.0, 1e-6);
+  EXPECT_NEAR(data[2], 2.0, 1e-6);
+  EXPECT_NEAR(data[3], 2.0, 1e-6);
+  EXPECT_NEAR(data[4], 3.0, 1e-6);
+  EXPECT_NEAR(data[5], 3.0, 1e-6);
+}
+
+TEST_F(ManipulationTest, RepeatInterleaveAxis1) {
+  std::vector<float> data = {1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f};
+  Array m = to_array(data, Shape({2, 3}));
+  Array r = repeat_interleave(m, 2, 1);
+  EXPECT_EQ(r.shape(), Shape({2, 6}));
+  const float *data_r = r.data<float>();
+  // Row 0: 1,1,2,2,3,3
+  EXPECT_FLOAT_EQ(data_r[0], 1.0f);
+  EXPECT_FLOAT_EQ(data_r[1], 1.0f);
+  EXPECT_FLOAT_EQ(data_r[2], 2.0f);
+  EXPECT_FLOAT_EQ(data_r[3], 2.0f);
+  EXPECT_FLOAT_EQ(data_r[4], 3.0f);
+  EXPECT_FLOAT_EQ(data_r[5], 3.0f);
+  // Row 1: 4,4,5,5,6,6
+  EXPECT_FLOAT_EQ(data_r[6], 4.0f);
+  EXPECT_FLOAT_EQ(data_r[7], 4.0f);
+  EXPECT_FLOAT_EQ(data_r[8], 5.0f);
+  EXPECT_FLOAT_EQ(data_r[9], 5.0f);
+  EXPECT_FLOAT_EQ(data_r[10], 6.0f);
+  EXPECT_FLOAT_EQ(data_r[11], 6.0f);
+}
+
+TEST_F(ManipulationTest, OneHot1D) {
+  Array idx = to_array({0, 1, 2});
+  Array r = one_hot(idx, 3);
+  EXPECT_EQ(r.shape(), Shape({3, 3}));
+  EXPECT_EQ(r.dtype(), DType::F32);
+  const float *data = r.data<float>();
+  EXPECT_FLOAT_EQ(data[0], 1.0f); // class 0 -> [1,0,0]
+  EXPECT_FLOAT_EQ(data[1], 0.0f);
+  EXPECT_FLOAT_EQ(data[2], 0.0f);
+  EXPECT_FLOAT_EQ(data[3], 0.0f); // class 1 -> [0,1,0]
+  EXPECT_FLOAT_EQ(data[4], 1.0f);
+  EXPECT_FLOAT_EQ(data[5], 0.0f);
+  EXPECT_FLOAT_EQ(data[6], 0.0f); // class 2 -> [0,0,1]
+  EXPECT_FLOAT_EQ(data[7], 0.0f);
+  EXPECT_FLOAT_EQ(data[8], 1.0f);
+}
+
+TEST_F(ManipulationTest, OneHotInferClasses) {
+  Array idx = to_array({0, 2});
+  Array r = one_hot(idx); // num_classes = 3
+  EXPECT_EQ(r.shape(), Shape({2, 3}));
+}
+
+TEST_F(ManipulationTest, OneHotIntDtype) {
+  Array idx = to_array({1});
+  Array r = one_hot(idx, 2, DType::I64);
+  EXPECT_EQ(r.dtype(), DType::I64);
+  const int64_t *data = r.data<int64_t>();
+  EXPECT_EQ(data[0], 0);
+  EXPECT_EQ(data[1], 1);
+}
+
+TEST_F(ManipulationTest, OneHot2D) {
+  std::vector<int> idx_data = {0, 1, 2, 0};
+  Array idx = to_array(idx_data, Shape({2, 2}));
+  Array r = one_hot(idx, 3);
+  EXPECT_EQ(r.shape(), Shape({2, 2, 3}));
+}
+
+TEST_F(ManipulationTest, HistogramBasic) {
+  Array x = to_array({0.0, 1.0, 2.0, 3.0, 4.0});
+  std::vector<Array> res = histogram(x, 5);
+  ASSERT_EQ(res.size(), 2u);
+  EXPECT_EQ(res[0].shape(), Shape({5}));
+  EXPECT_EQ(res[1].shape(), Shape({6}));
+
+  const int64_t *hist = res[0].data<int64_t>();
+  EXPECT_EQ(hist[0], 1);
+  EXPECT_EQ(hist[1], 1);
+  EXPECT_EQ(hist[2], 1);
+  EXPECT_EQ(hist[3], 1);
+  EXPECT_EQ(hist[4], 1);
+
+  const double *edges = res[1].data<double>();
+  // Default range is (min, max) = (0, 4); width = 0.8.
+  EXPECT_NEAR(edges[0], 0.0, 1e-6);
+  EXPECT_NEAR(edges[1], 0.8, 1e-6);
+  EXPECT_NEAR(edges[5], 4.0, 1e-6);
+}
+
+TEST_F(ManipulationTest, HistogramRange) {
+  Array x = to_array({0.1, 0.3, 0.5, 0.7, 0.9});
+  std::vector<Array> res = histogram(x, 5, std::make_pair(0.0, 1.0));
+  ASSERT_EQ(res.size(), 2u);
+  const int64_t *hist = res[0].data<int64_t>();
+  for (int i = 0; i < 5; ++i) {
+    EXPECT_EQ(hist[i], 1);
+  }
+}
+
+TEST_F(ManipulationTest, HistogramUniform) {
+  // All values in one bin -> count concentrated.
+  Array x = to_array({2.0, 2.0, 2.0});
+  std::vector<Array> res = histogram(x, 4, std::make_pair(0.0, 4.0));
+  const int64_t *hist = res[0].data<int64_t>();
+  EXPECT_EQ(hist[2], 3); // (2-0)/1 = bin 2
+  EXPECT_EQ(hist[0] + hist[1] + hist[3], 0);
+}
