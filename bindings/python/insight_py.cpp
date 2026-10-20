@@ -1162,6 +1162,17 @@ PYBIND11_MODULE(_insight, m) {
   m.def("rad2deg", [](const Array &x) { return rad2deg(x); }, py::arg("x"));
   m.def("conj", [](const Array &x) { return conj(x); }, py::arg("x"));
   m.def("angle", [](const Array &x) { return angle(x); }, py::arg("x"));
+  m.def("relu", [](const Array &x) { return relu(x); }, py::arg("x"));
+  m.def("sigmoid", [](const Array &x) { return sigmoid(x); }, py::arg("x"));
+  m.def("leaky_relu", [](const Array &x, double alpha) {
+        return leaky_relu(x, alpha);
+      }, py::arg("x"), py::arg("alpha") = 0.01);
+  m.def("clip", [](const Array &x, double min_val, double max_val) {
+        return clip(x, min_val, max_val);
+      }, py::arg("x"), py::arg("min_val"), py::arg("max_val"));
+  m.def("clamp", [](const Array &x, double min_val, double max_val) {
+        return clip(x, min_val, max_val);
+      }, py::arg("x"), py::arg("min_val"), py::arg("max_val"));
   m.def(
       "where",
       [](const Array &cond, const Array &x, const Array &y) {
@@ -1363,6 +1374,18 @@ PYBIND11_MODULE(_insight, m) {
       },
       py::arg("x"), py::arg("weights") = std::nullopt,
       py::arg("minlength") = 0);
+  m.def(
+      "logsumexp",
+      [](const Array &x, std::optional<int> axis, bool keepdims) {
+        return logsumexp(x, axis, keepdims);
+      },
+      py::arg("x"), py::arg("axis") = std::nullopt,
+      py::arg("keepdims") = false);
+  m.def("softmax", [](const Array &x, int axis) { return softmax(x, axis); },
+        py::arg("x"), py::arg("axis") = -1);
+  m.def("log_softmax",
+        [](const Array &x, int axis) { return log_softmax(x, axis); },
+        py::arg("x"), py::arg("axis") = -1);
 
   // ====================================================================
   // Manipulation
@@ -1412,6 +1435,37 @@ PYBIND11_MODULE(_insight, m) {
   m.def("tril", &tril, py::arg("x"), py::arg("k") = 0);
   m.def("triu", &triu, py::arg("x"), py::arg("k") = 0);
   m.def("diff", &diff, py::arg("x"), py::arg("n") = 1, py::arg("axis") = -1);
+  m.def("ediff1d", &ediff1d, py::arg("x"),
+        py::arg("to_end") = std::nullopt, py::arg("to_begin") = std::nullopt);
+  m.def("meshgrid",
+        [](const std::vector<Array> &xi, const std::string &indexing) {
+          return meshgrid(xi, indexing);
+        },
+        py::arg("xi"), py::arg("indexing") = "xy");
+  m.def("trapz", &trapz, py::arg("y"), py::arg("x") = std::nullopt,
+        py::arg("dx") = 1.0, py::arg("axis") = -1);
+  m.def("gradient",
+        [](const Array &f, double dx, std::optional<int> axis)
+            -> py::object {
+          if (axis.has_value()) {
+            return py::cast(gradient(f, dx, axis.value()));
+          }
+          return py::cast(gradient(f, dx));
+        },
+        py::arg("x"), py::arg("dx") = 1.0, py::arg("axis") = std::nullopt);
+  m.def("repeat_interleave",
+        py::overload_cast<const Array &, int, std::optional<int>>(
+            &repeat_interleave),
+        py::arg("x"), py::arg("repeats"), py::arg("axis") = std::nullopt);
+  m.def("one_hot", &one_hot, py::arg("indices"),
+        py::arg("num_classes") = -1, py::arg("dtype") = DType::F32);
+  m.def("histogram",
+        [](const Array &x, int64_t bins,
+           std::optional<std::pair<double, double>> range) {
+          std::vector<Array> res = histogram(x, bins, range);
+          return py::make_tuple(res[0], res[1]);
+        },
+        py::arg("x"), py::arg("bins") = 10, py::arg("range") = std::nullopt);
 
   // ====================================================================
   // Linear Algebra
@@ -1447,6 +1501,28 @@ PYBIND11_MODULE(_insight, m) {
   m.def("trace", &trace, py::arg("x"));
   m.def("cov", &cov, py::arg("x"), py::arg("rowvar") = true,
         py::arg("ddof") = 1);
+
+  // Tensor contraction / products (NumPy-compatible subset)
+  m.def("tensordot", py::overload_cast<const Array &, const Array &, int>(
+                         &tensordot),
+        py::arg("a"), py::arg("b"), py::arg("axes") = 2);
+  m.def("tensordot",
+        py::overload_cast<const Array &, const Array &, const std::vector<int> &,
+                          const std::vector<int> &>(&tensordot),
+        py::arg("a"), py::arg("b"), py::arg("axes_a"), py::arg("axes_b"));
+  m.def("kron", &kron, py::arg("a"), py::arg("b"));
+  m.def("cross", &cross, py::arg("a"), py::arg("b"), py::arg("axis") = -1);
+  m.def("multi_dot", &multi_dot, py::arg("arrays"));
+  m.def(
+      "einsum",
+      [](const std::string &subscripts, py::args operands) {
+        std::vector<Array> ops;
+        for (auto item : operands) {
+          ops.push_back(item.cast<Array>());
+        }
+        return einsum(subscripts, ops);
+      },
+      py::arg("subscripts"));
 
   // ====================================================================
   // FFT (functions are in ins::fft:: namespace)
@@ -3019,6 +3095,22 @@ PYBIND11_MODULE(_insight, m) {
       },
       py::arg("n"), py::arg("dtype") = DType::I64,
       py::arg("place") = get_device());
+  m.def(
+      "multinomial",
+      [](const Array &probs, int64_t num_samples, bool replacement,
+         const Place &place) {
+        return multinomial(probs, num_samples, replacement, place);
+      },
+      py::arg("probs"), py::arg("num_samples"),
+      py::arg("replacement") = false, py::arg("place") = get_device());
+  m.def(
+      "choice",
+      [](const Array &x, int64_t num, bool replace, std::optional<Array> p) {
+        return choice(x, num, replace, p);
+      },
+      py::arg("x"), py::arg("num") = 1, py::arg("replace") = true,
+      py::arg("p") = std::nullopt);
+  m.def("shuffle", &shuffle, py::arg("x"));
 
   // ====================================================================
   // Cast

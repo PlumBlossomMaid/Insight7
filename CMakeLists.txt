@@ -529,6 +529,9 @@ if(INSIGHT_LUA_CODEGEN_INTERPRETER)
                 ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/cast_ops.h
                 ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/creation_ops.h
                 ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/elementwise_ops.h
+                ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/linalg_ops.h
+                ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/manipulation_ops.h
+                ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/random_ops.h
                 ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/reduction_ops.h
                 ${INSIGHT_CODEGEN_OUT_DIR}/include/insight/generated/unary_ops.h
         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}

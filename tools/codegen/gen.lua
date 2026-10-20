@@ -47,7 +47,8 @@ local function validate_op(module_name, op)
   end
 end
 
-local module_names = {"cast", "creation", "elementwise", "reduction", "unary"}
+local module_names = {"cast", "creation", "elementwise", "linalg",
+                      "manipulation", "random", "reduction", "unary"}
 local modules = {}
 for _, module_name in ipairs(module_names) do
   modules[module_name] = dofile(root .. "/schema/" .. module_name .. ".lua")

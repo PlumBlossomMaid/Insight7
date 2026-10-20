@@ -113,7 +113,8 @@ def arange(*args, dtype=DType.int64, place=None):
     Called as arange(stop) or arange(start, stop, step).
 
     Args:
-        dtype: Data type (default int64).
+        dtype: Data type (default int64). May be passed positionally as the
+            last argument for convenience (arange(20, float32)).
         place: Device placement (default: current device).
 
     Returns:
@@ -121,7 +122,21 @@ def arange(*args, dtype=DType.int64, place=None):
     """
     if place is None:
         place = get_device()
-    return _native_arange(*args, dtype=dtype, place=place)
+    # Paddle-style convenience: allow dtype as a trailing positional argument.
+    if args and isinstance(args[-1], DType):
+        dtype = args[-1]
+        args = args[:-1]
+    if len(args) == 1:
+        return _native_arange(float(args[0]), dtype=dtype, place=place)
+    if len(args) == 2:
+        return _native_arange(float(args[0]), float(args[1]), dtype=dtype,
+                              place=place)
+    if len(args) == 3:
+        return _native_arange(float(args[0]), float(args[1]), float(args[2]),
+                              dtype=dtype, place=place)
+    raise TypeError(
+        "arange expected (stop), (start, stop) or (start, stop, step), got "
+        f"{len(args)} positional arguments")
 
 
 def linspace(start, stop, num, dtype=DType.float32, place=None):
