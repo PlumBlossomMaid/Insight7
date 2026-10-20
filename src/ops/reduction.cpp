@@ -753,4 +753,79 @@ Array bincount(const Array &x, std::optional<Array> weights,
   }
 }
 
+// ============================================================================
+// logsumexp: numerically stable log(sum(exp(x)))
+// ============================================================================
+
+Array logsumexp(const Array &x, std::optional<int> axis, bool keepdim) {
+  INS_CHECK(x.defined(), "logsumexp: input is undefined");
+
+  // exp/log require floating point; promote integer inputs to float64.
+  DType work_dtype = is_integer(x.dtype()) ? DType::F64 : x.dtype();
+  Array work = (x.dtype() == work_dtype) ? x : x.to(work_dtype);
+
+  // m = max(x, axis, keepdim=true) — kept for broadcasting the shift.
+  Array m = max(work, axis, true);
+
+  // logsumexp(x) = m + log(sum(exp(x - m)))
+  Array shifted = sub(work, m);
+  Array e = exp(shifted);
+  Array s = sum(e, axis, true);
+  Array result = add(m, log(s));
+
+  // Apply keepdim semantics: squeeze the reduced axis when not kept.
+  if (!keepdim) {
+    if (axis.has_value()) {
+      int ax = normalize_axis(axis.value(), x.shape().ndim(), "logsumexp");
+      if (ax < result.shape().ndim() && result.shape().dim(ax) == 1) {
+        result = result.squeeze(ax);
+      }
+    } else {
+      // Flatten-all: m/s/result have shape (1, ..., 1); collapse to scalar.
+      result = result.reshape({});
+    }
+  }
+
+  return result;
+}
+
+// ============================================================================
+// softmax / log_softmax: stable softmax normalization along an axis
+// ============================================================================
+
+Array softmax(const Array &x, int axis) {
+  INS_CHECK(x.defined(), "softmax: input is undefined");
+  int ndim = x.shape().ndim();
+  int ax = normalize_axis(axis, ndim, "softmax");
+
+  // exp/log require floating point; promote integer inputs to float64.
+  DType work_dtype = is_integer(x.dtype()) ? DType::F64 : x.dtype();
+  Array work = (x.dtype() == work_dtype) ? x : x.to(work_dtype);
+
+  // softmax(x) = exp(x - m) / sum(exp(x - m)), m = max along axis (keepdim
+  // for broadcasting).
+  Array m = max(work, ax, true);
+  Array shifted = sub(work, m);
+  Array e = exp(shifted);
+  Array s = sum(e, ax, true);
+  return div(e, s);
+}
+
+Array log_softmax(const Array &x, int axis) {
+  INS_CHECK(x.defined(), "log_softmax: input is undefined");
+  int ndim = x.shape().ndim();
+  int ax = normalize_axis(axis, ndim, "log_softmax");
+
+  // exp/log require floating point; promote integer inputs to float64.
+  DType work_dtype = is_integer(x.dtype()) ? DType::F64 : x.dtype();
+  Array work = (x.dtype() == work_dtype) ? x : x.to(work_dtype);
+
+  // log_softmax(x) = (x - m) - log(sum(exp(x - m)))
+  Array m = max(work, ax, true);
+  Array shifted = sub(work, m);
+  Array e = exp(shifted);
+  Array s = sum(e, ax, true);
+  return sub(shifted, log(s));
+}
+
 } // namespace ins

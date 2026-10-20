@@ -179,3 +179,47 @@ class TestReductionExtended:
         # standard error of the mean = std / sqrt(n)
         expected = np.std(data_1d) / np.sqrt(len(data_1d))
         assert_allclose(ins.sem(x).numpy(), expected, rtol=1e-5)
+
+
+class TestSoftmaxAlignment:
+    """Insight softmax family (batch 2) vs NumPy."""
+
+    def _softmax(self, x, axis=-1):
+        m = np.max(x, axis=axis, keepdims=True)
+        e = np.exp(x - m)
+        return e / np.sum(e, axis=axis, keepdims=True)
+
+    def test_softmax_1d(self):
+        x_np = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float64)
+        x = ins.from_numpy(x_np)
+        assert_allclose(ins.softmax(x).numpy(), self._softmax(x_np), rtol=1e-8)
+
+    def test_softmax_2d_axis0(self):
+        x_np = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], dtype=np.float64)
+        x = ins.from_numpy(x_np)
+        assert_allclose(ins.softmax(x, 0).numpy(), self._softmax(x_np, 0),
+                        rtol=1e-8)
+
+    def test_log_softmax_2d(self):
+        x_np = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=np.float64)
+        x = ins.from_numpy(x_np)
+        expected = np.log(self._softmax(x_np, -1))
+        assert_allclose(ins.log_softmax(x).numpy(), expected, rtol=1e-8)
+
+    def test_logsumexp(self):
+        x_np = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float64)
+        x = ins.from_numpy(x_np)
+        assert_allclose(ins.logsumexp(x).numpy(), np.log(np.sum(np.exp(x_np))),
+                        rtol=1e-8)
+
+    def test_logsumexp_2d_axis(self):
+        x_np = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=np.float64)
+        x = ins.from_numpy(x_np)
+        expected = np.log(np.sum(np.exp(x_np), axis=1))
+        assert_allclose(ins.logsumexp(x, 1).numpy(), expected, rtol=1e-8)
+
+    def test_softmax_rows_sum_to_one(self):
+        x_np = np.random.default_rng(0).standard_normal((5, 7))
+        x = ins.from_numpy(x_np)
+        s = ins.softmax(x).numpy()
+        assert_allclose(s.sum(axis=1), np.ones(5), rtol=1e-8)
