@@ -80,7 +80,9 @@ class TestFFTExtendedGPU:
 
     def test_fft2(self):
         x_np = np.array([[1, 2], [3, 4], [5, 6]], dtype=np.float64)
-        x = to_gpu(x_np)
+        # fft2 requires complex input in Insight
+        x_complex = x_np.astype(np.complex128)
+        x = to_gpu(x_complex)
         result = ins.fft2(x)
         assert_allclose(to_numpy(result), np.fft.fft2(x_np), atol=1e-6)
 
