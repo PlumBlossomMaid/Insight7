@@ -8,11 +8,16 @@
  */
 
 #include "insight/ops/random.h"
+#include "insight/core/dtype.h"
 #include "insight/core/exception.h"
 #include "insight/core/op_registry.h"
 #include "insight/core/op_schema.h"
 #include "insight/core/place.h"
 #include "insight/init.h"
+#include "insight/ops/creation.h"
+#include "insight/ops/elementwise.h"
+#include "insight/ops/indexing.h"
+#include "insight/ops/reduction.h"
 #include <atomic>
 #include <vector>
 
@@ -168,6 +173,78 @@ Array uniform(double low, double high, const Shape &shape, DType dtype,
  */
 Array randperm(int64_t n, DType dtype, const Place &place) {
   return random_op("randperm", Shape({n}), dtype, place);
+}
+
+// ============================================================================
+// multinomial / choice / shuffle
+// ============================================================================
+
+Array multinomial(const Array &probs, int64_t num_samples, bool replacement,
+                  const Place &place) {
+  INS_CHECK(probs.defined(), "multinomial: input is undefined");
+  INS_CHECK(probs.shape().ndim() == 1, "multinomial: probs must be 1-D");
+  INS_CHECK(num_samples > 0, "multinomial: num_samples must be positive");
+  DType ptype = probs.dtype();
+  INS_CHECK(ptype == DType::F32 || ptype == DType::F64,
+            "multinomial: probs must be float32 or float64, got ",
+            dtype_name(ptype));
+  if (!replacement) {
+    INS_CHECK(num_samples <= probs.numel(),
+              "multinomial: num_samples must be <= probs size when "
+              "replacement=false");
+  }
+
+  // Kernel reads probs linearly; make a contiguous copy on the target device.
+  Array probs_work = (probs.place() == place) ? probs : probs.to(place);
+  probs_work = probs_work.contiguous();
+
+  Array result(Shape({num_samples}), DType::I64, place);
+  OpSchema schema = random_schema("multinomial");
+  ArrayIterator iter = schema.make_creation_iterator({result});
+  auto arrays = iter.arrays();
+
+  int replacement_i = replacement ? 1 : 0;
+  uint64_t device_seed = get_seed() + static_cast<uint64_t>(place.device_id());
+
+  std::vector<OpRegistry::Arg> inputs;
+  inputs.push_back(OpRegistry::array_arg(arrays[0].layout_ptr()));
+  inputs.push_back(OpRegistry::array_arg(probs_work.layout_ptr()));
+  inputs.push_back(OpRegistry::scalar_arg(&num_samples));
+  inputs.push_back(OpRegistry::scalar_arg(&replacement_i));
+  inputs.push_back(OpRegistry::scalar_arg(&device_seed));
+
+  OpRegistry::launch_schema("multinomial", place, DType::I64, inputs,
+                            {OpRegistry::array_arg(arrays[0].layout_ptr())});
+  return result;
+}
+
+Array choice(const Array &x, int64_t num, bool replace, std::optional<Array> p) {
+  INS_CHECK(x.defined(), "choice: input is undefined");
+  INS_CHECK(num > 0, "choice: num must be positive");
+  int64_t n = x.numel();
+  INS_CHECK(n > 0, "choice: input must be non-empty");
+
+  Array idx;
+  if (p.has_value()) {
+    idx = multinomial(p.value(), num, replace, x.place());
+  } else if (replace) {
+    idx = randint(0, n, Shape({num}), DType::I64, x.place());
+  } else {
+    INS_CHECK(num <= n,
+              "choice: num must be <= input size when replace=false");
+    Array perm = randperm(n, DType::I64, x.place());
+    idx = perm.slice(0, 0, num);
+  }
+  return take(x, idx);
+}
+
+Array shuffle(const Array &x) {
+  INS_CHECK(x.defined(), "shuffle: input is undefined");
+  int64_t n = x.shape().dim(0);
+  if (n <= 1)
+    return x.copy();
+  Array perm = randperm(n, DType::I64, x.place());
+  return take(x, perm, 0);
 }
 
 // ============================================================================

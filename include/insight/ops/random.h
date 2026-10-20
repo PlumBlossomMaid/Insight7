@@ -10,6 +10,7 @@
 #include "insight/core/dtype.h"
 #include "insight/core/place.h"
 #include "insight/core/shape.h"
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -73,6 +74,51 @@ Array uniform(double low, double high, const Shape &shape,
  */
 Array randperm(int64_t n, DType dtype = DType::I64,
                const Place &place = get_device());
+
+// ============================================================================
+// Sampling and shuffling
+// ============================================================================
+
+/**
+ * @brief Sample indices from a probability distribution (Paddle
+ * multinomial).
+ *
+ * Draws num_samples indices from categories 0..n-1 with probabilities
+ * proportional to probs (which need not sum to 1). With replacement=false
+ * each category is drawn at most once.
+ *
+ * @param probs 1D array of non-negative weights (any float dtype)
+ * @param num_samples Number of indices to draw
+ * @param replacement Allow the same index to be drawn multiple times
+ * @param place Device placement
+ * @return 1D int64 array of sampled indices (shape (num_samples,))
+ */
+Array multinomial(const Array &probs, int64_t num_samples,
+                  bool replacement = false,
+                  const Place &place = get_device());
+
+/**
+ * @brief Random choice of elements from a 1D array (NumPy choice subset).
+ *
+ * @param x 1D array of candidates
+ * @param num Number of samples to draw
+ * @param replace Allow repeats (default true)
+ * @param p Optional 1D probability weights (same length as x)
+ * @return 1D array of drawn elements (same dtype as x, shape (num,))
+ */
+Array choice(const Array &x, int64_t num = 1, bool replace = true,
+             std::optional<Array> p = std::nullopt);
+
+/**
+ * @brief Randomly shuffle the elements of an array along axis 0 (copy).
+ *
+ * Returns a new array whose axis-0 elements are a random permutation of
+ * the input (each row is moved as a whole). The input is unchanged.
+ *
+ * @param x Input array
+ * @return Shuffled copy
+ */
+Array shuffle(const Array &x);
 
 // ============================================================================
 // Like Functions
