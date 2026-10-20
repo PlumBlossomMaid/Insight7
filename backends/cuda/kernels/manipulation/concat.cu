@@ -99,8 +99,13 @@ C_Status concat_kernel_gpu(void **inputs, void **outputs) {
   // cudaMemcpy2D copies each input as a 2D array:
   //   width = axis_dim * inner * elem_size  (bytes per "row")
   //   height = outer                       (number of "rows")
-  //   src_pitch = width                    (contiguous in source)
+  //   src_pitch = bytes between consecutive rows in the source
   //   dst_pitch = out_axis_dim * inner * elem_size (strided in output)
+  //
+  // The source may be a strided view (e.g. a slice from fftshift), so
+  // src_pitch must respect src->strides instead of assuming contiguity.
+  // When the source layout cannot be expressed as a uniform 2D pitch
+  // (outer dims not row-contiguous), fall back to row-by-row copies.
   int64_t axis_offset = 0;
   for (int i = 0; i < num_inputs; ++i) {
     InsightArray *src = in_arrays[i];
@@ -113,13 +118,70 @@ C_Status concat_kernel_gpu(void **inputs, void **outputs) {
     size_t width = static_cast<size_t>(src_axis_dim * inner) *
                    static_cast<size_t>(elem_size);
     size_t height = static_cast<size_t>(outer);
-    size_t src_pitch = width;
     size_t dst_pitch = static_cast<size_t>(out->dims[axis] * inner) *
                        static_cast<size_t>(elem_size);
     size_t dst_off = static_cast<size_t>(axis_offset * inner) *
                      static_cast<size_t>(elem_size);
     size_t src_off =
         static_cast<size_t>(src->offset) * static_cast<size_t>(elem_size);
+
+    // Determine whether the source is expressible as a uniform 2D block:
+    // dims [axis, ndim) must be contiguous within a row, and dims
+    // [0, axis) must be row-contiguous (uniform pitch = strides[axis-1]).
+    bool src_2d_ok = true;
+    int64_t expect = 1;
+    for (int64_t d = ndim - 1; d >= axis; --d) {
+      if (src->strides[d] != expect) {
+        src_2d_ok = false;
+        break;
+      }
+      expect *= src->dims[d];
+    }
+    for (int64_t d = axis - 1; d > 0; --d) {
+      if (src->strides[d - 1] != src->strides[d] * src->dims[d]) {
+        src_2d_ok = false;
+        break;
+      }
+    }
+
+    if (!src_2d_ok) {
+      // Fallback: one cudaMemcpy per row, honoring per-dim strides.
+      // Decode the flat row index over dims [0, axis) in row-major order.
+      for (int64_t row = 0; row < outer; ++row) {
+        int64_t rem = row;
+        int64_t src_row_off = src->offset;
+        for (int64_t d = axis - 1; d >= 0; --d) {
+          int64_t dim = src->dims[d];
+          int64_t idx = (dim > 0) ? rem % dim : 0;
+          if (dim > 0) {
+            rem /= dim;
+          }
+          src_row_off += idx * src->strides[d];
+        }
+        cudaError_t err = cudaMemcpy(
+            static_cast<char *>(out->data) + dst_off +
+                row * dst_pitch,
+            static_cast<const char *>(src->data) +
+                src_row_off * static_cast<int64_t>(elem_size),
+            width, cudaMemcpyDeviceToDevice);
+        if (err != cudaSuccess) {
+          char buf[256];
+          snprintf(buf, sizeof(buf),
+                   "concat: cudaMemcpy failed for input %d row %lld: %s", i,
+                   (long long)row, cudaGetErrorString(err));
+          gpu_set_last_error(buf);
+          return C_FAILED;
+        }
+      }
+      axis_offset += src_axis_dim;
+      continue;
+    }
+
+    size_t src_pitch =
+        (axis > 0)
+            ? static_cast<size_t>(src->strides[axis - 1]) *
+                  static_cast<size_t>(elem_size)
+            : width;
 
     cudaError_t err =
         cudaMemcpy2D(static_cast<char *>(out->data) + dst_off, dst_pitch,
