@@ -663,3 +663,123 @@ TEST_F(UnaryTestCPU, AngleComplex) {
                                  static_cast<float>(-M_PI / 2.0)};
   expect_float_equal<float>(c, expected, 1e-6f);
 }
+
+// ============================================================================
+// Activation function tests
+// ============================================================================
+
+TEST_F(UnaryTestCPU, Relu) {
+  Array a({6}, DType::F32);
+  float *a_data = a.data<float>();
+  a_data[0] = -2.0f;
+  a_data[1] = -1.0f;
+  a_data[2] = 0.0f;
+  a_data[3] = 1.0f;
+  a_data[4] = 2.0f;
+  a_data[5] = 0.5f;
+
+  Array c = relu(a);
+
+  ASSERT_EQ(c.dtype(), DType::F32);
+  std::vector<float> expected = {0.0f, 0.0f, 0.0f, 1.0f, 2.0f, 0.5f};
+  expect_float_equal<float>(c, expected, 1e-6f);
+}
+
+TEST_F(UnaryTestCPU, ReluInt) {
+  Array a({5}, DType::I32);
+  int32_t *a_data = a.data<int32_t>();
+  a_data[0] = -3;
+  a_data[1] = -1;
+  a_data[2] = 0;
+  a_data[3] = 4;
+  a_data[4] = 9;
+
+  Array c = relu(a);
+
+  ASSERT_EQ(c.dtype(), DType::I32);
+  std::vector<int32_t> expected = {0, 0, 0, 4, 9};
+  expect_equal<int32_t>(c, expected);
+}
+
+TEST_F(UnaryTestCPU, Sigmoid) {
+  Array a({4}, DType::F32);
+  float *a_data = a.data<float>();
+  a_data[0] = 0.0f;
+  a_data[1] = -1.0f;
+  a_data[2] = 1.0f;
+  a_data[3] = 2.0f;
+
+  Array c = sigmoid(a);
+
+  ASSERT_EQ(c.dtype(), DType::F32);
+  std::vector<float> expected = {0.5f, 1.0f / (1.0f + std::exp(1.0f)),
+                                 1.0f / (1.0f + std::exp(-1.0f)),
+                                 1.0f / (1.0f + std::exp(-2.0f))};
+  expect_float_equal<float>(c, expected, 1e-6f);
+}
+
+TEST_F(UnaryTestCPU, LeakyRelu) {
+  Array a({4}, DType::F32);
+  float *a_data = a.data<float>();
+  a_data[0] = 2.0f;
+  a_data[1] = -2.0f;
+  a_data[2] = 0.5f;
+  a_data[3] = -0.5f;
+
+  Array c = leaky_relu(a, 0.1);
+
+  ASSERT_EQ(c.dtype(), DType::F32);
+  std::vector<float> expected = {2.0f, -0.2f, 0.5f, -0.05f};
+  expect_float_equal<float>(c, expected, 1e-6f);
+}
+
+TEST_F(UnaryTestCPU, LeakyReluDefaultAlpha) {
+  Array a({3}, DType::F32);
+  float *a_data = a.data<float>();
+  a_data[0] = 1.0f;
+  a_data[1] = -1.0f;
+  a_data[2] = -10.0f;
+
+  Array c = leaky_relu(a);
+
+  ASSERT_EQ(c.dtype(), DType::F32);
+  std::vector<float> expected = {1.0f, -0.01f, -0.1f};
+  expect_float_equal<float>(c, expected, 1e-6f);
+}
+
+TEST_F(UnaryTestCPU, Clip) {
+  Array a({6}, DType::F32);
+  float *a_data = a.data<float>();
+  a_data[0] = -2.0f;
+  a_data[1] = -1.0f;
+  a_data[2] = 0.0f;
+  a_data[3] = 1.0f;
+  a_data[4] = 2.0f;
+  a_data[5] = 3.0f;
+
+  Array c = clip(a, -1.0, 2.0);
+
+  ASSERT_EQ(c.dtype(), DType::F32);
+  std::vector<float> expected = {-1.0f, -1.0f, 0.0f, 1.0f, 2.0f, 2.0f};
+  expect_float_equal<float>(c, expected, 1e-6f);
+}
+
+TEST_F(UnaryTestCPU, ClipInt) {
+  Array a({4}, DType::I32);
+  int32_t *a_data = a.data<int32_t>();
+  a_data[0] = -5;
+  a_data[1] = 0;
+  a_data[2] = 3;
+  a_data[3] = 100;
+
+  Array c = clip(a, 0, 10);
+
+  ASSERT_EQ(c.dtype(), DType::I32);
+  std::vector<int32_t> expected = {0, 0, 3, 10};
+  expect_equal<int32_t>(c, expected);
+}
+
+TEST_F(UnaryTestCPU, ClipInvalidBounds) {
+  Array a({3}, DType::F32);
+  EXPECT_THROW(clip(a, 5.0, 2.0), Exception);
+}

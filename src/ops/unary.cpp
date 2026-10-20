@@ -180,4 +180,46 @@ DEFINE_UNARY_OP(isnan);
 DEFINE_UNARY_OP(isinf);
 DEFINE_UNARY_OP(isfinite);
 
+// ============================================================================
+// Activation functions
+// ============================================================================
+
+DEFINE_UNARY_OP(relu);
+DEFINE_UNARY_OP(sigmoid);
+
+Array leaky_relu(const Array &x, double alpha) {
+  INS_CHECK(x.defined(), "leaky_relu: input is undefined");
+
+  OpSchema schema = unary_elementwise_schema("leaky_relu");
+  Array out(x.shape(), x.dtype(), x.place());
+  ArrayIterator iter = schema.make_array_iterator({x}, {out});
+  auto arrays = iter.arrays();
+
+  OpRegistry::launch_schema(
+      "leaky_relu", x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::scalar_arg(&alpha)},
+      {OpRegistry::array_arg(arrays[1].layout_ptr())});
+
+  return out;
+}
+
+Array clip(const Array &x, double min_val, double max_val) {
+  INS_CHECK(x.defined(), "clip: input is undefined");
+  INS_CHECK(min_val <= max_val, "clip: min_val must be <= max_val");
+
+  OpSchema schema = unary_elementwise_schema("clip");
+  Array out(x.shape(), x.dtype(), x.place());
+  ArrayIterator iter = schema.make_array_iterator({x}, {out});
+  auto arrays = iter.arrays();
+
+  OpRegistry::launch_schema(
+      "clip", x.place(), x.dtype(),
+      {OpRegistry::array_arg(arrays[0].layout_ptr()),
+       OpRegistry::scalar_arg(&min_val), OpRegistry::scalar_arg(&max_val)},
+      {OpRegistry::array_arg(arrays[1].layout_ptr())});
+
+  return out;
+}
+
 } // namespace ins

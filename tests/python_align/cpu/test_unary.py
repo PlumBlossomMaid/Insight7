@@ -216,3 +216,35 @@ class TestUnaryExtended:
         x_np = np.array([1.0, 10.0, 100.0, 1000.0], dtype=np.float64)
         x = ins.from_numpy(x_np)
         assert_allclose(ins.log10(x).numpy(), np.log10(x_np), rtol=1e-8)
+
+
+class TestActivationAlignment:
+    """Insight activation ops (batch 1) vs NumPy."""
+
+    @pytest.fixture
+    def data(self):
+        return np.array([-3.0, -0.5, 0.0, 0.5, 2.0], dtype=np.float64)
+
+    def test_relu(self, data):
+        x = ins.from_numpy(data)
+        assert_allclose(ins.relu(x).numpy(), np.maximum(data, 0.0))
+
+    def test_sigmoid(self, data):
+        x = ins.from_numpy(data)
+        expected = 1.0 / (1.0 + np.exp(-data))
+        assert_allclose(ins.sigmoid(x).numpy(), expected, rtol=1e-8)
+
+    def test_leaky_relu(self, data):
+        x = ins.from_numpy(data)
+        expected = np.where(data >= 0, data, 0.01 * data)
+        assert_allclose(ins.leaky_relu(x, 0.01).numpy(), expected, rtol=1e-8)
+
+    def test_clip(self, data):
+        x = ins.from_numpy(data)
+        assert_allclose(ins.clip(x, -1.0, 1.0).numpy(),
+                        np.clip(data, -1.0, 1.0))
+
+    def test_clamp_alias(self, data):
+        x = ins.from_numpy(data)
+        assert_allclose(ins.clamp(x, -1.0, 1.0).numpy(),
+                        np.clip(data, -1.0, 1.0))

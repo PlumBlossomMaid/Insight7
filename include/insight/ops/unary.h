@@ -168,4 +168,46 @@ Array bitwise_not(const Array &x);
 /** @brief Alias for bitwise_not. */
 inline Array invert(const Array &x) { return bitwise_not(x); }
 
+// ============================================================================
+// Activation functions
+// ============================================================================
+
+/**
+ * @brief Rectified linear unit: relu(x) = max(x, 0).
+ * @param x Input array (numeric types)
+ * @return Array of same shape with relu applied elementwise
+ */
+Array relu(const Array &x);
+
+/**
+ * @brief Sigmoid activation: sigmoid(x) = 1 / (1 + exp(-x)).
+ * @param x Input array (floating point types)
+ * @return Array of same shape with sigmoid applied elementwise
+ */
+Array sigmoid(const Array &x);
+
+/**
+ * @brief Leaky rectified linear unit: leaky_relu(x) = max(x, alpha*x).
+ *
+ * @param x Input array (floating point types)
+ * @param alpha Slope for negative inputs (default 0.01)
+ * @return Array of same shape with leaky_relu applied elementwise
+ */
+Array leaky_relu(const Array &x, double alpha = 0.01);
+
+/**
+ * @brief Clip values to a [min, max] range: clip(x) = min(max(x, lo), hi).
+ *
+ * @param x Input array (numeric types)
+ * @param min_val Lower bound
+ * @param max_val Upper bound
+ * @return Array of same shape with values clamped to the given range
+ */
+Array clip(const Array &x, double min_val, double max_val);
+
+/** @brief Alias for clip(). */
+inline Array clamp(const Array &x, double min_val, double max_val) {
+  return clip(x, min_val, max_val);
+}
+
 } // namespace ins

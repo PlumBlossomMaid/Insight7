@@ -87,4 +87,15 @@ return {
     host = {expr = "a < b"},
     device = {expr = "a < b"},
   },
+  {
+    name = "clip",
+    kind = "unary_elementwise",
+    inputs = {"x:array", "lo:scalar", "hi:scalar"},
+    outputs = {"out:array"},
+    promote = "identity",
+    broadcast = false,
+    dtypes = {"i32", "i64", "f32", "f64", "f16", "bf16"},
+    host = {expr = "min(max(x, lo), hi)"},
+    device = {expr = "min(max(x, lo), hi)"},
+  },
 }
