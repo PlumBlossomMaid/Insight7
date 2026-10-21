@@ -137,11 +137,12 @@ M.less = rule({ { name = "a", type = argrule.any, opt = true }, { name = "b", ty
 -- @tparam Array a First input array.
 -- @tparam Array b Second input array.
 -- @treturn Array Boolean array where a >= b.
-M.greater_equal = rule({ { name = "a", type = argrule.any, opt = true }, { name = "b", type = argrule.any, opt = true } })(
-  function(a, b)
-    return native.greater_equal(a, b)
-  end
-)
+M.greater_equal = rule({
+  { name = "a", type = argrule.any, opt = true },
+  { name = "b", type = argrule.any, opt = true },
+})(function(a, b)
+  return native.greater_equal(a, b)
+end)
 
 --- Element-wise less-or-equal comparison.
 -- @tparam Array a First input array.

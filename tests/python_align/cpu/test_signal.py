@@ -332,9 +332,9 @@ class TestSignalSpectral:
         assert_allclose(result.f.numpy(), f_expected, rtol=1e-4)
         # PSD values may differ in normalization; check shape and positivity
         Pxx_ins = result.Pxx.numpy()
-        assert Pxx_ins.shape == Pxx_expected.shape, (
-            f"Shape mismatch: {Pxx_ins.shape} vs {Pxx_expected.shape}"
-        )
+        assert (
+            Pxx_ins.shape == Pxx_expected.shape
+        ), f"Shape mismatch: {Pxx_ins.shape} vs {Pxx_expected.shape}"
         assert np.all(Pxx_ins >= 0), "PSD should be non-negative"
 
     def test_periodogram(self):
@@ -363,9 +363,9 @@ class TestSignalSpectral:
         assert_allclose(result.f.numpy(), f_expected, rtol=1e-4)
         # CSD values may differ in normalization; check shape
         Pxy_ins = result.Pxx.numpy()
-        assert Pxy_ins.shape == Pxy_expected.shape, (
-            f"Shape mismatch: {Pxy_ins.shape} vs {Pxy_expected.shape}"
-        )
+        assert (
+            Pxy_ins.shape == Pxy_expected.shape
+        ), f"Shape mismatch: {Pxy_ins.shape} vs {Pxy_expected.shape}"
 
     def test_coherence(self):
         rng = np.random.RandomState(42)
@@ -379,9 +379,9 @@ class TestSignalSpectral:
         assert_allclose(result.f.numpy(), f_expected, rtol=1e-4)
         # Coherence values should be in [0, 1] range
         Cxy_ins = result.Pxx.numpy()
-        assert Cxy_ins.shape == Cxy_expected.shape, (
-            f"Shape mismatch: {Cxy_ins.shape} vs {Cxy_expected.shape}"
-        )
+        assert (
+            Cxy_ins.shape == Cxy_expected.shape
+        ), f"Shape mismatch: {Cxy_ins.shape} vs {Cxy_expected.shape}"
         assert np.all(Cxy_ins >= -0.01) and np.all(Cxy_ins <= 1.01), "Coherence should be in [0, 1]"
 
     def test_spectrogram(self):
@@ -408,9 +408,9 @@ class TestSignalSpectral:
         Zxx_ins = result.Sxx.numpy()
         assert Zxx_ins.ndim == 2, "STFT output should be 2D"
         # Check that one dimension matches frequency bins
-        assert Zxx_ins.shape[0] == len(f_exp) or Zxx_ins.shape[1] == len(f_exp), (
-            f"Neither dim matches freq bins: {Zxx_ins.shape} vs {len(f_exp)}"
-        )
+        assert Zxx_ins.shape[0] == len(f_exp) or Zxx_ins.shape[1] == len(
+            f_exp
+        ), f"Neither dim matches freq bins: {Zxx_ins.shape} vs {len(f_exp)}"
 
 
 # ============================================================================

@@ -146,10 +146,11 @@ M.cond = rule({ { name = "x", type = argrule.any, opt = true }, { name = "p", ty
 -- @tparam Array x Input matrix.
 -- @number[opt=-1] tol Tolerance threshold for singular values.
 -- @int Matrix rank.
-M.matrix_rank = rule({ { name = "x", type = argrule.any, opt = true }, { name = "tol", type = argrule.any, opt = true } })(
-  function(x, tol)
-    return native.matrix_rank(x, tol or -1.0)
-  end
-)
+M.matrix_rank = rule({
+  { name = "x", type = argrule.any, opt = true },
+  { name = "tol", type = argrule.any, opt = true },
+})(function(x, tol)
+  return native.matrix_rank(x, tol or -1.0)
+end)
 
 return M

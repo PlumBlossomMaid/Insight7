@@ -24,6 +24,7 @@ from insight._insight import (
     partition as _native_partition,
     argpartition as _native_argpartition,
     lexsort as _native_lexsort,
+    nonzero as _native_nonzero,
     flatnonzero as _native_flatnonzero,
     argsort as _native_argsort,
     sort as _native_sort,
