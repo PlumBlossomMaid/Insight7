@@ -34,14 +34,12 @@ C_Status sigmoid_kernel_cpu(void **inputs, void **outputs) {
 
   switch (x->dtype) {
   case INSIGHT_DTYPE_F32:
-    UNARY_KERNEL_LOOP(float, [](float v) {
-      return 1.0f / (1.0f + std::exp(-v));
-    });
+    UNARY_KERNEL_LOOP(float,
+                      [](float v) { return 1.0f / (1.0f + std::exp(-v)); });
     break;
   case INSIGHT_DTYPE_F64:
-    UNARY_KERNEL_LOOP(double, [](double v) {
-      return 1.0 / (1.0 + std::exp(-v));
-    });
+    UNARY_KERNEL_LOOP(double,
+                      [](double v) { return 1.0 / (1.0 + std::exp(-v)); });
     break;
   case INSIGHT_DTYPE_F16:
     UNARY_HALF_LOOP(uint16_t, insight::f16_to_f32, insight::f32_to_f16,
@@ -53,7 +51,8 @@ C_Status sigmoid_kernel_cpu(void **inputs, void **outputs) {
     break;
 
   default:
-    cpu_set_last_error("sigmoid: only float32, float64, f16 and bf16 supported");
+    cpu_set_last_error(
+        "sigmoid: only float32, float64, f16 and bf16 supported");
     return C_FAILED;
   }
 

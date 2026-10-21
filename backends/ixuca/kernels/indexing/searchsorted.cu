@@ -119,11 +119,7 @@ C_Status searchsorted_kernel_gpu(void **inputs, void **outputs) {
 
 } // extern "C"
 
-REGISTER_IXUCA_KERNEL(searchsorted, INSIGHT_DTYPE_F32,
-                         searchsorted_kernel_gpu);
-REGISTER_IXUCA_KERNEL(searchsorted, INSIGHT_DTYPE_F64,
-                         searchsorted_kernel_gpu);
-REGISTER_IXUCA_KERNEL(searchsorted, INSIGHT_DTYPE_I32,
-                         searchsorted_kernel_gpu);
-REGISTER_IXUCA_KERNEL(searchsorted, INSIGHT_DTYPE_I64,
-                         searchsorted_kernel_gpu);
+REGISTER_IXUCA_KERNEL(searchsorted, INSIGHT_DTYPE_F32, searchsorted_kernel_gpu);
+REGISTER_IXUCA_KERNEL(searchsorted, INSIGHT_DTYPE_F64, searchsorted_kernel_gpu);
+REGISTER_IXUCA_KERNEL(searchsorted, INSIGHT_DTYPE_I32, searchsorted_kernel_gpu);
+REGISTER_IXUCA_KERNEL(searchsorted, INSIGHT_DTYPE_I64, searchsorted_kernel_gpu);

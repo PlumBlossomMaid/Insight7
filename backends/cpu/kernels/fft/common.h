@@ -154,13 +154,12 @@ static inline void *fft_cache_find_or_create(int n, int64_t batch,
   // Create plan with dummy buffers
   if (is_f64) {
     double *di = (double *)fftw_malloc((size_t)(n + 2) * 2 * sizeof(double));
-    double *dout =
-        (double *)fftw_malloc((size_t)(n + 2) * 2 * sizeof(double));
+    double *dout = (double *)fftw_malloc((size_t)(n + 2) * 2 * sizeof(double));
     if (kind == FFT_KIND_C2C) {
-      e->plan_f64 = fftw_plan_many_dft(
-          1, &n_int, (int)batch, (fftw_complex *)di, NULL, 1, n_int,
-          (fftw_complex *)di, NULL, 1, n_int, direction,
-          FFTW_ESTIMATE | FFTW_UNALIGNED);
+      e->plan_f64 =
+          fftw_plan_many_dft(1, &n_int, (int)batch, (fftw_complex *)di, NULL, 1,
+                             n_int, (fftw_complex *)di, NULL, 1, n_int,
+                             direction, FFTW_ESTIMATE | FFTW_UNALIGNED);
     } else if (kind == FFT_KIND_R2C) {
       e->plan_f64 = fftw_plan_many_dft_r2c(1, &n_int, (int)batch, di, NULL, 1,
                                            n_int, (fftw_complex *)dout, NULL, 1,
@@ -176,14 +175,14 @@ static inline void *fft_cache_find_or_create(int n, int64_t batch,
     float *di = (float *)fftwf_malloc((size_t)(n + 2) * 2 * sizeof(float));
     float *dout = (float *)fftwf_malloc((size_t)(n + 2) * 2 * sizeof(float));
     if (kind == FFT_KIND_C2C) {
-      e->plan_f32 = fftwf_plan_many_dft(
-          1, &n_int, (int)batch, (fftwf_complex *)di, NULL, 1, n_int,
-          (fftwf_complex *)di, NULL, 1, n_int, direction,
-          FFTW_ESTIMATE | FFTW_UNALIGNED);
+      e->plan_f32 =
+          fftwf_plan_many_dft(1, &n_int, (int)batch, (fftwf_complex *)di, NULL,
+                              1, n_int, (fftwf_complex *)di, NULL, 1, n_int,
+                              direction, FFTW_ESTIMATE | FFTW_UNALIGNED);
     } else if (kind == FFT_KIND_R2C) {
-      e->plan_f32 = fftwf_plan_many_dft_r2c(
-          1, &n_int, (int)batch, di, NULL, 1, n_int, (fftwf_complex *)dout,
-          NULL, 1, n / 2 + 1, FFTW_ESTIMATE);
+      e->plan_f32 = fftwf_plan_many_dft_r2c(1, &n_int, (int)batch, di, NULL, 1,
+                                            n_int, (fftwf_complex *)dout, NULL,
+                                            1, n / 2 + 1, FFTW_ESTIMATE);
     } else {
       e->plan_f32 = fftwf_plan_many_dft_c2r(
           1, &n_int, (int)batch, (fftwf_complex *)di, NULL, 1, n / 2 + 1, dout,

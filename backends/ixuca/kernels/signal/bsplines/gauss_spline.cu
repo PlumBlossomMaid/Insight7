@@ -127,11 +127,8 @@ C_Status gauss_spline_kernel_gpu(void **inputs, void **outputs) {
 
 } // extern "C"
 
-REGISTER_IXUCA_KERNEL(gauss_spline, INSIGHT_DTYPE_F64,
-                         gauss_spline_kernel_gpu);
-REGISTER_IXUCA_KERNEL(gauss_spline, INSIGHT_DTYPE_F32,
-                         gauss_spline_kernel_gpu);
-REGISTER_IXUCA_KERNEL(gauss_spline, INSIGHT_DTYPE_F16,
-                         gauss_spline_kernel_gpu);
+REGISTER_IXUCA_KERNEL(gauss_spline, INSIGHT_DTYPE_F64, gauss_spline_kernel_gpu);
+REGISTER_IXUCA_KERNEL(gauss_spline, INSIGHT_DTYPE_F32, gauss_spline_kernel_gpu);
+REGISTER_IXUCA_KERNEL(gauss_spline, INSIGHT_DTYPE_F16, gauss_spline_kernel_gpu);
 REGISTER_IXUCA_KERNEL(gauss_spline, INSIGHT_DTYPE_BF16,
-                         gauss_spline_kernel_gpu);
+                      gauss_spline_kernel_gpu);

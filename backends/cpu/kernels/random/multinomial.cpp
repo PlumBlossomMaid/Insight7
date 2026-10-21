@@ -48,9 +48,8 @@ static C_Status multinomial_impl(InsightArray *out, InsightArray *probs,
     }
 
     // Inverse-CDF sample: pick smallest i with cumulative >= u * total.
-    double u = std::uniform_real_distribution<double>(0.0, 1.0)(
-                   cpu_get_rng()) *
-               total;
+    double u =
+        std::uniform_real_distribution<double>(0.0, 1.0)(cpu_get_rng()) * total;
     double cum = 0.0;
     int64_t picked = n - 1;
     for (int64_t i = 0; i < n; ++i) {

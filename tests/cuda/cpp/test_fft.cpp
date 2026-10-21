@@ -25,7 +25,8 @@ protected:
   static void SetUpTestSuite() {
     ins::init();
     set_device(GPUPlace(0));
-    if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: FFT uses F64";
+    if (active_gpu_backend_name() == "ixuca")
+      GTEST_SKIP() << "IXUCA: FFT uses F64";
   }
 };
 

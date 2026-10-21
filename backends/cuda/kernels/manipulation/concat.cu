@@ -159,8 +159,7 @@ C_Status concat_kernel_gpu(void **inputs, void **outputs) {
           src_row_off += idx * src->strides[d];
         }
         cudaError_t err = cudaMemcpy(
-            static_cast<char *>(out->data) + dst_off +
-                row * dst_pitch,
+            static_cast<char *>(out->data) + dst_off + row * dst_pitch,
             static_cast<const char *>(src->data) +
                 src_row_off * static_cast<int64_t>(elem_size),
             width, cudaMemcpyDeviceToDevice);
@@ -177,11 +176,10 @@ C_Status concat_kernel_gpu(void **inputs, void **outputs) {
       continue;
     }
 
-    size_t src_pitch =
-        (axis > 0)
-            ? static_cast<size_t>(src->strides[axis - 1]) *
-                  static_cast<size_t>(elem_size)
-            : width;
+    size_t src_pitch = (axis > 0)
+                           ? static_cast<size_t>(src->strides[axis - 1]) *
+                                 static_cast<size_t>(elem_size)
+                           : width;
 
     cudaError_t err =
         cudaMemcpy2D(static_cast<char *>(out->data) + dst_off, dst_pitch,

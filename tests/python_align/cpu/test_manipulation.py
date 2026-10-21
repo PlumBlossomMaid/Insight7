@@ -73,8 +73,9 @@ class TestManipulationBatch3:
     def test_ediff1d_to_end_to_begin(self):
         x_np = np.array([1.0, 4.0, 6.0], dtype=np.float64)
         x = ins.from_numpy(x_np)
-        result = ins.ediff1d(x, to_end=ins.from_numpy(np.array([100.0])),
-                             to_begin=ins.from_numpy(np.array([-1.0])))
+        result = ins.ediff1d(
+            x, to_end=ins.from_numpy(np.array([100.0])), to_begin=ins.from_numpy(np.array([-1.0]))
+        )
         expected = np.ediff1d(x_np, to_end=100.0, to_begin=-1.0)
         assert_allclose(result.numpy(), expected)
 
@@ -91,15 +92,16 @@ class TestManipulationBatch3:
     def test_trapz(self):
         y_np = np.array([1.0, 2.0, 3.0], dtype=np.float64)
         y = ins.from_numpy(y_np)
-        # np.trapz was renamed trapezoid in NumPy 2.0.
-        assert_allclose(ins.trapz(y).numpy(), np.trapezoid(y_np), rtol=1e-10)
+        # np.trapz was renamed trapezoid in NumPy 2.0; support both.
+        np_trapz = getattr(np, "trapezoid", None) or np.trapz
+        assert_allclose(ins.trapz(y).numpy(), np_trapz(y_np), rtol=1e-10)
 
     def test_trapz_with_x(self):
         y_np = np.array([1.0, 2.0, 3.0], dtype=np.float64)
         x_np = np.array([0.0, 1.0, 3.0], dtype=np.float64)
         y, x = ins.from_numpy(y_np), ins.from_numpy(x_np)
-        assert_allclose(ins.trapz(y, x=x).numpy(), np.trapezoid(y_np, x_np),
-                        rtol=1e-10)
+        np_trapz = getattr(np, "trapezoid", None) or np.trapz
+        assert_allclose(ins.trapz(y, x=x).numpy(), np_trapz(y_np, x_np), rtol=1e-10)
 
     def test_gradient_1d(self):
         f_np = np.array([1.0, 2.0, 4.0, 7.0, 11.0], dtype=np.float64)

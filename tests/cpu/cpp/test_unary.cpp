@@ -420,8 +420,8 @@ TEST_F(UnaryTestCPU, ViewAngle) {
   Array c = angle(view);
 
   ASSERT_EQ(c.dtype(), DType::F32);
-  expect_float_equal<float>(c, {static_cast<float>(M_PI),
-                                static_cast<float>(M_PI)});
+  expect_float_equal<float>(
+      c, {static_cast<float>(M_PI), static_cast<float>(M_PI)});
 }
 
 // ============================================================================

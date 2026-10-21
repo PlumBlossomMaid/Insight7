@@ -1,9 +1,9 @@
 // src/ops/unary.cpp
+#include "insight/ops/unary.h"
 #include "insight/core/array_iterator.h"
 #include "insight/core/exception.h"
 #include "insight/core/op_registry.h"
 #include "insight/core/op_schema.h"
-#include "insight/ops/unary.h"
 #include <string>
 #include <vector>
 
@@ -12,8 +12,7 @@ namespace ins {
 static OpSchema unary_elementwise_schema(const char *name) {
   return OpSchema(name, OpKind::UnaryElementwise,
                   {{"x", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}},
-                  {{"out", OpArgumentKind::Array,
-                    OpArgumentAccess::WriteOnly}})
+                  {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
       .promotion(OpPromotionRule::Identity)
       .fallback(OpFallbackRule::StructuredCpu);
 }
@@ -34,24 +33,23 @@ static DType unary_output_dtype(const char *name, DType input_dtype) {
 }
 
 static Array schema_unary_op_with_dtype(const Array &x, const char *kernel_name,
-                                         DType out_dtype) {
+                                        DType out_dtype) {
   INS_CHECK(x.defined(), kernel_name, ": input is undefined");
 
   OpSchema schema = unary_elementwise_schema(kernel_name);
   Array out(x.shape(), out_dtype, x.place());
   ArrayIterator iter = schema.make_array_iterator({x}, {out});
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      kernel_name, x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[0].layout_ptr())},
-      {OpRegistry::array_arg(arrays[1].layout_ptr())});
+  OpRegistry::launch_schema(kernel_name, x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[0].layout_ptr())},
+                            {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   return out;
 }
 
 static Array schema_unary_op(const Array &x, const char *kernel_name) {
-  return schema_unary_op_with_dtype(
-      x, kernel_name, unary_output_dtype(kernel_name, x.dtype()));
+  return schema_unary_op_with_dtype(x, kernel_name,
+                                    unary_output_dtype(kernel_name, x.dtype()));
 }
 
 // ============================================================================
@@ -195,11 +193,10 @@ Array leaky_relu(const Array &x, double alpha) {
   ArrayIterator iter = schema.make_array_iterator({x}, {out});
   auto arrays = iter.arrays();
 
-  OpRegistry::launch_schema(
-      "leaky_relu", x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::scalar_arg(&alpha)},
-      {OpRegistry::array_arg(arrays[1].layout_ptr())});
+  OpRegistry::launch_schema("leaky_relu", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&alpha)},
+                            {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   return out;
 }
@@ -213,11 +210,11 @@ Array clip(const Array &x, double min_val, double max_val) {
   ArrayIterator iter = schema.make_array_iterator({x}, {out});
   auto arrays = iter.arrays();
 
-  OpRegistry::launch_schema(
-      "clip", x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::scalar_arg(&min_val), OpRegistry::scalar_arg(&max_val)},
-      {OpRegistry::array_arg(arrays[1].layout_ptr())});
+  OpRegistry::launch_schema("clip", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&min_val),
+                             OpRegistry::scalar_arg(&max_val)},
+                            {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   return out;
 }

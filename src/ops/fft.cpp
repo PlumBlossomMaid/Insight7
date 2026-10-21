@@ -60,16 +60,15 @@ static std::string code_to_norm(int code) {
 static OpSchema fft_schema(const char *name) {
   return OpSchema(name, OpKind::Fft,
                   {{"x", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}},
-                  {{"out", OpArgumentKind::Array,
-                    OpArgumentAccess::WriteOnly}})
+                  {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
       .promotion(OpPromotionRule::Identity)
       .fallback(OpFallbackRule::StructuredCpu);
 }
 
 static void launch_fft_kernel(const char *name, const Array &input,
                               Array &result, int64_t fft_len,
-                              int64_t batch_size, int inverse,
-                              int real_input, int norm_code) {
+                              int64_t batch_size, int inverse, int real_input,
+                              int norm_code) {
   OpSchema schema = fft_schema(name);
   ArrayIterator iter = schema.make_transform_iterator({input}, {result});
   auto arrays = iter.arrays();

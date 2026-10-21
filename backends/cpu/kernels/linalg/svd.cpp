@@ -61,8 +61,8 @@ static void svd_f32(const float *src, float *u, float *s, float *vt, int m,
     return;
   }
 
-  int info = LAPACKE_sgesvd(LAPACK_COL_MAJOR, jobu, jobvt, m, n, a, m, s,
-                            u_cm, ldu, vt_cm, ldvt, superb);
+  int info = LAPACKE_sgesvd(LAPACK_COL_MAJOR, jobu, jobvt, m, n, a, m, s, u_cm,
+                            ldu, vt_cm, ldvt, superb);
   if (info != 0) {
     cpu_set_last_error("svd: LAPACK sgesvd failed");
   } else {
@@ -132,8 +132,8 @@ static void svd_f64(const double *src, double *u, double *s, double *vt, int m,
     return;
   }
 
-  int info = LAPACKE_dgesvd(LAPACK_COL_MAJOR, jobu, jobvt, m, n, a, m, s,
-                            u_cm, ldu, vt_cm, ldvt, superb);
+  int info = LAPACKE_dgesvd(LAPACK_COL_MAJOR, jobu, jobvt, m, n, a, m, s, u_cm,
+                            ldu, vt_cm, ldvt, superb);
 
   if (info != 0) {
     cpu_set_last_error("svd: LAPACK dgesvd failed");

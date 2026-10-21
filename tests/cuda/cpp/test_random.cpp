@@ -111,7 +111,8 @@ TEST_F(RandomTestGPU, RandnShape) {
 }
 
 TEST_F(RandomTestGPU, RandnStatisticalMeanAndStd) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // ========== randint ==========
@@ -155,7 +156,8 @@ TEST_F(RandomTestGPU, NormalShape) {
 }
 
 TEST_F(RandomTestGPU, NormalStatisticalMeanAndStd) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // ========== uniform ==========
@@ -244,11 +246,13 @@ TEST_F(RandomTestGPU, ExponentialShape) {
 }
 
 TEST_F(RandomTestGPU, ExponentialValuesPositive) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(RandomTestGPU, ExponentialStatisticalMean) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(RandomTestGPU, GammaShape) {
@@ -257,7 +261,8 @@ TEST_F(RandomTestGPU, GammaShape) {
 }
 
 TEST_F(RandomTestGPU, GammaValuesPositive) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(RandomTestGPU, ChisquareShape) {
@@ -266,7 +271,8 @@ TEST_F(RandomTestGPU, ChisquareShape) {
 }
 
 TEST_F(RandomTestGPU, ChisquareValuesPositive) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(RandomTestGPU, PoissonShape) {
@@ -285,7 +291,8 @@ TEST_F(RandomTestGPU, BetaShape) {
 }
 
 TEST_F(RandomTestGPU, BetaValuesInRange) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // ========== multinomial ==========
@@ -365,7 +372,8 @@ TEST_F(RandomTestGPU, ChoiceValuesInRange) {
 
 TEST_F(RandomTestGPU, ChoiceWithP) {
   Array x = arange(4, DType::I64, GPUPlace(0));
-  Array p = to_array(std::vector<double>{0.05, 0.05, 0.05, 0.85}).to(GPUPlace(0));
+  Array p =
+      to_array(std::vector<double>{0.05, 0.05, 0.05, 0.85}).to(GPUPlace(0));
   seed(42);
   Array out = choice(x, 20000, /*replace=*/true, p);
   Array cpu_out = out.to(CPUPlace());
@@ -410,8 +418,10 @@ TEST_F(RandomTestGPU, ShufflePreservesSet) {
   Array out = shuffle(x);
   Array cpu_src = x.to(CPUPlace());
   Array cpu_dst = out.to(CPUPlace());
-  std::vector<int64_t> src(cpu_src.data<int64_t>(), cpu_src.data<int64_t>() + 100);
-  std::vector<int64_t> dst(cpu_dst.data<int64_t>(), cpu_dst.data<int64_t>() + 100);
+  std::vector<int64_t> src(cpu_src.data<int64_t>(),
+                           cpu_src.data<int64_t>() + 100);
+  std::vector<int64_t> dst(cpu_dst.data<int64_t>(),
+                           cpu_dst.data<int64_t>() + 100);
   std::sort(src.begin(), src.end());
   std::sort(dst.begin(), dst.end());
   for (int i = 0; i < 100; ++i) {

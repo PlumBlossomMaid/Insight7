@@ -173,7 +173,9 @@ TEST_F(CreationTestGPU, EyeNegativeOffset) {
 // ============================================================================
 
 TEST_F(CreationTestGPU, ArangeSingle) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: Arange on GPU produces wrong results (CoreX compat)";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP()
+        << "IXUCA: Arange on GPU produces wrong results (CoreX compat)";
 }
 
 TEST_F(CreationTestGPU, ArangeStartStop) {
@@ -216,7 +218,8 @@ TEST_F(CreationTestGPU, ArangeFloat) {
 }
 
 TEST_F(CreationTestGPU, ArangeFloat64) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // ============================================================================
@@ -248,7 +251,8 @@ TEST_F(CreationTestGPU, LinspaceSingle) {
 }
 
 TEST_F(CreationTestGPU, LinspaceFloat64) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(CreationTestGPU, LinspaceNegativeRange) {
@@ -268,19 +272,24 @@ TEST_F(CreationTestGPU, LinspaceNegativeRange) {
 // ============================================================================
 
 TEST_F(CreationTestGPU, Logspace) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(CreationTestGPU, LogspaceBase2) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(CreationTestGPU, LogspaceFloat64) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(CreationTestGPU, LogspaceSingle) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: Logspace on GPU produces wrong results (CoreX compat)";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP()
+        << "IXUCA: Logspace on GPU produces wrong results (CoreX compat)";
 }
 
 // ============================================================================

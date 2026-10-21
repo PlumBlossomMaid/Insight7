@@ -260,7 +260,9 @@ static bool try_load_backend(DeviceKind kind, const char *lib_name) {
 // Public API
 // ========================================================================
 
-static bool is_cpu_backend_name(const std::string &name) { return name == "cpu"; }
+static bool is_cpu_backend_name(const std::string &name) {
+  return name == "cpu";
+}
 
 static bool is_gpu_selector(const std::string &name) {
   return name.empty() || name == "gpu";

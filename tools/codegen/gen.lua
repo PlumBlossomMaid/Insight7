@@ -11,7 +11,7 @@ end
 local root = script_dir()
 package.path = root .. "/?.lua;" .. root .. "/?/init.lua;" .. package.path
 
-local args = {...}
+local args = { ... }
 local out_dir = args[1] or "generated/codegen"
 
 local function mkdir_p(path)
@@ -42,13 +42,12 @@ local function validate_op(module_name, op)
   if op.broadcast ~= nil then
     assert(type(op.broadcast) == "boolean", op.name .. ": broadcast must be boolean")
   end
-  for _, backend in ipairs({"host", "device"}) do
+  for _, backend in ipairs({ "host", "device" }) do
     assert(type(op[backend]) == "table", op.name .. ": " .. backend .. " strategy is required")
   end
 end
 
-local module_names = {"cast", "creation", "elementwise", "linalg",
-                      "manipulation", "random", "reduction", "unary"}
+local module_names = { "cast", "creation", "elementwise", "linalg", "manipulation", "random", "reduction", "unary" }
 local modules = {}
 for _, module_name in ipairs(module_names) do
   modules[module_name] = dofile(root .. "/schema/" .. module_name .. ".lua")
@@ -79,13 +78,13 @@ mkdir_p(out_dir .. "/docs")
 write_file(out_dir .. "/docs/op_manifest.md", manifest.render(all_ops))
 write_file(out_dir .. "/docs/kernel_plan.md", kernel_plan.render_markdown(all_ops))
 write_file(out_dir .. "/docs/source_manifest.md", source_manifest.render_markdown(all_ops))
-write_file(out_dir .. "/include/insight/generated/kernel_plan.h",
-           kernel_plan.render(all_ops))
-write_file(out_dir .. "/include/insight/generated/source_manifest.h",
-           source_manifest.render(all_ops))
+write_file(out_dir .. "/include/insight/generated/kernel_plan.h", kernel_plan.render(all_ops))
+write_file(out_dir .. "/include/insight/generated/source_manifest.h", source_manifest.render(all_ops))
 for _, module_name in ipairs(module_names) do
-  write_file(out_dir .. "/include/insight/generated/" .. module_name .. "_ops.h",
-             op_header.render(module_name, modules[module_name]))
+  write_file(
+    out_dir .. "/include/insight/generated/" .. module_name .. "_ops.h",
+    op_header.render(module_name, modules[module_name])
+  )
 end
 
 print(string.format("generated %d ops into %s", #all_ops, out_dir))

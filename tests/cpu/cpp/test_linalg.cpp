@@ -1072,7 +1072,8 @@ TEST_F(LinalgTest, TensordotAxes1) {
   Array b = create_matrix_f64(3, 2, {7, 8, 9, 10, 11, 12});
   Array c = tensordot(a, b, 1);
   EXPECT_EQ(c.shape(), Shape({2, 2}));
-  EXPECT_TRUE(check_matrix_equal(c, create_matrix_f64(2, 2, {58, 64, 139, 154})));
+  EXPECT_TRUE(
+      check_matrix_equal(c, create_matrix_f64(2, 2, {58, 64, 139, 154})));
 }
 
 TEST_F(LinalgTest, TensordotDefaultAxes2) {
@@ -1142,8 +1143,8 @@ TEST_F(LinalgTest, Kron2D) {
   EXPECT_EQ(c.shape(), Shape({4, 4}));
   const double *d = c.data<double>();
   // Verified against np.kron: rows are a[i,j]*b expanded as a 2x2 block.
-  std::vector<double> expect = {0, 5, 0, 10, 6, 7, 12, 14, 0, 15, 0, 20,
-                                18, 21, 24, 28};
+  std::vector<double> expect = {0, 5,  0, 10, 6,  7,  12, 14,
+                                0, 15, 0, 20, 18, 21, 24, 28};
   for (int i = 0; i < 16; ++i)
     EXPECT_NEAR(d[i], expect[i], 1e-10);
 }
@@ -1240,7 +1241,8 @@ TEST_F(LinalgTest, EinsumMatmul) {
   Array b = create_matrix_f64(3, 2, {7, 8, 9, 10, 11, 12});
   Array e = einsum("ij,jk->ik", {a, b});
   EXPECT_EQ(e.shape(), Shape({2, 2}));
-  EXPECT_TRUE(check_matrix_equal(e, create_matrix_f64(2, 2, {58, 64, 139, 154})));
+  EXPECT_TRUE(
+      check_matrix_equal(e, create_matrix_f64(2, 2, {58, 64, 139, 154})));
 }
 
 TEST_F(LinalgTest, EinsumImplicitOutput) {
@@ -1248,7 +1250,8 @@ TEST_F(LinalgTest, EinsumImplicitOutput) {
   Array b = create_matrix_f64(3, 2, {7, 8, 9, 10, 11, 12});
   Array e = einsum("ij,jk", {a, b}); // implicit "->ik"
   EXPECT_EQ(e.shape(), Shape({2, 2}));
-  EXPECT_TRUE(check_matrix_equal(e, create_matrix_f64(2, 2, {58, 64, 139, 154})));
+  EXPECT_TRUE(
+      check_matrix_equal(e, create_matrix_f64(2, 2, {58, 64, 139, 154})));
 }
 
 TEST_F(LinalgTest, EinsumTranspose) {

@@ -64,8 +64,7 @@ struct OpArgumentSchema {
 
 class OpSchema {
 public:
-  OpSchema(std::string name, OpKind kind,
-           std::vector<OpArgumentSchema> inputs,
+  OpSchema(std::string name, OpKind kind, std::vector<OpArgumentSchema> inputs,
            std::vector<OpArgumentSchema> outputs);
 
   const std::string &name() const { return name_; }
@@ -84,11 +83,13 @@ public:
 
   Shape infer_elementwise_shape(const std::vector<Array> &inputs) const;
   DType infer_binary_dtype(DType a, DType b) const;
-  ArrayIterator make_array_iterator(const std::vector<Array> &inputs,
-                                    const std::vector<Array> &outputs = {}) const;
+  ArrayIterator
+  make_array_iterator(const std::vector<Array> &inputs,
+                      const std::vector<Array> &outputs = {}) const;
   ArrayIterator make_creation_iterator(const std::vector<Array> &outputs) const;
-  ArrayIterator make_transform_iterator(const std::vector<Array> &inputs,
-                                        const std::vector<Array> &outputs) const;
+  ArrayIterator
+  make_transform_iterator(const std::vector<Array> &inputs,
+                          const std::vector<Array> &outputs) const;
   ArrayIterator make_reduction_iterator(const Array &input, const Array &output,
                                         int64_t batch_size,
                                         int64_t reduce_size) const;

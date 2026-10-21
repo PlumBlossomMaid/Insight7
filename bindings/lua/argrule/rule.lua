@@ -1,5 +1,5 @@
-local argrule = require "argrule"
-local state = require "argrule._state"
+local argrule = require("argrule")
+local state = require("argrule._state")
 
 local table_unpack = table.unpack or unpack
 

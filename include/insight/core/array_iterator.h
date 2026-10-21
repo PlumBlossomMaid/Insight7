@@ -32,18 +32,18 @@ class ArrayIterator {
 public:
   static ArrayIterator elementwise(const std::vector<Array> &inputs);
   static ArrayIterator elementwise(const std::vector<Array> &inputs,
-                                    const std::vector<Array> &outputs);
+                                   const std::vector<Array> &outputs);
   static ArrayIterator creation(const std::vector<Array> &outputs);
   static ArrayIterator transform(const std::vector<Array> &inputs,
-                                  const std::vector<Array> &outputs);
+                                 const std::vector<Array> &outputs);
   static ArrayIterator reduction(const Array &input, const Array &output,
-                                  int64_t batch_size, int64_t reduce_size);
+                                 int64_t batch_size, int64_t reduce_size);
   static ArrayIterator reduction(const Array &input,
-                                  const std::vector<Array> &outputs,
-                                  int64_t batch_size, int64_t reduce_size);
+                                 const std::vector<Array> &outputs,
+                                 int64_t batch_size, int64_t reduce_size);
   static ArrayIterator reduction(const std::vector<Array> &inputs,
-                                  const std::vector<Array> &outputs,
-                                  int64_t batch_size, int64_t reduce_size);
+                                 const std::vector<Array> &outputs,
+                                 int64_t batch_size, int64_t reduce_size);
 
   const Shape &shape() const { return shape_; }
   int ndim() const { return shape_.ndim(); }

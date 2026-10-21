@@ -98,7 +98,7 @@ let
     local a = Insight.from_data([1.0], Insight.float64)
     local x = Insight.from_data([1.0, 0.0, 0.0, 0.0, 0.0], Insight.float64)
     local y = Insight.signal.lfilter(b, a, x)
-    check("lfilter_fir_numel", Insight.numel(y) == 6)
+    check("lfilter_fir_numel", Insight.numel(y) == 5)
     check("lfilter_fir_0", approx(Insight.item(y, 0), 1.0, atol=1e-10))
     check("lfilter_fir_1", approx(Insight.item(y, 1), 1.0, atol=1e-10))
     check("lfilter_fir_2", approx(Insight.item(y, 2), 0.0, atol=1e-10))

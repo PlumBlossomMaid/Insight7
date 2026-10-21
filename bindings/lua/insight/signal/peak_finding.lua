@@ -28,7 +28,13 @@ end
 -- @int[opt=1] order Number of points on each side to compare.
 -- @string[opt="clip"] mode Edge handling mode.
 -- @treturn userdata Vector of index Arrays.
-M.argrelextrema = rule { { name = "x", type = argrule.any, opt = true }, { name = "comparator", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true }, { name = "order", type = argrule.any, opt = true }, { name = "mode", type = argrule.any, opt = true } }(function(x, comparator, axis, order, mode)
+M.argrelextrema = rule({
+  { name = "x", type = argrule.any, opt = true },
+  { name = "comparator", type = argrule.any, opt = true },
+  { name = "axis", type = argrule.any, opt = true },
+  { name = "order", type = argrule.any, opt = true },
+  { name = "mode", type = argrule.any, opt = true },
+})(function(x, comparator, axis, order, mode)
   return sig.argrelextrema(x, comparator, lua_axis_to_cpp(axis), order or 1, mode or "clip")
 end)
 
@@ -38,7 +44,12 @@ end)
 -- @int[opt=1] order Number of points on each side to compare.
 -- @string[opt="clip"] mode Edge handling mode.
 -- @treturn userdata Vector of index Arrays.
-M.argrelmax = rule { { name = "x", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true }, { name = "order", type = argrule.any, opt = true }, { name = "mode", type = argrule.any, opt = true } }(function(x, axis, order, mode)
+M.argrelmax = rule({
+  { name = "x", type = argrule.any, opt = true },
+  { name = "axis", type = argrule.any, opt = true },
+  { name = "order", type = argrule.any, opt = true },
+  { name = "mode", type = argrule.any, opt = true },
+})(function(x, axis, order, mode)
   return sig.argrelmax(x, lua_axis_to_cpp(axis), order or 1, mode or "clip")
 end)
 
@@ -48,7 +59,12 @@ end)
 -- @int[opt=1] order Number of points on each side to compare.
 -- @string[opt="clip"] mode Edge handling mode.
 -- @treturn userdata Vector of index Arrays.
-M.argrelmin = rule { { name = "x", type = argrule.any, opt = true }, { name = "axis", type = argrule.any, opt = true }, { name = "order", type = argrule.any, opt = true }, { name = "mode", type = argrule.any, opt = true } }(function(x, axis, order, mode)
+M.argrelmin = rule({
+  { name = "x", type = argrule.any, opt = true },
+  { name = "axis", type = argrule.any, opt = true },
+  { name = "order", type = argrule.any, opt = true },
+  { name = "mode", type = argrule.any, opt = true },
+})(function(x, axis, order, mode)
   return sig.argrelmin(x, lua_axis_to_cpp(axis), order or 1, mode or "clip")
 end)
 

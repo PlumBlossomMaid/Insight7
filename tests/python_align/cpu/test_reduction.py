@@ -197,8 +197,7 @@ class TestSoftmaxAlignment:
     def test_softmax_2d_axis0(self):
         x_np = np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]], dtype=np.float64)
         x = ins.from_numpy(x_np)
-        assert_allclose(ins.softmax(x, 0).numpy(), self._softmax(x_np, 0),
-                        rtol=1e-8)
+        assert_allclose(ins.softmax(x, 0).numpy(), self._softmax(x_np, 0), rtol=1e-8)
 
     def test_log_softmax_2d(self):
         x_np = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=np.float64)
@@ -209,8 +208,7 @@ class TestSoftmaxAlignment:
     def test_logsumexp(self):
         x_np = np.array([1.0, 2.0, 3.0, 4.0], dtype=np.float64)
         x = ins.from_numpy(x_np)
-        assert_allclose(ins.logsumexp(x).numpy(), np.log(np.sum(np.exp(x_np))),
-                        rtol=1e-8)
+        assert_allclose(ins.logsumexp(x).numpy(), np.log(np.sum(np.exp(x_np))), rtol=1e-8)
 
     def test_logsumexp_2d_axis(self):
         x_np = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], dtype=np.float64)

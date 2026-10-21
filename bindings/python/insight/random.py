@@ -258,15 +258,27 @@ def randn_like(x: "Array") -> "Array":
 
 
 def randint_like(x: "Array", low: int, high: int, dtype: "DType" = None) -> "Array":
-    return _native_randint_like(x, low, high, dtype) if dtype is not None else _native_randint_like(x, low, high)
+    return (
+        _native_randint_like(x, low, high, dtype)
+        if dtype is not None
+        else _native_randint_like(x, low, high)
+    )
 
 
 def normal_like(x: "Array", mean: float = 0.0, std: float = 1.0, dtype: "DType" = None) -> "Array":
-    return _native_normal_like(x, mean, std, dtype) if dtype is not None else _native_normal_like(x, mean, std)
+    return (
+        _native_normal_like(x, mean, std, dtype)
+        if dtype is not None
+        else _native_normal_like(x, mean, std)
+    )
 
 
 def uniform_like(x: "Array", low: float = 0.0, high: float = 1.0, dtype: "DType" = None) -> "Array":
-    return _native_uniform_like(x, low, high, dtype) if dtype is not None else _native_uniform_like(x, low, high)
+    return (
+        _native_uniform_like(x, low, high, dtype)
+        if dtype is not None
+        else _native_uniform_like(x, low, high)
+    )
 
 
 def exponential(

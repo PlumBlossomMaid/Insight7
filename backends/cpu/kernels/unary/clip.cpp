@@ -44,62 +44,61 @@ C_Status clip_kernel_cpu(void **inputs, void **outputs) {
   switch (x->dtype) {
   case INSIGHT_DTYPE_I8:
     UNARY_KERNEL_LOOP(int8_t, ([lo, hi](int8_t v) {
-      return static_cast<int8_t>(
-          std::min(std::max(static_cast<double>(v), lo), hi));
-    }));
+                        return static_cast<int8_t>(
+                            std::min(std::max(static_cast<double>(v), lo), hi));
+                      }));
     break;
   case INSIGHT_DTYPE_I16:
     UNARY_KERNEL_LOOP(int16_t, ([lo, hi](int16_t v) {
-      return static_cast<int16_t>(
-          std::min(std::max(static_cast<double>(v), lo), hi));
-    }));
+                        return static_cast<int16_t>(
+                            std::min(std::max(static_cast<double>(v), lo), hi));
+                      }));
     break;
   case INSIGHT_DTYPE_I32:
     UNARY_KERNEL_LOOP(int32_t, ([lo, hi](int32_t v) {
-      return static_cast<int32_t>(
-          std::min(std::max(static_cast<double>(v), lo), hi));
-    }));
+                        return static_cast<int32_t>(
+                            std::min(std::max(static_cast<double>(v), lo), hi));
+                      }));
     break;
   case INSIGHT_DTYPE_I64:
     UNARY_KERNEL_LOOP(int64_t, ([lo, hi](int64_t v) {
-      return static_cast<int64_t>(
-          std::min(std::max(static_cast<double>(v), lo), hi));
-    }));
+                        return static_cast<int64_t>(
+                            std::min(std::max(static_cast<double>(v), lo), hi));
+                      }));
     break;
   case INSIGHT_DTYPE_U8:
     UNARY_KERNEL_LOOP(uint8_t, ([lo, hi](uint8_t v) {
-      return static_cast<uint8_t>(
-          std::min(std::max(static_cast<double>(v), lo), hi));
-    }));
+                        return static_cast<uint8_t>(
+                            std::min(std::max(static_cast<double>(v), lo), hi));
+                      }));
     break;
   case INSIGHT_DTYPE_U16:
     UNARY_KERNEL_LOOP(uint16_t, ([lo, hi](uint16_t v) {
-      return static_cast<uint16_t>(
-          std::min(std::max(static_cast<double>(v), lo), hi));
-    }));
+                        return static_cast<uint16_t>(
+                            std::min(std::max(static_cast<double>(v), lo), hi));
+                      }));
     break;
   case INSIGHT_DTYPE_U32:
     UNARY_KERNEL_LOOP(uint32_t, ([lo, hi](uint32_t v) {
-      return static_cast<uint32_t>(
-          std::min(std::max(static_cast<double>(v), lo), hi));
-    }));
+                        return static_cast<uint32_t>(
+                            std::min(std::max(static_cast<double>(v), lo), hi));
+                      }));
     break;
   case INSIGHT_DTYPE_U64:
     UNARY_KERNEL_LOOP(uint64_t, ([lo, hi](uint64_t v) {
-      return static_cast<uint64_t>(
-          std::min(std::max(static_cast<double>(v), lo), hi));
-    }));
+                        return static_cast<uint64_t>(
+                            std::min(std::max(static_cast<double>(v), lo), hi));
+                      }));
     break;
   case INSIGHT_DTYPE_F32:
     UNARY_KERNEL_LOOP(float, ([lo, hi](float v) {
-      return static_cast<float>(
-          std::min(std::max(static_cast<double>(v), lo), hi));
-    }));
+                        return static_cast<float>(
+                            std::min(std::max(static_cast<double>(v), lo), hi));
+                      }));
     break;
   case INSIGHT_DTYPE_F64:
-    UNARY_KERNEL_LOOP(double, ([lo, hi](double v) {
-      return std::min(std::max(v, lo), hi);
-    }));
+    UNARY_KERNEL_LOOP(
+        double, ([lo, hi](double v) { return std::min(std::max(v, lo), hi); }));
     break;
   case INSIGHT_DTYPE_F16:
     UNARY_HALF_LOOP(uint16_t, insight::f16_to_f32, insight::f32_to_f16,

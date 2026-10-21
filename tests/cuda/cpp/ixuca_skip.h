@@ -11,7 +11,7 @@
 // All double-precision operations fall back to software emulation or
 // are truncated to float32. Paddle-ixuca uses --skip-double for this.
 #define SKIP_NO_DOUBLE(msg)                                                    \
-  GTEST_SKIP() << "IXUCA: no native FP64" << (msg ? " - " : "")             \
+  GTEST_SKIP() << "IXUCA: no native FP64" << (msg ? " - " : "")                \
                << (msg ? msg : "")
 
 // Skip test because the CoreX CUDA-compatibility layer has a known

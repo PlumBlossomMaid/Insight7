@@ -1,8 +1,8 @@
 // backends/sdaa/device/sdaa_device.cpp
+#include "../registry/sdaa_registry.h"
 #include "insight/c_api/device_ext.h"
 #include "insight/c_api/kernel.h"
 #include "insight/c_api/place.h"
-#include "../registry/sdaa_registry.h"
 #include <chrono>
 #include <cstdlib>
 #include <cstring>
@@ -283,8 +283,8 @@ C_Status sdaa_memory_copy_kind(C_Device device, void *dst, const void *src,
   return from_sdaa_status(op, sdaaMemcpy(dst, src, size, kind));
 }
 
-C_Status sdaa_async_memory_copy_kind(C_Device device, C_Stream stream, void *dst,
-                                     const void *src, size_t size,
+C_Status sdaa_async_memory_copy_kind(C_Device device, C_Stream stream,
+                                     void *dst, const void *src, size_t size,
                                      sdaaMemcpyKind kind, const char *op) {
   if (!device || (!dst && size > 0) || (!src && size > 0))
     return C_FAILED;
@@ -509,10 +509,10 @@ C_Status sdaa_stream_add_callback(C_Device device, C_Stream stream,
   ctx->stream = stream;
   ctx->callback = callback;
   ctx->user_data = user_data;
-  C_Status status = from_sdaa_status(
-      "stream_add_callback",
-      sdaaLaunchHostFunc(to_sdaa_stream(stream), sdaa_host_callback_trampoline,
-                         ctx));
+  C_Status status =
+      from_sdaa_status("stream_add_callback",
+                       sdaaLaunchHostFunc(to_sdaa_stream(stream),
+                                          sdaa_host_callback_trampoline, ctx));
   if (status != C_SUCCESS)
     delete ctx;
   return status;
@@ -561,9 +561,11 @@ C_Status sdaa_destroy_event(C_Device, C_Event event) {
 #ifdef INSIGHT_SDAA_RUNTIME
   if (!event)
     return C_SUCCESS;
-  return from_sdaa_status("destroy_event", sdaaEventDestroy(to_sdaa_event(event)));
+  return from_sdaa_status("destroy_event",
+                          sdaaEventDestroy(to_sdaa_event(event)));
 #else
-  delete reinterpret_cast<std::chrono::high_resolution_clock::time_point *>(event);
+  delete reinterpret_cast<std::chrono::high_resolution_clock::time_point *>(
+      event);
   return C_SUCCESS;
 #endif
 }
@@ -572,9 +574,9 @@ C_Status sdaa_record_event(C_Device, C_Stream stream, C_Event event) {
   if (!event)
     return C_FAILED;
 #ifdef INSIGHT_SDAA_RUNTIME
-  return from_sdaa_status("record_event",
-                          sdaaEventRecord(to_sdaa_event(event),
-                                          to_sdaa_stream(stream)));
+  return from_sdaa_status(
+      "record_event",
+      sdaaEventRecord(to_sdaa_event(event), to_sdaa_stream(stream)));
 #else
   *reinterpret_cast<std::chrono::high_resolution_clock::time_point *>(event) =
       std::chrono::high_resolution_clock::now();
@@ -606,12 +608,14 @@ C_Status sdaa_elapsed_time(C_Event start, C_Event end, float *ms) {
   if (!start || !end || !ms)
     return C_FAILED;
 #ifdef INSIGHT_SDAA_RUNTIME
-  return from_sdaa_status("elapsed_time",
-                          sdaaEventElapsedTime(ms, to_sdaa_event(start),
-                                               to_sdaa_event(end)));
+  return from_sdaa_status(
+      "elapsed_time",
+      sdaaEventElapsedTime(ms, to_sdaa_event(start), to_sdaa_event(end)));
 #else
-  auto *s = reinterpret_cast<std::chrono::high_resolution_clock::time_point *>(start);
-  auto *e = reinterpret_cast<std::chrono::high_resolution_clock::time_point *>(end);
+  auto *s =
+      reinterpret_cast<std::chrono::high_resolution_clock::time_point *>(start);
+  auto *e =
+      reinterpret_cast<std::chrono::high_resolution_clock::time_point *>(end);
   *ms = std::chrono::duration<float, std::milli>(*e - *s).count();
   return C_SUCCESS;
 #endif
@@ -637,8 +641,8 @@ C_Status sdaa_get_runtime_version(C_Device, size_t *version) {
   *version = 0;
 #ifdef INSIGHT_SDAA_RUNTIME
   int v = 0;
-  C_Status status = from_sdaa_status("get_runtime_version",
-                                     sdaaRuntimeGetVersion(&v));
+  C_Status status =
+      from_sdaa_status("get_runtime_version", sdaaRuntimeGetVersion(&v));
   if (status == C_SUCCESS)
     *version = static_cast<size_t>(v);
   return status;
@@ -653,8 +657,8 @@ C_Status sdaa_get_driver_version(C_Device, size_t *version) {
   *version = 0;
 #ifdef INSIGHT_SDAA_RUNTIME
   int v = 0;
-  C_Status status = from_sdaa_status("get_driver_version",
-                                     sdaaDriverGetVersion(&v));
+  C_Status status =
+      from_sdaa_status("get_driver_version", sdaaDriverGetVersion(&v));
   if (status == C_SUCCESS)
     *version = static_cast<size_t>(v);
   return status;
@@ -814,9 +818,9 @@ C_Status sdaa_profiler_get_events(C_Profiler prof, C_ProfilerEvent **events,
   return C_SUCCESS;
 }
 
-void register_cpu_fallback_kernels(C_Status (*register_fn)(const char *, int32_t,
-                                                            int32_t,
-                                                            InsightKernel)) {
+void register_cpu_fallback_kernels(C_Status (*register_fn)(const char *,
+                                                           int32_t, int32_t,
+                                                           InsightKernel)) {
   if (!register_fn)
     return;
   int op_count = insight_get_operator_count();

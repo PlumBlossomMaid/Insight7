@@ -482,8 +482,7 @@ TEST_F(UnaryTestGPU, Relu) {
   Array a = a_cpu.to(GPUPlace(0));
   Array c = relu(a);
   ASSERT_EQ(c.dtype(), DType::F32);
-  expect_float_equal_gpu<float>(c, {0.0f, 0.0f, 0.0f, 1.0f, 2.0f, 0.5f},
-                                1e-6f);
+  expect_float_equal_gpu<float>(c, {0.0f, 0.0f, 0.0f, 1.0f, 2.0f, 0.5f}, 1e-6f);
 }
 
 TEST_F(UnaryTestGPU, ReluInt) {
@@ -515,11 +514,11 @@ TEST_F(UnaryTestGPU, Sigmoid) {
   Array a = a_cpu.to(GPUPlace(0));
   Array c = sigmoid(a);
   ASSERT_EQ(c.dtype(), DType::F32);
-  expect_float_equal_gpu<float>(
-      c, {0.5f, 1.0f / (1.0f + std::exp(1.0f)),
-          1.0f / (1.0f + std::exp(-1.0f)),
-          1.0f / (1.0f + std::exp(-2.0f))},
-      1e-5f);
+  expect_float_equal_gpu<float>(c,
+                                {0.5f, 1.0f / (1.0f + std::exp(1.0f)),
+                                 1.0f / (1.0f + std::exp(-1.0f)),
+                                 1.0f / (1.0f + std::exp(-2.0f))},
+                                1e-5f);
 }
 
 TEST_F(UnaryTestGPU, LeakyRelu) {

@@ -36,7 +36,7 @@ C_Status bincount_kernel_cpu(void **inputs, void **outputs) {
   case INSIGHT_DTYPE_I32: {
     const int32_t *src = (const int32_t *)x->data;
     _Pragma("omp parallel for reduction(| : out_of_range)") for (int64_t i = 0;
-                                                                i < n; ++i) {
+                                                                 i < n; ++i) {
       int64_t idx = src[i];
       if (idx < 0 || idx >= out_len) {
         out_of_range = 1;
@@ -49,7 +49,7 @@ C_Status bincount_kernel_cpu(void **inputs, void **outputs) {
   case INSIGHT_DTYPE_I64: {
     const int64_t *src = (const int64_t *)x->data;
     _Pragma("omp parallel for reduction(| : out_of_range)") for (int64_t i = 0;
-                                                                i < n; ++i) {
+                                                                 i < n; ++i) {
       int64_t idx = src[i];
       if (idx < 0 || idx >= out_len) {
         out_of_range = 1;

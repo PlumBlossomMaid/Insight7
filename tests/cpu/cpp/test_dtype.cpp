@@ -292,10 +292,8 @@ TEST(DTypeTest, CAPICompatibility) {
             INSIGHT_DTYPE_KIND_COMPLEX);
   EXPECT_TRUE((insight_dtype_flags(static_cast<int32_t>(DType::F8_E5M2)) &
                INSIGHT_DTYPE_FLAG_EXPERIMENTAL) != 0);
-  EXPECT_EQ(insight_dtype_promotion_rank(static_cast<int32_t>(DType::C64)),
-            12);
-  EXPECT_EQ(insight_dtype_promotion_rank(static_cast<int32_t>(DType::U64)),
-            0);
+  EXPECT_EQ(insight_dtype_promotion_rank(static_cast<int32_t>(DType::C64)), 12);
+  EXPECT_EQ(insight_dtype_promotion_rank(static_cast<int32_t>(DType::U64)), 0);
 
   // Verification type judgment
   EXPECT_EQ(insight_dtype_is_float(static_cast<int32_t>(DType::F32)), 1);

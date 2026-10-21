@@ -1,18 +1,28 @@
-local rule = require "argrule.rule"
-local argrule = require "argrule"
+local rule = require("argrule.rule")
+local argrule = require("argrule")
 
-local parse_options = rule {
-  { name = "device", type = argrule.string, default = "cpu", check = function(value)
-    return value == "cpu" or value == "gpu" or value == "all"
-  end },
+local parse_options = rule({
+  {
+    name = "device",
+    type = argrule.string,
+    default = "cpu",
+    check = function(value)
+      return value == "cpu" or value == "gpu" or value == "all"
+    end,
+  },
   { name = "seed", type = argrule.number, default = 42 },
-  { name = "iterations", type = argrule.number, default = 0, check = function(value)
-    return value >= 0 and value == math.floor(value)
-  end },
+  {
+    name = "iterations",
+    type = argrule.number,
+    default = 0,
+    check = function(value)
+      return value >= 0 and value == math.floor(value)
+    end,
+  },
   { name = "timer", type = argrule.boolean, default = false },
   { name = "info", type = argrule.boolean, default = false },
   { name = "profiler", type = argrule.boolean, default = false },
-}(function(device, seed, iterations, timer, info, profiler)
+})(function(device, seed, iterations, timer, info, profiler)
   return {
     device = device,
     seed = seed,

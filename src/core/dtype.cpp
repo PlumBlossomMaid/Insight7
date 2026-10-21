@@ -8,8 +8,8 @@ namespace ins {
 namespace {
 
 static const DTypeDescriptor dtype_descriptors[] = {
-    {DType::UNKNOWN, "unknown", DTypeKind::Unknown, 0, 0,
-     DTYPE_FLAG_NONE, 0, false},
+    {DType::UNKNOWN, "unknown", DTypeKind::Unknown, 0, 0, DTYPE_FLAG_NONE, 0,
+     false},
     {DType::BOOL, "bool", DTypeKind::Bool, sizeof(bool), alignof(bool),
      DTYPE_FLAG_BUILTIN, 1, false},
     {DType::U8, "uint8", DTypeKind::UInt, sizeof(uint8_t), alignof(uint8_t),
@@ -30,12 +30,12 @@ static const DTypeDescriptor dtype_descriptors[] = {
      DTYPE_FLAG_BUILTIN | DTYPE_FLAG_NUMERIC, 9, true},
     {DType::F64, "float64", DTypeKind::Float, sizeof(double), alignof(double),
      DTYPE_FLAG_BUILTIN | DTYPE_FLAG_NUMERIC, 10, true},
-    {DType::C32, "complex64", DTypeKind::Complex,
-     sizeof(std::complex<float>), alignof(std::complex<float>),
-     DTYPE_FLAG_BUILTIN | DTYPE_FLAG_NUMERIC, 11, true},
-    {DType::C64, "complex128", DTypeKind::Complex,
-     sizeof(std::complex<double>), alignof(std::complex<double>),
-     DTYPE_FLAG_BUILTIN | DTYPE_FLAG_NUMERIC, 12, true},
+    {DType::C32, "complex64", DTypeKind::Complex, sizeof(std::complex<float>),
+     alignof(std::complex<float>), DTYPE_FLAG_BUILTIN | DTYPE_FLAG_NUMERIC, 11,
+     true},
+    {DType::C64, "complex128", DTypeKind::Complex, sizeof(std::complex<double>),
+     alignof(std::complex<double>), DTYPE_FLAG_BUILTIN | DTYPE_FLAG_NUMERIC, 12,
+     true},
     {DType::F8_E4M3, "float8_e4m3", DTypeKind::Float, sizeof(uint8_t),
      alignof(uint8_t),
      DTYPE_FLAG_BUILTIN | DTYPE_FLAG_NUMERIC | DTYPE_FLAG_EXPERIMENTAL, 0,
@@ -44,12 +44,12 @@ static const DTypeDescriptor dtype_descriptors[] = {
      alignof(uint8_t),
      DTYPE_FLAG_BUILTIN | DTYPE_FLAG_NUMERIC | DTYPE_FLAG_EXPERIMENTAL, 0,
      true},
-    {DType::U16, "uint16", DTypeKind::UInt, sizeof(uint16_t),
-     alignof(uint16_t), DTYPE_FLAG_BUILTIN | DTYPE_FLAG_NUMERIC, 0, false},
-    {DType::U32, "uint32", DTypeKind::UInt, sizeof(uint32_t),
-     alignof(uint32_t), DTYPE_FLAG_BUILTIN | DTYPE_FLAG_NUMERIC, 0, false},
-    {DType::U64, "uint64", DTypeKind::UInt, sizeof(uint64_t),
-     alignof(uint64_t), DTYPE_FLAG_BUILTIN | DTYPE_FLAG_NUMERIC, 0, false},
+    {DType::U16, "uint16", DTypeKind::UInt, sizeof(uint16_t), alignof(uint16_t),
+     DTYPE_FLAG_BUILTIN | DTYPE_FLAG_NUMERIC, 0, false},
+    {DType::U32, "uint32", DTypeKind::UInt, sizeof(uint32_t), alignof(uint32_t),
+     DTYPE_FLAG_BUILTIN | DTYPE_FLAG_NUMERIC, 0, false},
+    {DType::U64, "uint64", DTypeKind::UInt, sizeof(uint64_t), alignof(uint64_t),
+     DTYPE_FLAG_BUILTIN | DTYPE_FLAG_NUMERIC, 0, false},
 };
 
 static_assert(sizeof(dtype_descriptors) / sizeof(dtype_descriptors[0]) ==

@@ -14,8 +14,10 @@ local argrule = require("argrule")
 -- @tparam Array x Input array.
 -- @tparam DType dtype Target data type (e.g. ins.float64).
 -- @treturn Array Array with the new data type.
-M.cast = rule { { name = "x", type = argrule.any, opt = true }, { name = "dtype", type = argrule.any, opt = true } }(function(x, dtype)
-  return native.cast(x, dtype)
-end)
+M.cast = rule({ { name = "x", type = argrule.any, opt = true }, { name = "dtype", type = argrule.any, opt = true } })(
+  function(x, dtype)
+    return native.cast(x, dtype)
+  end
+)
 
 return M

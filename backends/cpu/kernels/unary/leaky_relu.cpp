@@ -46,9 +46,8 @@ C_Status leaky_relu_kernel_cpu(void **inputs, void **outputs) {
     });
     break;
   case INSIGHT_DTYPE_F64:
-    UNARY_KERNEL_LOOP(double, [alpha](double v) {
-      return v > 0.0 ? v : alpha * v;
-    });
+    UNARY_KERNEL_LOOP(double,
+                      [alpha](double v) { return v > 0.0 ? v : alpha * v; });
     break;
   case INSIGHT_DTYPE_F16:
     UNARY_HALF_LOOP(uint16_t, insight::f16_to_f32, insight::f32_to_f16,

@@ -94,13 +94,13 @@ C_Status cast_bool_kernel_cpu(void **inputs, void **outputs) {
   case INSIGHT_DTYPE_C32: {
     std::complex<float> *d = static_cast<std::complex<float> *>(dst->data);
     CAST_LOOP(n, d[i] = s[si] ? std::complex<float>(1.0f, 0.0f)
-                             : std::complex<float>(0.0f, 0.0f););
+                              : std::complex<float>(0.0f, 0.0f););
     break;
   }
   case INSIGHT_DTYPE_C64: {
     std::complex<double> *d = static_cast<std::complex<double> *>(dst->data);
     CAST_LOOP(n, d[i] = s[si] ? std::complex<double>(1.0, 0.0)
-                             : std::complex<double>(0.0, 0.0););
+                              : std::complex<double>(0.0, 0.0););
     break;
   }
   default:

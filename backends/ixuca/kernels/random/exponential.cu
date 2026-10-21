@@ -93,7 +93,5 @@ C_Status exponential_kernel_gpu(void **inputs, void **outputs) {
 
 } // extern "C"
 
-REGISTER_IXUCA_KERNEL(exponential, INSIGHT_DTYPE_F32,
-                         exponential_kernel_gpu);
-REGISTER_IXUCA_KERNEL(exponential, INSIGHT_DTYPE_F64,
-                         exponential_kernel_gpu);
+REGISTER_IXUCA_KERNEL(exponential, INSIGHT_DTYPE_F32, exponential_kernel_gpu);
+REGISTER_IXUCA_KERNEL(exponential, INSIGHT_DTYPE_F64, exponential_kernel_gpu);

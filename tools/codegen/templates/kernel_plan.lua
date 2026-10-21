@@ -47,9 +47,14 @@ function M.render(ops)
   for _, op in ipairs(ops) do
     lines[#lines + 1] = string.format(
       "  {%s, %s, %s, %s, %s, %s, %s},",
-      quoted(op.name), quoted(op.kind), quoted(op.promote or "none"),
-      quoted(join(op.dtypes, "|")), op.broadcast == true and "true" or "false",
-      quoted(strategy(op, "host")), quoted(strategy(op, "device")))
+      quoted(op.name),
+      quoted(op.kind),
+      quoted(op.promote or "none"),
+      quoted(join(op.dtypes, "|")),
+      op.broadcast == true and "true" or "false",
+      quoted(strategy(op, "host")),
+      quoted(strategy(op, "device"))
+    )
   end
   lines[#lines + 1] = "};"
   lines[#lines + 1] = "inline constexpr unsigned kernel_plan_count = " .. #ops .. ";"
@@ -71,9 +76,14 @@ function M.render_markdown(ops)
   for _, op in ipairs(ops) do
     lines[#lines + 1] = string.format(
       "| `%s` | `%s` | `%s` | `%s` | `%s` | `%s` | `%s` |",
-      op.name, op.kind, op.promote or "none", join(op.dtypes, ", "),
-      op.broadcast == true and "yes" or "no", strategy(op, "host"),
-      strategy(op, "device"))
+      op.name,
+      op.kind,
+      op.promote or "none",
+      join(op.dtypes, ", "),
+      op.broadcast == true and "yes" or "no",
+      strategy(op, "host"),
+      strategy(op, "device")
+    )
   end
   lines[#lines + 1] = ""
   return table.concat(lines, "\n")

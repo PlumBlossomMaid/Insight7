@@ -69,12 +69,12 @@ static void take_flat_impl(T *dst, int64_t dst_offset, int64_t dst_stride,
  * @param idx_len Length of index array
  */
 template <typename T>
-static void
-take_axis_impl(T *dst, int64_t dst_offset, const int64_t *dst_strides,
-               const T *src, int64_t src_offset, const int64_t *src_strides,
-               const int64_t *idx_data, int64_t total_out, int64_t ndim,
-               const int64_t *out_dims, int64_t axis, int64_t idx_len,
-               int64_t src_axis_len) {
+static void take_axis_impl(T *dst, int64_t dst_offset,
+                           const int64_t *dst_strides, const T *src,
+                           int64_t src_offset, const int64_t *src_strides,
+                           const int64_t *idx_data, int64_t total_out,
+                           int64_t ndim, const int64_t *out_dims, int64_t axis,
+                           int64_t idx_len, int64_t src_axis_len) {
 
   // Precompute multiplier for fast axis coordinate calculation
   int64_t axis_mult = 1;
@@ -129,10 +129,10 @@ take_axis_impl(T *dst, int64_t dst_offset, const int64_t *dst_strides,
                             (const CTYPE *)x->data, x->offset, x->strides[0],  \
                             idx_data, n, x->numel);                            \
     } else {                                                                   \
-      take_axis_impl<CTYPE>(                                                   \
-          (CTYPE *)out->data, out->offset, out->strides,                       \
-          (const CTYPE *)x->data, x->offset, x->strides, idx_data, n, ndim,    \
-          out_dims, normalized_axis, idx->numel, x->dims[normalized_axis]);    \
+      take_axis_impl<CTYPE>((CTYPE *)out->data, out->offset, out->strides,     \
+                            (const CTYPE *)x->data, x->offset, x->strides,     \
+                            idx_data, n, ndim, out_dims, normalized_axis,      \
+                            idx->numel, x->dims[normalized_axis]);             \
     }                                                                          \
   } while (0)
 

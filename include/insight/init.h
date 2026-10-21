@@ -15,12 +15,14 @@ struct InitOptions {
 /**
  * @brief Initialize Insight framework with smart backend discovery.
  *
- * - No args: CPU required, then auto-discover and load the first available GPU backend.
+ * - No args: CPU required, then auto-discover and load the first available GPU
+ * backend.
  * - InitOptions::gpu_backend forces a concrete GPU backend during discovery.
  * - INSIGHT_GPU_BACKEND=<name>: prefer a concrete GPU backend during discovery.
  * - Empty vector: load nothing.
  * - Specified backends: "cpu" loads CPU, "gpu" loads the selected GPU backend,
- *   and concrete names such as "cuda", "rocm", "ixuca", or "sdaa" force a backend.
+ *   and concrete names such as "cuda", "rocm", "ixuca", or "sdaa" force a
+ * backend.
  */
 void init(std::optional<std::vector<std::string>> backends = std::nullopt);
 

@@ -17,7 +17,7 @@ static std::unordered_map<std::string, KernelEntry> &local_registry() {
 }
 
 void ixuca_register_kernel(const char *op_name, int32_t dtype,
-                              InsightKernel func) {
+                           InsightKernel func) {
   if (!op_name || !func)
     return;
   std::string key =
@@ -25,8 +25,8 @@ void ixuca_register_kernel(const char *op_name, int32_t dtype,
   local_registry()[key] = {op_name, dtype, func};
 }
 
-void ixuca_sync_kernels(C_Status (*register_fn)(const char *, int32_t,
-                                                   int32_t, InsightKernel)) {
+void ixuca_sync_kernels(C_Status (*register_fn)(const char *, int32_t, int32_t,
+                                                InsightKernel)) {
   if (!register_fn)
     return;
   for (auto &kv : local_registry()) {

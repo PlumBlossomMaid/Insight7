@@ -129,8 +129,8 @@ static void infer_lua_shape(sol::table t, std::vector<int64_t> &shape,
     max_index = std::max(max_index, index);
   });
   if (has_invalid_key || entry_count != len || max_index != len) {
-    throw std::runtime_error("Lua table must contain contiguous array indices at " +
-                             path);
+    throw std::runtime_error(
+        "Lua table must contain contiguous array indices at " + path);
   }
   if (depth >= static_cast<int>(shape.size())) {
     shape.push_back(len);
@@ -409,8 +409,12 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
       return ins::device_name(ins::DeviceKind::CPU, device_id.value_or(0));
     throw std::runtime_error("device_name() expects 'cpu' or 'gpu'");
   };
-  m["active_gpu_backend_name"] = []() { return ins::active_gpu_backend_name(); };
-  m["active_gpu_backend_version"] = []() { return ins::active_gpu_backend_version(); };
+  m["active_gpu_backend_name"] = []() {
+    return ins::active_gpu_backend_name();
+  };
+  m["active_gpu_backend_version"] = []() {
+    return ins::active_gpu_backend_version();
+  };
   m["gpu_version"] = []() { return ins::gpu_runtime_version(); };
   m["driver_version"] = []() { return ins::driver_version(); };
   m["compute_capability"] = [](sol::optional<int> device_id) {
@@ -1197,12 +1201,12 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   };
   m["ediff1d"] = [](const ins::Array &x, sol::optional<ins::Array> to_end,
                     sol::optional<ins::Array> to_begin) {
-    std::optional<ins::Array> te = to_end.has_value()
-                                       ? std::optional<ins::Array>(to_end.value())
-                                       : std::nullopt;
-    std::optional<ins::Array> tb = to_begin.has_value()
-                                       ? std::optional<ins::Array>(to_begin.value())
-                                       : std::nullopt;
+    std::optional<ins::Array> te =
+        to_end.has_value() ? std::optional<ins::Array>(to_end.value())
+                           : std::nullopt;
+    std::optional<ins::Array> tb =
+        to_begin.has_value() ? std::optional<ins::Array>(to_begin.value())
+                             : std::nullopt;
     return ins::ediff1d(x, te, tb);
   };
   m["meshgrid"] = [](sol::table xi, sol::optional<std::string> indexing) {
@@ -1210,14 +1214,13 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   };
   m["trapz"] = [](const ins::Array &y, sol::optional<ins::Array> x,
                   sol::optional<double> dx, sol::optional<int> axis) {
-    std::optional<ins::Array> xo = x.has_value()
-                                       ? std::optional<ins::Array>(x.value())
-                                       : std::nullopt;
+    std::optional<ins::Array> xo =
+        x.has_value() ? std::optional<ins::Array>(x.value()) : std::nullopt;
     return ins::trapz(y, xo, dx.value_or(1.0),
                       lua_axis_or_default_to_cpp(axis, -1));
   };
-  m["gradient"] = [](sol::this_state L,
-                     const ins::Array &f, sol::optional<double> dx,
+  m["gradient"] = [](sol::this_state L, const ins::Array &f,
+                     sol::optional<double> dx,
                      sol::optional<int> axis) -> sol::object {
     try {
       double d = dx.value_or(1.0);
@@ -1240,20 +1243,20 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
     std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::repeat_interleave(x, repeats, ax);
   };
-  m["one_hot"] = [](const ins::Array &indices, sol::optional<int64_t> num_classes,
+  m["one_hot"] = [](const ins::Array &indices,
+                    sol::optional<int64_t> num_classes,
                     sol::optional<ins::DType> dtype) {
     return ins::one_hot(indices, num_classes.value_or(-1),
                         dtype.value_or(ins::DType::F32));
   };
-  m["histogram"] = [](sol::this_state L, const ins::Array &x,
-                      sol::optional<int64_t> bins,
-                      sol::optional<std::pair<double, double>> range)
-      -> sol::object {
+  m["histogram"] =
+      [](sol::this_state L, const ins::Array &x, sol::optional<int64_t> bins,
+         sol::optional<std::pair<double, double>> range) -> sol::object {
     try {
       std::optional<std::pair<double, double>> r =
-          range.has_value() ? std::optional<std::pair<double, double>>(
-                                  range.value())
-                            : std::nullopt;
+          range.has_value()
+              ? std::optional<std::pair<double, double>>(range.value())
+              : std::nullopt;
       std::vector<ins::Array> res = ins::histogram(x, bins.value_or(10), r);
       sol::table t = sol::state_view(L).create_table();
       t["hist"] = res[0];
@@ -2736,8 +2739,7 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
                             place.value_or(ins::get_device()));
   };
   m["choice"] = [](const ins::Array &x, sol::optional<int64_t> num,
-                   sol::optional<bool> replace,
-                   sol::optional<ins::Array> p) {
+                   sol::optional<bool> replace, sol::optional<ins::Array> p) {
     std::optional<ins::Array> pv =
         p.has_value() ? std::optional<ins::Array>(p.value()) : std::nullopt;
     return ins::choice(x, num.value_or(1), replace.value_or(true), pv);

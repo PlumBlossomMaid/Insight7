@@ -94,8 +94,7 @@ Array randperm(int64_t n, DType dtype = DType::I64,
  * @return 1D int64 array of sampled indices (shape (num_samples,))
  */
 Array multinomial(const Array &probs, int64_t num_samples,
-                  bool replacement = false,
-                  const Place &place = get_device());
+                  bool replacement = false, const Place &place = get_device());
 
 /**
  * @brief Random choice of elements from a 1D array (NumPy choice subset).

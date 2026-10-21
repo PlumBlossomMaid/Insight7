@@ -184,7 +184,8 @@ TEST_F(ReductionTestGPU, ArgMaxArgMin2D) {
 // ========== Var/Std ==========
 
 TEST_F(ReductionTestGPU, VarStd2D) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // ========== Cumulative Operations ==========
@@ -412,13 +413,16 @@ TEST_F(ReductionTestGPU, KeepdimFlag) {
 // ========== Dtype Consistency ==========
 
 TEST_F(ReductionTestGPU, DtypeConsistency) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // ========== bincount tests ==========
 
 TEST_F(ReductionTestGPU, BincountBasic) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: Bincount kernel produces wrong results (CoreX compat bug)";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP()
+        << "IXUCA: Bincount kernel produces wrong results (CoreX compat bug)";
 }
 
 TEST_F(ReductionTestGPU, BincountWithWeights) {
@@ -437,7 +441,9 @@ TEST_F(ReductionTestGPU, BincountWithWeights) {
 }
 
 TEST_F(ReductionTestGPU, BincountMinlength) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: Bincount kernel produces wrong results (CoreX compat bug)";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP()
+        << "IXUCA: Bincount kernel produces wrong results (CoreX compat bug)";
 }
 
 TEST_F(ReductionTestGPU, BincountEmpty) {

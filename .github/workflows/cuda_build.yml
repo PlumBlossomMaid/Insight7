@@ -101,6 +101,7 @@ jobs:
             ccache-cuda-
 
       - name: Configure CMake
+        shell: bash
         run: |
           # pipefail: without it `cmake | tee` would report tee's exit status and
           # a failed configure would look successful.

@@ -98,7 +98,5 @@ static C_Status matrix_power_kernel_gpu(void **inputs, void **outputs) {
   return C_SUCCESS;
 }
 
-REGISTER_IXUCA_KERNEL(matrix_power, INSIGHT_DTYPE_F32,
-                         matrix_power_kernel_gpu);
-REGISTER_IXUCA_KERNEL(matrix_power, INSIGHT_DTYPE_F64,
-                         matrix_power_kernel_gpu);
+REGISTER_IXUCA_KERNEL(matrix_power, INSIGHT_DTYPE_F32, matrix_power_kernel_gpu);
+REGISTER_IXUCA_KERNEL(matrix_power, INSIGHT_DTYPE_F64, matrix_power_kernel_gpu);

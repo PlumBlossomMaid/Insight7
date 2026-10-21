@@ -60,9 +60,9 @@ static ArrayIterator indexing_iterator(const char *name,
 
 static ArrayIterator indexing_creation_iterator(const char *name,
                                                 const Array &output) {
-  OpSchema schema(name, OpKind::Creation, {},
-                  {{"out", OpArgumentKind::Array,
-                    OpArgumentAccess::WriteOnly}});
+  OpSchema schema(
+      name, OpKind::Creation, {},
+      {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}});
   return schema.make_creation_iterator({output});
 }
 
@@ -70,8 +70,9 @@ static OpSchema dynamic_indexing_schema(const char *name, size_t output_count) {
   return indexing_schema(name, 1, output_count);
 }
 
-static std::vector<OpRegistry::Arg> dynamic_indexing_outputs(
-    const OpSchema &schema, const std::vector<Array *> &outputs) {
+static std::vector<OpRegistry::Arg>
+dynamic_indexing_outputs(const OpSchema &schema,
+                         const std::vector<Array *> &outputs) {
   INS_CHECK(outputs.size() == schema.outputs().size(), "dynamic indexing '",
             schema.name(), "': expected ", schema.outputs().size(),
             " outputs, got ", outputs.size());
@@ -155,9 +156,9 @@ Array take(const Array &x, const Array &indices, std::optional<int> axis) {
     idx = idx.to(x.place());
   }
 
-  int normalized_axis = axis.has_value()
-                            ? normalize_axis(axis.value(), x.shape().ndim(), "take")
-                            : -1;
+  int normalized_axis =
+      axis.has_value() ? normalize_axis(axis.value(), x.shape().ndim(), "take")
+                       : -1;
   Shape out_shape;
   if (axis.has_value()) {
     std::vector<int64_t> dims = x.shape().dims();
@@ -173,14 +174,13 @@ Array take(const Array &x, const Array &indices, std::optional<int> axis) {
 
   ArrayIterator iter = indexing_iterator("take", {prepared, idx}, result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "take", x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[2].layout_ptr()),
-       OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::scalar_arg(&normalized_axis),
-       OpRegistry::scalar_arg(&has_axis)},
-      {OpRegistry::array_arg(arrays[2].layout_ptr())});
+  OpRegistry::launch_schema("take", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[2].layout_ptr()),
+                             OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::scalar_arg(&normalized_axis),
+                             OpRegistry::scalar_arg(&has_axis)},
+                            {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return result;
 }
@@ -217,13 +217,12 @@ Array take_along_axis(const Array &x, const Array &indices, int axis) {
   ArrayIterator iter =
       indexing_iterator("take_along_axis", {x, idx_broadcasted}, result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "take_along_axis", x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[2].layout_ptr()),
-       OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::scalar_arg(&ax)},
-      {OpRegistry::array_arg(arrays[2].layout_ptr())});
+  OpRegistry::launch_schema("take_along_axis", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[2].layout_ptr()),
+                             OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::scalar_arg(&ax)},
+                            {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return result;
 }
@@ -267,12 +266,11 @@ Array put(const Array &x, const Array &indices, const Array &values,
 
   ArrayIterator iter = indexing_iterator("put", {result, idx, val}, result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "put", x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::array_arg(arrays[2].layout_ptr())},
-      {OpRegistry::array_arg(arrays[3].layout_ptr())});
+  OpRegistry::launch_schema("put", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::array_arg(arrays[2].layout_ptr())},
+                            {OpRegistry::array_arg(arrays[3].layout_ptr())});
 
   if (!axis.has_value()) {
     return result.reshape(x.shape());
@@ -322,13 +320,12 @@ Array put_along_axis(const Array &x, const Array &indices, const Array &values,
   ArrayIterator iter =
       indexing_iterator("put_along_axis", {result, idx, val}, result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "put_along_axis", x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::array_arg(arrays[2].layout_ptr()),
-       OpRegistry::scalar_arg(&ax)},
-      {OpRegistry::array_arg(arrays[3].layout_ptr())});
+  OpRegistry::launch_schema("put_along_axis", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::array_arg(arrays[2].layout_ptr()),
+                             OpRegistry::scalar_arg(&ax)},
+                            {OpRegistry::array_arg(arrays[3].layout_ptr())});
 
   return result;
 }
@@ -443,14 +440,14 @@ Array masked_select(const Array &x, const Array &mask) {
 
   Array result(Shape({count}), x_c.dtype(), x_c.place());
 
-  ArrayIterator iter = indexing_iterator("masked_select", {x_c, condition}, result);
+  ArrayIterator iter =
+      indexing_iterator("masked_select", {x_c, condition}, result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "masked_select", x_c.place(), x_c.dtype(),
-      {OpRegistry::array_arg(arrays[2].layout_ptr()),
-       OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::array_arg(arrays[1].layout_ptr())},
-      {OpRegistry::array_arg(arrays[2].layout_ptr())});
+  OpRegistry::launch_schema("masked_select", x_c.place(), x_c.dtype(),
+                            {OpRegistry::array_arg(arrays[2].layout_ptr()),
+                             OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::array_arg(arrays[1].layout_ptr())},
+                            {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return result;
 }
@@ -492,13 +489,12 @@ Array compress(const Array &x, const Array &condition,
 
   ArrayIterator iter = indexing_iterator("compress", {x, cond}, result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "compress", x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[2].layout_ptr()),
-       OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::scalar_arg(&ax)},
-      {OpRegistry::array_arg(arrays[2].layout_ptr())});
+  OpRegistry::launch_schema("compress", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[2].layout_ptr()),
+                             OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::scalar_arg(&ax)},
+                            {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return result;
 }
@@ -530,13 +526,12 @@ Array where(const Array &condition, const Array &x, const Array &y) {
 
   ArrayIterator iter = indexing_iterator("where", {cond, X, Y}, result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "where", condition.place(), X.dtype(),
-      {OpRegistry::array_arg(arrays[3].layout_ptr()),
-       OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::array_arg(arrays[2].layout_ptr())},
-      {OpRegistry::array_arg(arrays[3].layout_ptr())});
+  OpRegistry::launch_schema("where", condition.place(), X.dtype(),
+                            {OpRegistry::array_arg(arrays[3].layout_ptr()),
+                             OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::array_arg(arrays[2].layout_ptr())},
+                            {OpRegistry::array_arg(arrays[3].layout_ptr())});
 
   return result;
 }
@@ -557,10 +552,9 @@ Array nonzero(const Array &x) {
   Array x_c = x.contiguous();
   Array result;
   OpSchema schema = dynamic_indexing_schema("nonzero", 1);
-  OpRegistry::launch_schema(
-      "nonzero", x_c.place(), x_c.dtype(),
-      {OpRegistry::array_arg(x_c.layout_ptr())},
-      dynamic_indexing_outputs(schema, {&result}));
+  OpRegistry::launch_schema("nonzero", x_c.place(), x_c.dtype(),
+                            {OpRegistry::array_arg(x_c.layout_ptr())},
+                            dynamic_indexing_outputs(schema, {&result}));
 
   return Array(result.layout_ptr());
 }
@@ -619,12 +613,11 @@ Array argsort(const Array &x, int axis, bool descending) {
 
   ArrayIterator iter = indexing_iterator("argsort", {prepared}, result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "argsort", x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::scalar_arg(&descending)},
-      {OpRegistry::array_arg(arrays[1].layout_ptr())});
+  OpRegistry::launch_schema("argsort", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&descending)},
+                            {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   // Transpose back if needed
   if (ax != ndim - 1) {
@@ -699,14 +692,15 @@ std::tuple<Array, Array> topk(const Array &x, int64_t k, int axis, bool largest,
 
   ArrayIterator iter = indexing_iterator("topk", {prepared}, {values, indices});
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "topk", x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::array_arg(arrays[2].layout_ptr()),
-       OpRegistry::array_arg(arrays[0].layout_ptr()), OpRegistry::scalar_arg(&k),
-       OpRegistry::scalar_arg(&largest), OpRegistry::scalar_arg(&sorted)},
-      {OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::array_arg(arrays[2].layout_ptr())});
+  OpRegistry::launch_schema("topk", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::array_arg(arrays[2].layout_ptr()),
+                             OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&k),
+                             OpRegistry::scalar_arg(&largest),
+                             OpRegistry::scalar_arg(&sorted)},
+                            {OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   // Transpose back if needed
   if (ax != ndim - 1) {
@@ -761,13 +755,12 @@ Array searchsorted(const Array &x, const Array &v, const std::string &side,
   ArrayIterator iter =
       indexing_iterator("searchsorted", {sorted_x, v_cmp}, result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "searchsorted", x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[2].layout_ptr()),
-       OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::scalar_arg(&side_code)},
-      {OpRegistry::array_arg(arrays[2].layout_ptr())});
+  OpRegistry::launch_schema("searchsorted", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[2].layout_ptr()),
+                             OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::scalar_arg(&side_code)},
+                            {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return result;
 }
@@ -811,13 +804,12 @@ UniqueResult unique(const Array &x, bool return_indices, bool return_inverse,
   if (return_counts)
     output_arrays.push_back(&counts_arr);
 
-  OpRegistry::launch_schema(
-      "unique", x.place(), x.dtype(),
-      {OpRegistry::array_arg(flattened.layout_ptr()),
-       OpRegistry::scalar_arg(&return_indices),
-       OpRegistry::scalar_arg(&return_inverse),
-       OpRegistry::scalar_arg(&return_counts)},
-      dynamic_indexing_outputs(schema, output_arrays));
+  OpRegistry::launch_schema("unique", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(flattened.layout_ptr()),
+                             OpRegistry::scalar_arg(&return_indices),
+                             OpRegistry::scalar_arg(&return_inverse),
+                             OpRegistry::scalar_arg(&return_counts)},
+                            dynamic_indexing_outputs(schema, output_arrays));
 
   UniqueResult result;
   result.unique = Array(unique_arr.layout_ptr());
@@ -853,12 +845,12 @@ Array partition(const Array &x, int64_t kth, int axis) {
 
   ArrayIterator iter = indexing_iterator("partition", {x}, result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "partition", x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::scalar_arg(&kth), OpRegistry::scalar_arg(&ax)},
-      {OpRegistry::array_arg(arrays[1].layout_ptr())});
+  OpRegistry::launch_schema("partition", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&kth),
+                             OpRegistry::scalar_arg(&ax)},
+                            {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   return result;
 }
@@ -884,12 +876,12 @@ Array argpartition(const Array &x, int64_t kth, int axis) {
 
   ArrayIterator iter = indexing_iterator("argpartition", {x}, result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "argpartition", x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::scalar_arg(&kth), OpRegistry::scalar_arg(&ax)},
-      {OpRegistry::array_arg(arrays[1].layout_ptr())});
+  OpRegistry::launch_schema("argpartition", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&kth),
+                             OpRegistry::scalar_arg(&ax)},
+                            {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   return result;
 }
@@ -944,13 +936,13 @@ Array lexsort(const Array &keys, int axis) {
 
   ArrayIterator iter = indexing_iterator("lexsort", {transposed}, result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "lexsort", keys.place(), keys.dtype(),
-      {OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::scalar_arg(&batch_size), OpRegistry::scalar_arg(&last_dim),
-       OpRegistry::scalar_arg(&nkeys)},
-      {OpRegistry::array_arg(arrays[1].layout_ptr())});
+  OpRegistry::launch_schema("lexsort", keys.place(), keys.dtype(),
+                            {OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&batch_size),
+                             OpRegistry::scalar_arg(&last_dim),
+                             OpRegistry::scalar_arg(&nkeys)},
+                            {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   // Transpose back if needed
   if (ax != ndim - 1) {
@@ -997,12 +989,11 @@ Array indices(const Shape &shape, bool sparse) {
 
   ArrayIterator iter = indexing_creation_iterator("indices", result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "indices", CPUPlace(), DType::I64,
-      {OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::scalar_arg(&ndim_val),
-       {shape_ptr, OpRegistry::ArgKind::HostScalar}},
-      {OpRegistry::array_arg(arrays[0].layout_ptr())});
+  OpRegistry::launch_schema("indices", CPUPlace(), DType::I64,
+                            {OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&ndim_val),
+                             {shape_ptr, OpRegistry::ArgKind::HostScalar}},
+                            {OpRegistry::array_arg(arrays[0].layout_ptr())});
 
   return result;
 }

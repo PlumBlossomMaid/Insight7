@@ -360,7 +360,8 @@ PYBIND11_MODULE(_insight, m) {
         }
       },
       py::arg("backend"),
-      "Load an additional backend after init() ('gpu' for selected GPU backend)");
+      "Load an additional backend after init() ('gpu' for selected GPU "
+      "backend)");
 
   m.def(
       "add_backend_search_path",
@@ -398,7 +399,8 @@ PYBIND11_MODULE(_insight, m) {
         throw py::value_error("device_name() expects 'cpu' or 'gpu'");
       },
       py::arg("kind") = "cpu", py::arg("device_id") = 0,
-      "Get the public cpu/gpu device name; concrete backend diagnostics use active_gpu_backend_name().");
+      "Get the public cpu/gpu device name; concrete backend diagnostics use "
+      "active_gpu_backend_name().");
   m.def("active_gpu_backend_name", &ins::active_gpu_backend_name,
         "Get the active concrete GPU backend name");
   m.def("active_gpu_backend_version", &ins::active_gpu_backend_version,
@@ -1008,17 +1010,20 @@ PYBIND11_MODULE(_insight, m) {
   // ====================================================================
   // Broadcasting
   // ====================================================================
-  m.def("broadcast_shape",
-        [](const Shape &a, const Shape &b) { return broadcast_shape(a, b); },
-        py::arg("a"), py::arg("b"));
-  m.def("broadcast_to",
-        [](const Array &x, const Shape &target_shape) {
-          return broadcast_to(x, target_shape);
-        },
-        py::arg("x"), py::arg("target_shape"));
-  m.def("broadcast_arrays",
-        [](const std::vector<Array> &arrays) { return broadcast_arrays(arrays); },
-        py::arg("arrays"));
+  m.def(
+      "broadcast_shape",
+      [](const Shape &a, const Shape &b) { return broadcast_shape(a, b); },
+      py::arg("a"), py::arg("b"));
+  m.def(
+      "broadcast_to",
+      [](const Array &x, const Shape &target_shape) {
+        return broadcast_to(x, target_shape);
+      },
+      py::arg("x"), py::arg("target_shape"));
+  m.def(
+      "broadcast_arrays",
+      [](const std::vector<Array> &arrays) { return broadcast_arrays(arrays); },
+      py::arg("arrays"));
 
   // ====================================================================
   // Elementwise
@@ -1057,8 +1062,7 @@ PYBIND11_MODULE(_insight, m) {
       [](const Array &a, const Array &b) { return not_equal(a, b); },
       py::arg("a"), py::arg("b"));
   m.def(
-      "greater",
-      [](const Array &a, const Array &b) { return greater(a, b); },
+      "greater", [](const Array &a, const Array &b) { return greater(a, b); },
       py::arg("a"), py::arg("b"));
   m.def(
       "greater_than",
@@ -1122,8 +1126,9 @@ PYBIND11_MODULE(_insight, m) {
   // ====================================================================
   // Unary math
   // ====================================================================
-  m.def("bitwise_not", [](const Array &x) { return bitwise_not(x); },
-        py::arg("x"));
+  m.def(
+      "bitwise_not", [](const Array &x) { return bitwise_not(x); },
+      py::arg("x"));
   m.def("abs", [](const Array &x) { return ins::abs(x); }, py::arg("x"));
   m.def("negative", [](const Array &x) { return negative(x); }, py::arg("x"));
   m.def("square", [](const Array &x) { return ins::square(x); }, py::arg("x"));
@@ -1164,15 +1169,22 @@ PYBIND11_MODULE(_insight, m) {
   m.def("angle", [](const Array &x) { return angle(x); }, py::arg("x"));
   m.def("relu", [](const Array &x) { return relu(x); }, py::arg("x"));
   m.def("sigmoid", [](const Array &x) { return sigmoid(x); }, py::arg("x"));
-  m.def("leaky_relu", [](const Array &x, double alpha) {
-        return leaky_relu(x, alpha);
-      }, py::arg("x"), py::arg("alpha") = 0.01);
-  m.def("clip", [](const Array &x, double min_val, double max_val) {
+  m.def(
+      "leaky_relu",
+      [](const Array &x, double alpha) { return leaky_relu(x, alpha); },
+      py::arg("x"), py::arg("alpha") = 0.01);
+  m.def(
+      "clip",
+      [](const Array &x, double min_val, double max_val) {
         return clip(x, min_val, max_val);
-      }, py::arg("x"), py::arg("min_val"), py::arg("max_val"));
-  m.def("clamp", [](const Array &x, double min_val, double max_val) {
+      },
+      py::arg("x"), py::arg("min_val"), py::arg("max_val"));
+  m.def(
+      "clamp",
+      [](const Array &x, double min_val, double max_val) {
         return clip(x, min_val, max_val);
-      }, py::arg("x"), py::arg("min_val"), py::arg("max_val"));
+      },
+      py::arg("x"), py::arg("min_val"), py::arg("max_val"));
   m.def(
       "where",
       [](const Array &cond, const Array &x, const Array &y) {
@@ -1381,11 +1393,13 @@ PYBIND11_MODULE(_insight, m) {
       },
       py::arg("x"), py::arg("axis") = std::nullopt,
       py::arg("keepdims") = false);
-  m.def("softmax", [](const Array &x, int axis) { return softmax(x, axis); },
-        py::arg("x"), py::arg("axis") = -1);
-  m.def("log_softmax",
-        [](const Array &x, int axis) { return log_softmax(x, axis); },
-        py::arg("x"), py::arg("axis") = -1);
+  m.def(
+      "softmax", [](const Array &x, int axis) { return softmax(x, axis); },
+      py::arg("x"), py::arg("axis") = -1);
+  m.def(
+      "log_softmax",
+      [](const Array &x, int axis) { return log_softmax(x, axis); },
+      py::arg("x"), py::arg("axis") = -1);
 
   // ====================================================================
   // Manipulation
@@ -1435,37 +1449,39 @@ PYBIND11_MODULE(_insight, m) {
   m.def("tril", &tril, py::arg("x"), py::arg("k") = 0);
   m.def("triu", &triu, py::arg("x"), py::arg("k") = 0);
   m.def("diff", &diff, py::arg("x"), py::arg("n") = 1, py::arg("axis") = -1);
-  m.def("ediff1d", &ediff1d, py::arg("x"),
-        py::arg("to_end") = std::nullopt, py::arg("to_begin") = std::nullopt);
-  m.def("meshgrid",
-        [](const std::vector<Array> &xi, const std::string &indexing) {
-          return meshgrid(xi, indexing);
-        },
-        py::arg("xi"), py::arg("indexing") = "xy");
+  m.def("ediff1d", &ediff1d, py::arg("x"), py::arg("to_end") = std::nullopt,
+        py::arg("to_begin") = std::nullopt);
+  m.def(
+      "meshgrid",
+      [](const std::vector<Array> &xi, const std::string &indexing) {
+        return meshgrid(xi, indexing);
+      },
+      py::arg("xi"), py::arg("indexing") = "xy");
   m.def("trapz", &trapz, py::arg("y"), py::arg("x") = std::nullopt,
         py::arg("dx") = 1.0, py::arg("axis") = -1);
-  m.def("gradient",
-        [](const Array &f, double dx, std::optional<int> axis)
-            -> py::object {
-          if (axis.has_value()) {
-            return py::cast(gradient(f, dx, axis.value()));
-          }
-          return py::cast(gradient(f, dx));
-        },
-        py::arg("x"), py::arg("dx") = 1.0, py::arg("axis") = std::nullopt);
+  m.def(
+      "gradient",
+      [](const Array &f, double dx, std::optional<int> axis) -> py::object {
+        if (axis.has_value()) {
+          return py::cast(gradient(f, dx, axis.value()));
+        }
+        return py::cast(gradient(f, dx));
+      },
+      py::arg("x"), py::arg("dx") = 1.0, py::arg("axis") = std::nullopt);
   m.def("repeat_interleave",
         py::overload_cast<const Array &, int, std::optional<int>>(
             &repeat_interleave),
         py::arg("x"), py::arg("repeats"), py::arg("axis") = std::nullopt);
-  m.def("one_hot", &one_hot, py::arg("indices"),
-        py::arg("num_classes") = -1, py::arg("dtype") = DType::F32);
-  m.def("histogram",
-        [](const Array &x, int64_t bins,
-           std::optional<std::pair<double, double>> range) {
-          std::vector<Array> res = histogram(x, bins, range);
-          return py::make_tuple(res[0], res[1]);
-        },
-        py::arg("x"), py::arg("bins") = 10, py::arg("range") = std::nullopt);
+  m.def("one_hot", &one_hot, py::arg("indices"), py::arg("num_classes") = -1,
+        py::arg("dtype") = DType::F32);
+  m.def(
+      "histogram",
+      [](const Array &x, int64_t bins,
+         std::optional<std::pair<double, double>> range) {
+        std::vector<Array> res = histogram(x, bins, range);
+        return py::make_tuple(res[0], res[1]);
+      },
+      py::arg("x"), py::arg("bins") = 10, py::arg("range") = std::nullopt);
 
   // ====================================================================
   // Linear Algebra
@@ -1503,13 +1519,14 @@ PYBIND11_MODULE(_insight, m) {
         py::arg("ddof") = 1);
 
   // Tensor contraction / products (NumPy-compatible subset)
-  m.def("tensordot", py::overload_cast<const Array &, const Array &, int>(
-                         &tensordot),
-        py::arg("a"), py::arg("b"), py::arg("axes") = 2);
   m.def("tensordot",
-        py::overload_cast<const Array &, const Array &, const std::vector<int> &,
-                          const std::vector<int> &>(&tensordot),
-        py::arg("a"), py::arg("b"), py::arg("axes_a"), py::arg("axes_b"));
+        py::overload_cast<const Array &, const Array &, int>(&tensordot),
+        py::arg("a"), py::arg("b"), py::arg("axes") = 2);
+  m.def(
+      "tensordot",
+      py::overload_cast<const Array &, const Array &, const std::vector<int> &,
+                        const std::vector<int> &>(&tensordot),
+      py::arg("a"), py::arg("b"), py::arg("axes_a"), py::arg("axes_b"));
   m.def("kron", &kron, py::arg("a"), py::arg("b"));
   m.def("cross", &cross, py::arg("a"), py::arg("b"), py::arg("axis") = -1);
   m.def("multi_dot", &multi_dot, py::arg("arrays"));
@@ -3101,8 +3118,8 @@ PYBIND11_MODULE(_insight, m) {
          const Place &place) {
         return multinomial(probs, num_samples, replacement, place);
       },
-      py::arg("probs"), py::arg("num_samples"),
-      py::arg("replacement") = false, py::arg("place") = get_device());
+      py::arg("probs"), py::arg("num_samples"), py::arg("replacement") = false,
+      py::arg("place") = get_device());
   m.def(
       "choice",
       [](const Array &x, int64_t num, bool replace, std::optional<Array> p) {
@@ -3133,8 +3150,8 @@ PYBIND11_MODULE(_insight, m) {
   // ====================================================================
   m.def("take", &take, py::arg("x"), py::arg("indices"),
         py::arg("axis") = std::nullopt);
-  m.def("take_along_axis", &take_along_axis, py::arg("x"),
-        py::arg("indices"), py::arg("axis"));
+  m.def("take_along_axis", &take_along_axis, py::arg("x"), py::arg("indices"),
+        py::arg("axis"));
   m.def("put", &put, py::arg("x"), py::arg("indices"), py::arg("values"),
         py::arg("axis") = std::nullopt);
   m.def("put_along_axis", &put_along_axis, py::arg("x"), py::arg("indices"),

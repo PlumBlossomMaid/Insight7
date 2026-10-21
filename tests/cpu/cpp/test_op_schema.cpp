@@ -1,8 +1,8 @@
 // tests/cpu/cpp/test_op_schema.cpp
-#include "insight/insight.h"
 #include "insight/c_api/exception.h"
 #include "insight/c_api/kernel.h"
 #include "insight/c_api/place.h"
+#include "insight/insight.h"
 #include <gtest/gtest.h>
 #include <string>
 
@@ -15,11 +15,10 @@ protected:
 };
 
 static OpSchema binary_add_schema() {
-  return OpSchema(
-             "add", OpKind::BinaryElementwise,
-             {{"a", OpArgumentKind::Array, OpArgumentAccess::ReadOnly},
-              {"b", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}},
-             {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
+  return OpSchema("add", OpKind::BinaryElementwise,
+                  {{"a", OpArgumentKind::Array, OpArgumentAccess::ReadOnly},
+                   {"b", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}},
+                  {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
       .promotion(OpPromotionRule::Numeric)
       .broadcast(OpBroadcastRule::Inputs)
       .fallback(OpFallbackRule::StructuredCpu)
@@ -29,20 +28,18 @@ static OpSchema binary_add_schema() {
 static OpSchema reduction_sum_schema() {
   return OpSchema("sum", OpKind::Reduction,
                   {{"x", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}},
-                  {{"out", OpArgumentKind::Array,
-                    OpArgumentAccess::WriteOnly}})
+                  {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
       .promotion(OpPromotionRule::Identity)
       .fallback(OpFallbackRule::StructuredCpu)
       .dispatch_dtypes({DType::F32, DType::F64});
 }
 
 static OpSchema weighted_bincount_schema() {
-  return OpSchema("bincount_weighted", OpKind::Reduction,
-                  {{"x", OpArgumentKind::Array, OpArgumentAccess::ReadOnly},
-                   {"weights", OpArgumentKind::Array,
-                    OpArgumentAccess::ReadOnly}},
-                  {{"out", OpArgumentKind::Array,
-                    OpArgumentAccess::WriteOnly}})
+  return OpSchema(
+             "bincount_weighted", OpKind::Reduction,
+             {{"x", OpArgumentKind::Array, OpArgumentAccess::ReadOnly},
+              {"weights", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}},
+             {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
       .promotion(OpPromotionRule::Identity)
       .fallback(OpFallbackRule::StructuredCpu)
       .dispatch_dtypes({DType::I32, DType::I64});
@@ -50,8 +47,7 @@ static OpSchema weighted_bincount_schema() {
 
 static OpSchema full_schema() {
   return OpSchema("full", OpKind::Creation, {},
-                  {{"out", OpArgumentKind::Array,
-                    OpArgumentAccess::WriteOnly}})
+                  {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
       .promotion(OpPromotionRule::Identity)
       .fallback(OpFallbackRule::StructuredCpu);
 }
@@ -59,8 +55,7 @@ static OpSchema full_schema() {
 static OpSchema flip_schema() {
   return OpSchema("flip", OpKind::Manipulation,
                   {{"x", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}},
-                  {{"out", OpArgumentKind::Array,
-                    OpArgumentAccess::WriteOnly}})
+                  {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
       .promotion(OpPromotionRule::Identity)
       .fallback(OpFallbackRule::StructuredCpu);
 }
@@ -68,8 +63,7 @@ static OpSchema flip_schema() {
 static OpSchema fft_schema() {
   return OpSchema("fft", OpKind::Fft,
                   {{"x", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}},
-                  {{"out", OpArgumentKind::Array,
-                    OpArgumentAccess::WriteOnly}})
+                  {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
       .promotion(OpPromotionRule::Identity)
       .fallback(OpFallbackRule::StructuredCpu);
 }
@@ -77,15 +71,16 @@ static OpSchema fft_schema() {
 static C_Status fallback_test_kernel(void **, void **) { return C_FALLBACK; }
 
 TEST_F(OpSchemaTestCPU, RawLaunchRejectsFallbackWithoutSchema) {
-  ASSERT_EQ(insight_register_kernel("schema_required_fallback", INSIGHT_DEVICE_GPU,
-                                    INSIGHT_DTYPE_F32, fallback_test_kernel),
+  ASSERT_EQ(insight_register_kernel("schema_required_fallback",
+                                    INSIGHT_DEVICE_GPU, INSIGHT_DTYPE_F32,
+                                    fallback_test_kernel),
             C_SUCCESS);
 
   void *inputs[] = {nullptr};
   void *outputs[] = {nullptr};
-  C_Status status = insight_kernel_launch("schema_required_fallback",
-                                          INSIGHT_DEVICE_GPU,
-                                          INSIGHT_DTYPE_F32, inputs, outputs);
+  C_Status status =
+      insight_kernel_launch("schema_required_fallback", INSIGHT_DEVICE_GPU,
+                            INSIGHT_DTYPE_F32, inputs, outputs);
 
   EXPECT_EQ(status, C_FAILED);
   std::string error = insight_get_last_error();
@@ -125,7 +120,8 @@ TEST_F(OpSchemaTestCPU, RegistryStoresAndListsSchemas) {
   EXPECT_EQ(schema.fallback_rule(), OpFallbackRule::StructuredCpu);
   ASSERT_EQ(schema.inputs().size(), 2u);
   ASSERT_EQ(schema.outputs().size(), 1u);
-  EXPECT_EQ(schema.dispatch_dtypes(), std::vector<DType>({DType::F32, DType::F64}));
+  EXPECT_EQ(schema.dispatch_dtypes(),
+            std::vector<DType>({DType::F32, DType::F64}));
 
   auto names = OpSchemaRegistry::names();
   ASSERT_EQ(names.size(), 1u);
@@ -142,10 +138,11 @@ TEST_F(OpSchemaTestCPU, InfersBroadcastShapeAndDType) {
 }
 
 TEST_F(OpSchemaTestCPU, ComparisonPromotionReturnsBool) {
-  OpSchema schema("equal", OpKind::BinaryElementwise,
-                  {{"a", OpArgumentKind::Array, OpArgumentAccess::ReadOnly},
-                   {"b", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}},
-                  {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}});
+  OpSchema schema(
+      "equal", OpKind::BinaryElementwise,
+      {{"a", OpArgumentKind::Array, OpArgumentAccess::ReadOnly},
+       {"b", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}},
+      {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}});
   schema.promotion(OpPromotionRule::Comparison);
 
   EXPECT_EQ(schema.infer_binary_dtype(DType::F32, DType::F64), DType::BOOL);
@@ -204,7 +201,8 @@ TEST_F(OpSchemaTestCPU, BuildsMultiInputReductionIteratorFromSchema) {
   Array weights({5}, DType::F32);
   Array output({3}, DType::F32);
 
-  ArrayIterator iter = schema.make_reduction_iterator({input, weights}, {output}, 5, 1);
+  ArrayIterator iter =
+      schema.make_reduction_iterator({input, weights}, {output}, 5, 1);
 
   EXPECT_TRUE(iter.is_reduction());
   EXPECT_EQ(iter.reduction_batch_size(), 5);

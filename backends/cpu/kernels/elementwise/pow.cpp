@@ -241,7 +241,8 @@ C_Status pow_kernel_cpu(void **inputs, void **outputs) {
   case INSIGHT_DTYPE_F32:
     pow_loop_float((const float *)a->data + a->offset, a_strides,
                    (const float *)b->data + b->offset, b_strides,
-                   (float *)out->data + out->offset, out_strides, ndim, dims, n);
+                   (float *)out->data + out->offset, out_strides, ndim, dims,
+                   n);
     break;
   case INSIGHT_DTYPE_F64:
     pow_loop_double((const double *)a->data + a->offset, a_strides,
@@ -250,20 +251,18 @@ C_Status pow_kernel_cpu(void **inputs, void **outputs) {
                     n);
     break;
   case INSIGHT_DTYPE_C32:
-    pow_loop_float_complex((const std::complex<float> *)a->data + a->offset,
-                           a_strides,
-                           (const std::complex<float> *)b->data + b->offset,
-                           b_strides,
-                           (std::complex<float> *)out->data + out->offset,
-                           out_strides, ndim, dims, n);
+    pow_loop_float_complex(
+        (const std::complex<float> *)a->data + a->offset, a_strides,
+        (const std::complex<float> *)b->data + b->offset, b_strides,
+        (std::complex<float> *)out->data + out->offset, out_strides, ndim, dims,
+        n);
     break;
   case INSIGHT_DTYPE_C64:
-    pow_loop_double_complex((const std::complex<double> *)a->data + a->offset,
-                            a_strides,
-                            (const std::complex<double> *)b->data + b->offset,
-                            b_strides,
-                            (std::complex<double> *)out->data + out->offset,
-                            out_strides, ndim, dims, n);
+    pow_loop_double_complex(
+        (const std::complex<double> *)a->data + a->offset, a_strides,
+        (const std::complex<double> *)b->data + b->offset, b_strides,
+        (std::complex<double> *)out->data + out->offset, out_strides, ndim,
+        dims, n);
     break;
   case INSIGHT_DTYPE_F16: {
     const uint16_t *a_data = (const uint16_t *)a->data;

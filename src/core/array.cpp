@@ -1154,17 +1154,15 @@ void Array::copy_from_(const Array &src) {
   if (dtype() == src.dtype()) {
     // Same dtype: use contiguous_copy backend kernel (CPU + GPU)
     Array src_dev = src.to(place());
-    OpRegistry::launch_schema(
-        "contiguous_copy", place(), dtype(),
-        {OpRegistry::array_arg(src_dev.layout_ptr())},
-        {OpRegistry::array_arg(layout_ptr())});
+    OpRegistry::launch_schema("contiguous_copy", place(), dtype(),
+                              {OpRegistry::array_arg(src_dev.layout_ptr())},
+                              {OpRegistry::array_arg(layout_ptr())});
   } else {
     // Different dtype: cast first, then copy
     Array converted = src.to(dtype()).to(place());
-    OpRegistry::launch_schema(
-        "contiguous_copy", place(), dtype(),
-        {OpRegistry::array_arg(converted.layout_ptr())},
-        {OpRegistry::array_arg(layout_ptr())});
+    OpRegistry::launch_schema("contiguous_copy", place(), dtype(),
+                              {OpRegistry::array_arg(converted.layout_ptr())},
+                              {OpRegistry::array_arg(layout_ptr())});
   }
 }
 

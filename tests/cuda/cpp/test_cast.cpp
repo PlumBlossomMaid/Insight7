@@ -209,7 +209,8 @@ TEST_F(CastTestGPU, F32ToAll) {
 
 // Test 5: F64 to all types
 TEST_F(CastTestGPU, F64ToAll) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // Test 6: C32 to all types
@@ -238,7 +239,8 @@ TEST_F(CastTestGPU, C32ToAll) {
 
 // Test 7: C64 to all types
 TEST_F(CastTestGPU, C64ToAll) {
-  if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // Test 8: Type promotion in add requires cast

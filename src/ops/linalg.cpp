@@ -35,8 +35,7 @@ static DType get_working_dtype(DType dtype) {
   // Complex inputs would silently lose their imaginary part when cast to the
   // real working dtype; no linalg kernel is registered for complex yet, so
   // reject them explicitly instead of returning wrong results.
-  INS_CHECK(!is_complex(dtype),
-            "linalg: complex inputs are not supported yet");
+  INS_CHECK(!is_complex(dtype), "linalg: complex inputs are not supported yet");
   if (is_integer(dtype) || dtype == DType::BOOL) {
     return DType::F64;
   }
@@ -138,10 +137,10 @@ static void launch_linalg(const char *name, const Place &place, DType dtype,
 }
 
 static void launch_linalg(const char *name, const Place &place, DType dtype,
-                          const std::vector<Array> &inputs,
-                          const Array &output,
+                          const std::vector<Array> &inputs, const Array &output,
                           std::vector<OpRegistry::Arg> scalars = {}) {
-  launch_linalg(name, place, dtype, inputs, std::vector<Array>{output}, scalars);
+  launch_linalg(name, place, dtype, inputs, std::vector<Array>{output},
+                scalars);
 }
 
 // ============================================================================
@@ -891,8 +890,7 @@ Array cov(const Array &x, bool rowvar, int ddof) {
 // tensordot - Tensor dot product
 // ============================================================================
 
-Array tensordot(const Array &a, const Array &b,
-                const std::vector<int> &axes_a,
+Array tensordot(const Array &a, const Array &b, const std::vector<int> &axes_a,
                 const std::vector<int> &axes_b) {
   INS_CHECK(a.defined() && b.defined(), "tensordot: input is undefined");
   INS_CHECK(axes_a.size() == axes_b.size(),
@@ -1080,7 +1078,7 @@ Array multi_dot(const std::vector<Array> &arrays) {
     INS_CHECK(arrays[i].shape().ndim() == 2,
               "multi_dot: all inputs must be 2D");
     works[i] = (arrays[i].dtype() == work_dtype) ? arrays[i]
-                                                  : arrays[i].to(work_dtype);
+                                                 : arrays[i].to(work_dtype);
     if (works[i].place() != place) {
       works[i] = works[i].to(place);
     }
@@ -1145,11 +1143,10 @@ struct EinsumSpec {
 EinsumSpec parse_einsum(const std::string &subscripts, size_t operand_count) {
   EinsumSpec spec;
   size_t arrow = subscripts.find("->");
-  std::string lhs = (arrow == std::string::npos) ? subscripts
-                                                 : subscripts.substr(0, arrow);
-  std::string rhs = (arrow == std::string::npos)
-                        ? ""
-                        : subscripts.substr(arrow + 2);
+  std::string lhs =
+      (arrow == std::string::npos) ? subscripts : subscripts.substr(0, arrow);
+  std::string rhs =
+      (arrow == std::string::npos) ? "" : subscripts.substr(arrow + 2);
   spec.explicit_output = (arrow != std::string::npos);
 
   size_t start = 0;
@@ -1245,10 +1242,10 @@ bool einsum_try_matmul(const EinsumSpec &spec, const std::vector<Array> &ops,
   // Common axes in each operand.
   std::vector<int> common_axes_a, common_axes_b;
   for (char c : common) {
-    common_axes_a.push_back(static_cast<int>(std::find(la.begin(), la.end(), c) -
-                                             la.begin()));
-    common_axes_b.push_back(static_cast<int>(std::find(lb.begin(), lb.end(), c) -
-                                             lb.begin()));
+    common_axes_a.push_back(
+        static_cast<int>(std::find(la.begin(), la.end(), c) - la.begin()));
+    common_axes_b.push_back(
+        static_cast<int>(std::find(lb.begin(), lb.end(), c) - lb.begin()));
   }
   // Contracted dimensions must match.
   for (size_t i = 0; i < common.size(); ++i) {
@@ -1258,8 +1255,10 @@ bool einsum_try_matmul(const EinsumSpec &spec, const std::vector<Array> &ops,
   }
 
   DType work_dtype = promote_types(ops[0].dtype(), ops[1].dtype());
-  Array a_work = (ops[0].dtype() == work_dtype) ? ops[0] : ops[0].to(work_dtype);
-  Array b_work = (ops[1].dtype() == work_dtype) ? ops[1] : ops[1].to(work_dtype);
+  Array a_work =
+      (ops[0].dtype() == work_dtype) ? ops[0] : ops[0].to(work_dtype);
+  Array b_work =
+      (ops[1].dtype() == work_dtype) ? ops[1] : ops[1].to(work_dtype);
   if (a_work.place() != b_work.place()) {
     b_work = b_work.to(a_work.place());
   }
@@ -1352,7 +1351,8 @@ bool einsum_try_matmul(const EinsumSpec &spec, const std::vector<Array> &ops,
 
 } // namespace
 
-Array einsum(const std::string &subscripts, const std::vector<Array> &operands) {
+Array einsum(const std::string &subscripts,
+             const std::vector<Array> &operands) {
   INS_CHECK(!operands.empty(), "einsum: no operands provided");
   for (const Array &op : operands) {
     INS_CHECK(op.defined(), "einsum: input is undefined");
@@ -1392,8 +1392,8 @@ Array einsum(const std::string &subscripts, const std::vector<Array> &operands) 
   for (size_t t = 0; t < spec.terms.size(); ++t) {
     for (size_t i = 0; i < spec.terms[t].size(); ++i) {
       char c = spec.terms[t][i];
-      int gi = static_cast<int>(
-          std::find(global.begin(), global.end(), c) - global.begin());
+      int gi = static_cast<int>(std::find(global.begin(), global.end(), c) -
+                                global.begin());
       int64_t d = operands[t].shape().dim(i);
       if (full_shape[gi] != 1 && full_shape[gi] != d)
         INS_THROW("einsum: label '", std::string(1, c),
@@ -1414,8 +1414,7 @@ Array einsum(const std::string &subscripts, const std::vector<Array> &operands) 
       char c = global[gi];
       auto it = std::find(spec.terms[t].begin(), spec.terms[t].end(), c);
       if (it != spec.terms[t].end()) {
-        perm.push_back(
-            static_cast<int>(it - spec.terms[t].begin()));
+        perm.push_back(static_cast<int>(it - spec.terms[t].begin()));
       }
     }
     // Missing labels are size-1; reshape inserts them. term_full starts
@@ -1424,13 +1423,13 @@ Array einsum(const std::string &subscripts, const std::vector<Array> &operands) 
     std::vector<int64_t> term_full(global.size(), 1);
     for (size_t i = 0; i < spec.terms[t].size(); ++i) {
       char c = spec.terms[t][i];
-      int gi = static_cast<int>(
-          std::find(global.begin(), global.end(), c) - global.begin());
+      int gi = static_cast<int>(std::find(global.begin(), global.end(), c) -
+                                global.begin());
       term_full[gi] = operands[t].shape().dim(i);
     }
-    Array t_work =
-        (operands[t].dtype() == work_dtype) ? operands[t]
-                                            : operands[t].to(work_dtype);
+    Array t_work = (operands[t].dtype() == work_dtype)
+                       ? operands[t]
+                       : operands[t].to(work_dtype);
     if (!acc.defined()) {
       acc = reshape(permute(t_work, perm), Shape(term_full));
     } else {
@@ -1457,8 +1456,8 @@ Array einsum(const std::string &subscripts, const std::vector<Array> &operands) 
   std::vector<int> perm_out;
   std::vector<int64_t> out_dims;
   for (char c : spec.output) {
-    int gi = static_cast<int>(
-        std::find(global.begin(), global.end(), c) - global.begin());
+    int gi = static_cast<int>(std::find(global.begin(), global.end(), c) -
+                              global.begin());
     perm_out.push_back(gi);
     out_dims.push_back(full_shape[gi]);
   }

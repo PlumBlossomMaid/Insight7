@@ -187,7 +187,9 @@ def cholesky_solve(A: "Array", B: "Array", lower: bool = True) -> "Array":
     return _native_cholesky_solve(A, B, lower)
 
 
-def solve_triangular(A: "Array", B: "Array", lower: bool = True, unit_diag: bool = False) -> "Array":
+def solve_triangular(
+    A: "Array", B: "Array", lower: bool = True, unit_diag: bool = False
+) -> "Array":
     return _native_solve_triangular(A, B, lower, unit_diag)
 
 

@@ -42,13 +42,18 @@ function M.render(ops)
     write_line(lines)
     write_line(lines, "## " .. kind)
     for _, op in ipairs(by_kind[kind]) do
-      write_line(lines, string.format("- `%s`: inputs=(%s), outputs=(%s), dtypes=(%s), promote=%s, broadcast=%s",
-        op.name,
-        join(op.inputs or {}),
-        join(op.outputs or {}),
-        join(op.dtypes or {}),
-        op.promote or "none",
-        tostring(op.broadcast == true)))
+      write_line(
+        lines,
+        string.format(
+          "- `%s`: inputs=(%s), outputs=(%s), dtypes=(%s), promote=%s, broadcast=%s",
+          op.name,
+          join(op.inputs or {}),
+          join(op.outputs or {}),
+          join(op.dtypes or {}),
+          op.promote or "none",
+          tostring(op.broadcast == true)
+        )
+      )
     end
   end
 

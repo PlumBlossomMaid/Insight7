@@ -42,7 +42,8 @@ TEST_F(SdaaRuntimeTestGPU, HostDeviceCopyRoundTrip) {
   std::vector<uint32_t> out(host.size(), 0);
 
   void *device = device_place.allocate(host.size() * sizeof(uint32_t));
-  device_place.copy_from_host(device, host.data(), host.size() * sizeof(uint32_t));
+  device_place.copy_from_host(device, host.data(),
+                              host.size() * sizeof(uint32_t));
   device_place.copy_to_host(out.data(), device, out.size() * sizeof(uint32_t));
   device_place.deallocate(device, host.size() * sizeof(uint32_t));
 

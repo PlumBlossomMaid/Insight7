@@ -25,8 +25,7 @@
 #include <vector>
 
 template <typename P>
-static C_Status multinomial_gpu_dispatch(InsightArray *out,
-                                         InsightArray *probs,
+static C_Status multinomial_gpu_dispatch(InsightArray *out, InsightArray *probs,
                                          int64_t num_samples, int replacement,
                                          uint64_t seed) {
   int64_t n = probs->numel;
@@ -34,8 +33,8 @@ static C_Status multinomial_gpu_dispatch(InsightArray *out,
   // Copy probabilities to host.
   std::vector<double> w(n);
   std::vector<P> p_host(n);
-  cudaError_t err = cudaMemcpy(p_host.data(), probs->data,
-                               n * sizeof(P), cudaMemcpyDeviceToHost);
+  cudaError_t err = cudaMemcpy(p_host.data(), probs->data, n * sizeof(P),
+                               cudaMemcpyDeviceToHost);
   if (err != cudaSuccess) {
     gpu_set_last_error(cudaGetErrorString(err));
     return C_FAILED;
@@ -102,8 +101,8 @@ C_Status multinomial_kernel_gpu(void **inputs, void **outputs) {
 
   switch (probs->dtype) {
   case INSIGHT_DTYPE_F32:
-    return multinomial_gpu_dispatch<float>(out, probs, num_samples,
-                                           replacement, seed);
+    return multinomial_gpu_dispatch<float>(out, probs, num_samples, replacement,
+                                           seed);
   case INSIGHT_DTYPE_F64:
     return multinomial_gpu_dispatch<double>(out, probs, num_samples,
                                             replacement, seed);

@@ -86,10 +86,10 @@ describe("Signal Filtering CPU Tests", function()
     local x = ins.from_table({ 1.0, 0.0, 0.0, 0.0, 0.0 })
     local y = ins.signal.lfilter(b, a, x)
     assert.is_not_nil(y)
-    assert.are.equal(6, y.numel)
+    assert.are.equal(5, y.numel)
     assert.near(1.0, y:get(0), 1e-10)
     assert.near(1.0, y:get(1), 1e-10)
-    for i = 2, 5 do
+    for i = 2, 4 do
       assert.near(0.0, y:get(i), 1e-10)
     end
   end)

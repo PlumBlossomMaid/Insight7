@@ -20,7 +20,8 @@ protected:
     try {
       set_device(GPUPlace(0));
       // IXUCA-only: signal API uses F64
-      if (active_gpu_backend_name() == "ixuca") GTEST_SKIP() << "IXUCA: signal API uses F64 (hardware limit)";
+      if (active_gpu_backend_name() == "ixuca")
+        GTEST_SKIP() << "IXUCA: signal API uses F64 (hardware limit)";
     } catch (...) {
       GTEST_SKIP() << "GPU not available";
     }

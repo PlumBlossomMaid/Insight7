@@ -38,12 +38,11 @@ static OpSchema reduction_schema(const char *name, size_t output_count = 1) {
 }
 
 static OpSchema weighted_reduction_schema(const char *name) {
-  return OpSchema(name, OpKind::Reduction,
-                  {{"x", OpArgumentKind::Array, OpArgumentAccess::ReadOnly},
-                   {"weights", OpArgumentKind::Array,
-                    OpArgumentAccess::ReadOnly}},
-                  {{"out", OpArgumentKind::Array,
-                    OpArgumentAccess::WriteOnly}})
+  return OpSchema(
+             name, OpKind::Reduction,
+             {{"x", OpArgumentKind::Array, OpArgumentAccess::ReadOnly},
+              {"weights", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}},
+             {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
       .promotion(OpPromotionRule::Identity)
       .fallback(OpFallbackRule::StructuredCpu);
 }
@@ -270,21 +269,16 @@ static Array launch_reduction(const char *kernel_name, const Array &x,
   inputs.push_back(OpRegistry::scalar_arg(&reduce_size));
   (inputs.push_back(OpRegistry::scalar_arg(&extra_args)), ...);
 
-  OpRegistry::launch_schema(
-      kernel_name, x.place(), x.dtype(), inputs,
-      {OpRegistry::array_arg(arrays[1].layout_ptr())});
+  OpRegistry::launch_schema(kernel_name, x.place(), x.dtype(), inputs,
+                            {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   return result;
 }
 
 template <typename... Args>
-static Array launch_reduction_with_postprocess(const char *kernel_name,
-                                               const Array &x,
-                                               const ReductionInfo &info,
-                                               bool keepdim,
-                                               std::optional<int> axis,
-                                               DType dtype,
-                                               Args &&...extra_args) {
+static Array launch_reduction_with_postprocess(
+    const char *kernel_name, const Array &x, const ReductionInfo &info,
+    bool keepdim, std::optional<int> axis, DType dtype, Args &&...extra_args) {
   Array result = launch_reduction(kernel_name, x, info, keepdim, axis, dtype,
                                   std::forward<Args>(extra_args)...);
   return post_process_reduction(result, info, keepdim, axis);
@@ -305,15 +299,14 @@ static std::pair<Array, Array> launch_nansum_pair(const Array &x,
   int64_t batch_size = iter.reduction_batch_size();
   int64_t reduce_size = iter.reduction_reduce_size();
 
-  OpRegistry::launch_schema(
-      "nansum", x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::array_arg(arrays[2].layout_ptr()),
-       OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::scalar_arg(&batch_size),
-       OpRegistry::scalar_arg(&reduce_size)},
-      {OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::array_arg(arrays[2].layout_ptr())});
+  OpRegistry::launch_schema("nansum", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::array_arg(arrays[2].layout_ptr()),
+                             OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&batch_size),
+                             OpRegistry::scalar_arg(&reduce_size)},
+                            {OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return {post_process_reduction(sum_out, info, keepdim, axis),
           post_process_reduction(count_out, info, keepdim, axis)};
@@ -335,7 +328,9 @@ Array sum(const Array &x, std::optional<int> axis, bool keepdim) {
 Array mean(const Array &x, std::optional<int> axis, bool keepdim) {
   Array s = sum(x, axis, true);
 
-  int ax = axis.has_value() ? normalize_axis(axis.value(), x.shape().ndim(), "mean") : -1;
+  int ax = axis.has_value()
+               ? normalize_axis(axis.value(), x.shape().ndim(), "mean")
+               : -1;
   int64_t n = axis.has_value() ? x.shape().dim(ax) : x.numel();
   double inv_n = 1.0 / static_cast<double>(n);
 
@@ -465,7 +460,9 @@ Array std(const Array &x, std::optional<int> axis, bool keepdim, int ddof) {
 
 Array sem(const Array &x, std::optional<int> axis, bool keepdim, int ddof) {
   Array s = std(x, axis, true, ddof);
-  int ax = axis.has_value() ? normalize_axis(axis.value(), x.shape().ndim(), "sem") : -1;
+  int ax = axis.has_value()
+               ? normalize_axis(axis.value(), x.shape().ndim(), "sem")
+               : -1;
   int64_t n = axis.has_value() ? x.shape().dim(ax) : x.numel();
   double inv_sqrt_n = 1.0 / std::sqrt(static_cast<double>(n));
   Array factor = full(s.shape(), inv_sqrt_n, s.dtype(), s.place());
@@ -487,12 +484,11 @@ static Array launch_cumulative(const char *kernel_name, const Array &x,
   ArrayIterator iter = schema.make_reduction_iterator(x, result, x.numel(), 1);
   auto arrays = iter.arrays();
 
-  OpRegistry::launch_schema(
-      kernel_name, x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[1].layout_ptr()),
-       OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::scalar_arg(&ax)},
-      {OpRegistry::array_arg(arrays[1].layout_ptr())});
+  OpRegistry::launch_schema(kernel_name, x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[1].layout_ptr()),
+                             OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&ax)},
+                            {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   return result;
 }
@@ -501,7 +497,9 @@ static Array launch_cumulative(const char *kernel_name, const Array &x,
 // cumsum: Cumulative sum
 // ============================================================================
 
-Array cumsum(const Array &x, int axis) { return launch_cumulative("cumsum", x, axis); }
+Array cumsum(const Array &x, int axis) {
+  return launch_cumulative("cumsum", x, axis);
+}
 
 // ============================================================================
 // cumprod: Cumulative product
@@ -515,13 +513,17 @@ Array cumprod(const Array &x, int axis) {
 // cummax: Cumulative maximum
 // ============================================================================
 
-Array cummax(const Array &x, int axis) { return launch_cumulative("cummax", x, axis); }
+Array cummax(const Array &x, int axis) {
+  return launch_cumulative("cummax", x, axis);
+}
 
 // ============================================================================
 // cummin: Cumulative minimum
 // ============================================================================
 
-Array cummin(const Array &x, int axis) { return launch_cumulative("cummin", x, axis); }
+Array cummin(const Array &x, int axis) {
+  return launch_cumulative("cummin", x, axis);
+}
 
 // ============================================================================
 // median: Median (50th percentile)
@@ -725,15 +727,14 @@ Array bincount(const Array &x, std::optional<Array> weights,
     result = zeros_like(result);
 
     OpSchema schema = weighted_reduction_schema("bincount_weighted");
-    ArrayIterator iter = schema.make_reduction_iterator(
-        {x, w}, {result}, x.numel(), 1);
+    ArrayIterator iter =
+        schema.make_reduction_iterator({x, w}, {result}, x.numel(), 1);
     auto arrays = iter.arrays();
-    OpRegistry::launch_schema(
-        "bincount_weighted", x.place(), x.dtype(),
-        {OpRegistry::array_arg(arrays[2].layout_ptr()),
-         OpRegistry::array_arg(arrays[0].layout_ptr()),
-         OpRegistry::array_arg(arrays[1].layout_ptr())},
-        {OpRegistry::array_arg(arrays[2].layout_ptr())});
+    OpRegistry::launch_schema("bincount_weighted", x.place(), x.dtype(),
+                              {OpRegistry::array_arg(arrays[2].layout_ptr()),
+                               OpRegistry::array_arg(arrays[0].layout_ptr()),
+                               OpRegistry::array_arg(arrays[1].layout_ptr())},
+                              {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
     return result;
   } else {
@@ -741,13 +742,13 @@ Array bincount(const Array &x, std::optional<Array> weights,
     result = zeros_like(result);
 
     OpSchema schema = reduction_schema("bincount");
-    ArrayIterator iter = schema.make_reduction_iterator(x, result, x.numel(), 1);
+    ArrayIterator iter =
+        schema.make_reduction_iterator(x, result, x.numel(), 1);
     auto arrays = iter.arrays();
-    OpRegistry::launch_schema(
-        "bincount", x.place(), x.dtype(),
-        {OpRegistry::array_arg(arrays[1].layout_ptr()),
-         OpRegistry::array_arg(arrays[0].layout_ptr())},
-        {OpRegistry::array_arg(arrays[1].layout_ptr())});
+    OpRegistry::launch_schema("bincount", x.place(), x.dtype(),
+                              {OpRegistry::array_arg(arrays[1].layout_ptr()),
+                               OpRegistry::array_arg(arrays[0].layout_ptr())},
+                              {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
     return result;
   }

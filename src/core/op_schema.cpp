@@ -66,7 +66,8 @@ OpSchema &OpSchema::dispatch_dtypes(std::vector<DType> dtypes) {
   return *this;
 }
 
-Shape OpSchema::infer_elementwise_shape(const std::vector<Array> &inputs) const {
+Shape OpSchema::infer_elementwise_shape(
+    const std::vector<Array> &inputs) const {
   INS_CHECK(!inputs.empty(), "OpSchema '", name_,
             "': at least one input is required");
   Shape shape = inputs[0].shape();
@@ -77,8 +78,8 @@ Shape OpSchema::infer_elementwise_shape(const std::vector<Array> &inputs) const 
   } else {
     for (size_t i = 1; i < inputs.size(); ++i) {
       INS_CHECK(inputs[i].shape() == shape, "OpSchema '", name_,
-                "': input shape ", inputs[i].shape(),
-                " does not match ", shape);
+                "': input shape ", inputs[i].shape(), " does not match ",
+                shape);
     }
   }
   return shape;
@@ -100,8 +101,9 @@ DType OpSchema::infer_binary_dtype(DType a, DType b) const {
   INS_THROW("OpSchema '", name_, "': invalid promotion rule");
 }
 
-ArrayIterator OpSchema::make_array_iterator(
-    const std::vector<Array> &inputs, const std::vector<Array> &outputs) const {
+ArrayIterator
+OpSchema::make_array_iterator(const std::vector<Array> &inputs,
+                              const std::vector<Array> &outputs) const {
   INS_CHECK(std::all_of(inputs_.begin(), inputs_.end(), is_array_argument),
             "OpSchema '", name_,
             "': array iterator only supports array input schemas");
@@ -115,8 +117,8 @@ ArrayIterator OpSchema::make_array_iterator(
   return ArrayIterator::elementwise(inputs, outputs);
 }
 
-ArrayIterator OpSchema::make_creation_iterator(
-    const std::vector<Array> &outputs) const {
+ArrayIterator
+OpSchema::make_creation_iterator(const std::vector<Array> &outputs) const {
   INS_CHECK(kind_ == OpKind::Creation, "OpSchema '", name_,
             "': schema is not a creation op");
   INS_CHECK(inputs_.empty(), "OpSchema '", name_,
@@ -129,13 +131,13 @@ ArrayIterator OpSchema::make_creation_iterator(
   return ArrayIterator::creation(outputs);
 }
 
-ArrayIterator OpSchema::make_transform_iterator(
-    const std::vector<Array> &inputs, const std::vector<Array> &outputs) const {
+ArrayIterator
+OpSchema::make_transform_iterator(const std::vector<Array> &inputs,
+                                  const std::vector<Array> &outputs) const {
   INS_CHECK(kind_ == OpKind::Manipulation || kind_ == OpKind::Indexing ||
                 kind_ == OpKind::Linalg || kind_ == OpKind::Fft ||
                 kind_ == OpKind::Signal,
-            "OpSchema '", name_,
-            "': schema is not a transform op");
+            "OpSchema '", name_, "': schema is not a transform op");
   INS_CHECK(inputs.size() == inputs_.size(), "OpSchema '", name_,
             "': expected ", inputs_.size(), " inputs, got ", inputs.size());
   INS_CHECK(outputs.size() == outputs_.size(), "OpSchema '", name_,
@@ -192,8 +194,8 @@ bool OpSchemaRegistry::has(const std::string &name) {
 
 const OpSchema &OpSchemaRegistry::get(const std::string &name) {
   auto it = schema_map().find(name);
-  INS_CHECK(it != schema_map().end(), "OpSchemaRegistry: schema not found: ",
-            name);
+  INS_CHECK(it != schema_map().end(),
+            "OpSchemaRegistry: schema not found: ", name);
   return it->second;
 }
 

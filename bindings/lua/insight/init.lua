@@ -186,8 +186,9 @@ do
         if key == 0 then
           error("Lua arrays are 1-based: index 0 is invalid")
         end
-        local idx = key > 0 and (key - 1) or key
-        local view = self:at(idx)
+        -- self[key] goes through the __index integer overload, which
+        -- converts 1-based → 0-based and returns a view for fill_/copy_from_
+        local view = self[key]
         if type(value) == "number" then
           view:fill_(value)
         else

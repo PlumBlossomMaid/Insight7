@@ -418,7 +418,8 @@ TEST_F(ElementwiseTestCPU, LogicalBroadcast) {
   b_data[1] = false;
   b_data[2] = true;
 
-  expect_bool_equal(logical_and(a, b), {true, false, true, false, false, false});
+  expect_bool_equal(logical_and(a, b),
+                    {true, false, true, false, false, false});
   expect_bool_equal(logical_or(a, b), {true, false, true, true, true, true});
   expect_bool_equal(logical_xor(a, b), {false, false, false, true, true, true});
 }

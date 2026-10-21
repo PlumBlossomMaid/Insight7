@@ -10,11 +10,10 @@ namespace ins {
 
 static OpSchema binary_elementwise_schema(const char *name,
                                           OpPromotionRule promotion_rule) {
-  return OpSchema(
-             name, OpKind::BinaryElementwise,
-             {{"a", OpArgumentKind::Array, OpArgumentAccess::ReadOnly},
-              {"b", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}},
-             {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
+  return OpSchema(name, OpKind::BinaryElementwise,
+                  {{"a", OpArgumentKind::Array, OpArgumentAccess::ReadOnly},
+                   {"b", OpArgumentKind::Array, OpArgumentAccess::ReadOnly}},
+                  {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
       .promotion(promotion_rule)
       .broadcast(OpBroadcastRule::Inputs)
       .fallback(OpFallbackRule::StructuredCpu);
@@ -41,11 +40,10 @@ static Array schema_binary_op(const Array &a, const Array &b,
   Array out(schema.infer_elementwise_shape({a1, b1}), out_dtype, target_place);
   ArrayIterator iter = schema.make_array_iterator({a1, b1}, {out});
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      kernel_name, target_place, out_dtype,
-      {OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::array_arg(arrays[1].layout_ptr())},
-      {OpRegistry::array_arg(arrays[2].layout_ptr())});
+  OpRegistry::launch_schema(kernel_name, target_place, out_dtype,
+                            {OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::array_arg(arrays[1].layout_ptr())},
+                            {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return out;
 }
@@ -66,11 +64,10 @@ static Array schema_cmp_op(const Array &a, const Array &b,
             schema.infer_binary_dtype(a1.dtype(), b1.dtype()), target_place);
   ArrayIterator iter = schema.make_array_iterator({a1, b1}, {out});
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      kernel_name, target_place, common_dtype,
-      {OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::array_arg(arrays[1].layout_ptr())},
-      {OpRegistry::array_arg(arrays[2].layout_ptr())});
+  OpRegistry::launch_schema(kernel_name, target_place, common_dtype,
+                            {OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::array_arg(arrays[1].layout_ptr())},
+                            {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return out;
 }
@@ -90,11 +87,10 @@ static Array schema_logical_op(const Array &a, const Array &b,
             target_place);
   ArrayIterator iter = schema.make_array_iterator({a1, b1}, {out});
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      kernel_name, target_place, DType::BOOL,
-      {OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::array_arg(arrays[1].layout_ptr())},
-      {OpRegistry::array_arg(arrays[2].layout_ptr())});
+  OpRegistry::launch_schema(kernel_name, target_place, DType::BOOL,
+                            {OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::array_arg(arrays[1].layout_ptr())},
+                            {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return out;
 }
@@ -140,11 +136,10 @@ Array pow(const Array &a, const Array &b) {
   Array out(schema.infer_elementwise_shape({a1, b1}), out_dtype, target_place);
   ArrayIterator iter = schema.make_array_iterator({a1, b1}, {out});
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "pow", target_place, out_dtype,
-      {OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::array_arg(arrays[1].layout_ptr())},
-      {OpRegistry::array_arg(arrays[2].layout_ptr())});
+  OpRegistry::launch_schema("pow", target_place, out_dtype,
+                            {OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::array_arg(arrays[1].layout_ptr())},
+                            {OpRegistry::array_arg(arrays[2].layout_ptr())});
 
   return out;
 }

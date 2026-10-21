@@ -104,7 +104,8 @@ TEST_F(ArrayIteratorTestCPU, MultiInputReductionMetadata) {
   Array weights({5}, DType::F32);
   Array output({3}, DType::F32);
 
-  ArrayIterator iter = ArrayIterator::reduction({input, weights}, {output}, 5, 1);
+  ArrayIterator iter =
+      ArrayIterator::reduction({input, weights}, {output}, 5, 1);
 
   EXPECT_TRUE(iter.is_reduction());
   EXPECT_EQ(iter.shape(), Shape({3}));

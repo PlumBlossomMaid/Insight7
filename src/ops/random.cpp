@@ -61,8 +61,7 @@ uint64_t get_seed() { return g_global_base_seed.load(); }
 
 static OpSchema random_schema(const char *name) {
   return OpSchema(name, OpKind::Creation, {},
-                  {{"out", OpArgumentKind::Array,
-                    OpArgumentAccess::WriteOnly}})
+                  {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
       .promotion(OpPromotionRule::Identity)
       .fallback(OpFallbackRule::StructuredCpu);
 }
@@ -82,9 +81,8 @@ static Array random_op(const char *op_name, const Shape &shape, DType dtype,
   uint64_t device_seed = get_seed() + static_cast<uint64_t>(place.device_id());
   inputs.push_back(OpRegistry::scalar_arg(&device_seed));
 
-  OpRegistry::launch_schema(
-      op_name, place, dtype, inputs,
-      {OpRegistry::array_arg(arrays[0].layout_ptr())});
+  OpRegistry::launch_schema(op_name, place, dtype, inputs,
+                            {OpRegistry::array_arg(arrays[0].layout_ptr())});
 
   return result;
 }
@@ -218,7 +216,8 @@ Array multinomial(const Array &probs, int64_t num_samples, bool replacement,
   return result;
 }
 
-Array choice(const Array &x, int64_t num, bool replace, std::optional<Array> p) {
+Array choice(const Array &x, int64_t num, bool replace,
+             std::optional<Array> p) {
   INS_CHECK(x.defined(), "choice: input is undefined");
   INS_CHECK(num > 0, "choice: num must be positive");
   int64_t n = x.numel();
@@ -230,8 +229,7 @@ Array choice(const Array &x, int64_t num, bool replace, std::optional<Array> p) 
   } else if (replace) {
     idx = randint(0, n, Shape({num}), DType::I64, x.place());
   } else {
-    INS_CHECK(num <= n,
-              "choice: num must be <= input size when replace=false");
+    INS_CHECK(num <= n, "choice: num must be <= input size when replace=false");
     Array perm = randperm(n, DType::I64, x.place());
     idx = perm.slice(0, 0, num);
   }

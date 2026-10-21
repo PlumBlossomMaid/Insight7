@@ -18,8 +18,8 @@ Shape common_shape_for(const std::vector<Array> &arrays) {
 }
 
 ArrayIteratorOperand make_operand(const Array &view, const Array &source,
-                                   const Shape &iterator_shape,
-                                   ArrayIteratorOperandAccess access) {
+                                  const Shape &iterator_shape,
+                                  ArrayIteratorOperandAccess access) {
   ArrayIteratorOperand operand;
   operand.access = access;
   operand.dtype = view.dtype();
@@ -47,11 +47,10 @@ ArrayIterator ArrayIterator::elementwise(const std::vector<Array> &inputs) {
 }
 
 ArrayIterator ArrayIterator::elementwise(const std::vector<Array> &inputs,
-                                           const std::vector<Array> &outputs) {
+                                         const std::vector<Array> &outputs) {
   INS_CHECK(!inputs.empty(), "ArrayIterator: at least one input required");
   for (size_t i = 0; i < inputs.size(); ++i) {
-    INS_CHECK(inputs[i].defined(), "ArrayIterator: input ", i,
-              " is undefined");
+    INS_CHECK(inputs[i].defined(), "ArrayIterator: input ", i, " is undefined");
   }
   for (size_t i = 0; i < outputs.size(); ++i) {
     INS_CHECK(outputs[i].defined(), "ArrayIterator: output ", i,
@@ -86,14 +85,16 @@ ArrayIterator ArrayIterator::elementwise(const std::vector<Array> &inputs,
 }
 
 ArrayIterator ArrayIterator::creation(const std::vector<Array> &outputs) {
-  INS_CHECK(!outputs.empty(), "ArrayIterator: at least one creation output required");
+  INS_CHECK(!outputs.empty(),
+            "ArrayIterator: at least one creation output required");
 
   ArrayIterator iter;
   iter.shape_ = outputs[0].shape();
   for (const auto &output : outputs) {
     INS_CHECK(output.defined(), "ArrayIterator: creation output is undefined");
-    INS_CHECK(output.shape() == iter.shape_, "ArrayIterator: creation output shape ",
-              output.shape(), " does not match first output shape ", iter.shape_);
+    INS_CHECK(output.shape() == iter.shape_,
+              "ArrayIterator: creation output shape ", output.shape(),
+              " does not match first output shape ", iter.shape_);
     iter.arrays_.push_back(output);
     iter.operands_.push_back(make_operand(
         output, output, output.shape(), ArrayIteratorOperandAccess::WriteOnly));
@@ -111,8 +112,10 @@ ArrayIterator ArrayIterator::creation(const std::vector<Array> &outputs) {
 
 ArrayIterator ArrayIterator::transform(const std::vector<Array> &inputs,
                                        const std::vector<Array> &outputs) {
-  INS_CHECK(!inputs.empty(), "ArrayIterator: at least one transform input required");
-  INS_CHECK(!outputs.empty(), "ArrayIterator: at least one transform output required");
+  INS_CHECK(!inputs.empty(),
+            "ArrayIterator: at least one transform input required");
+  INS_CHECK(!outputs.empty(),
+            "ArrayIterator: at least one transform output required");
 
   ArrayIterator iter;
   iter.shape_ = outputs[0].shape();
@@ -158,9 +161,12 @@ ArrayIterator ArrayIterator::reduction(const std::vector<Array> &inputs,
                                        const std::vector<Array> &outputs,
                                        int64_t batch_size,
                                        int64_t reduce_size) {
-  INS_CHECK(!inputs.empty(), "ArrayIterator: at least one reduction input required");
-  INS_CHECK(!outputs.empty(), "ArrayIterator: at least one reduction output required");
-  INS_CHECK(batch_size >= 0, "ArrayIterator: reduction batch size must be >= 0");
+  INS_CHECK(!inputs.empty(),
+            "ArrayIterator: at least one reduction input required");
+  INS_CHECK(!outputs.empty(),
+            "ArrayIterator: at least one reduction output required");
+  INS_CHECK(batch_size >= 0,
+            "ArrayIterator: reduction batch size must be >= 0");
   INS_CHECK(reduce_size >= 0, "ArrayIterator: reduction size must be >= 0");
 
   ArrayIterator iter;

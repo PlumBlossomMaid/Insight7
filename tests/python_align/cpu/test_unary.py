@@ -241,10 +241,8 @@ class TestActivationAlignment:
 
     def test_clip(self, data):
         x = ins.from_numpy(data)
-        assert_allclose(ins.clip(x, -1.0, 1.0).numpy(),
-                        np.clip(data, -1.0, 1.0))
+        assert_allclose(ins.clip(x, -1.0, 1.0).numpy(), np.clip(data, -1.0, 1.0))
 
     def test_clamp_alias(self, data):
         x = ins.from_numpy(data)
-        assert_allclose(ins.clamp(x, -1.0, 1.0).numpy(),
-                        np.clip(data, -1.0, 1.0))
+        assert_allclose(ins.clamp(x, -1.0, 1.0).numpy(), np.clip(data, -1.0, 1.0))

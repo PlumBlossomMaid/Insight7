@@ -72,8 +72,8 @@ C_Status bincount_kernel_gpu(void **inputs, void **outputs) {
  *
  * DISABLED PENDING A COREX NUMERICAL FIX. bincount_kernel_gpu above produces
  * wrong results on CoreX (see tests/cuda/cpp/test_reduction.cpp, BincountBasic
- * and BincountMinlength) 鈥?the atomic histogram accumulation does not match the
- * CPU/CUDA reference.
+ * and BincountMinlength) 鈥?the atomic histogram accumulation does not match
+ * the CPU/CUDA reference.
  *
  * Returning C_FALLBACK makes the framework transfer the inputs to the host and
  * run the CPU kernel, which is correct but slower. Silently returning wrong
@@ -93,6 +93,6 @@ C_Status bincount_kernel_gpu_fallback(void **inputs, void **outputs) {
 } // extern "C"
 
 REGISTER_IXUCA_KERNEL(bincount, INSIGHT_DTYPE_I32,
-                         bincount_kernel_gpu_fallback);
+                      bincount_kernel_gpu_fallback);
 REGISTER_IXUCA_KERNEL(bincount, INSIGHT_DTYPE_I64,
-                         bincount_kernel_gpu_fallback);
+                      bincount_kernel_gpu_fallback);

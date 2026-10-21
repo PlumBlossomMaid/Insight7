@@ -4,6 +4,14 @@
 file(GLOB CPU_TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/cpu/cpp/*.cpp")
 file(GLOB CUDA_TEST_SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/cuda/cpp/*.cpp")
 
+if(NOT INSIGHT_LUA_CODEGEN_INTERPRETER)
+    # test_codegen.cpp includes codegen-generated headers; without a Lua
+    # interpreter the insight_codegen target is disabled and those headers
+    # never exist, so drop the test from the build.
+    list(REMOVE_ITEM CPU_TEST_SOURCES
+        "${CMAKE_CURRENT_SOURCE_DIR}/cpu/cpp/test_codegen.cpp")
+endif()
+
 add_executable(insight_tests_cpu ${CPU_TEST_SOURCES})
 if(INSIGHT_WITH_CUDA)
     add_executable(insight_tests_cuda ${CUDA_TEST_SOURCES})

@@ -67,8 +67,8 @@ static bool validate_arg_schema(const char *op_name, const char *side,
     } else {
       kernel_error_message = std::string("insight_kernel_launch: ") + side +
                              " schema count mismatch for '" + op_name +
-                             "': expected " + std::to_string(count) +
-                             ", got " + std::to_string(actual);
+                             "': expected " + std::to_string(count) + ", got " +
+                             std::to_string(actual);
     }
     insight_set_last_error(kernel_error_message.c_str());
     return false;
@@ -319,9 +319,8 @@ static C_Status launch_kernel_common(const char *op_name, int32_t device_type,
     insight_set_last_error(kernel_error_message.c_str());
     return C_FAILED;
   }
-  if (has_schema &&
-      ((input_count > 0 && !input_kinds) ||
-       (output_count > 0 && !output_kinds))) {
+  if (has_schema && ((input_count > 0 && !input_kinds) ||
+                     (output_count > 0 && !output_kinds))) {
     kernel_error_message =
         std::string("insight_kernel_launch: CPU fallback for operator '") +
         op_name + "' requires explicit argument schema";

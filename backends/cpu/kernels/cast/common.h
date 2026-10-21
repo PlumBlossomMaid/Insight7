@@ -52,9 +52,8 @@ static inline int64_t cpu_offset_from_linear(int64_t linear, int64_t ndim,
     const int64_t src_ndim = src->ndim;                                        \
     const int64_t src_base = src->offset;                                      \
     _Pragma("omp parallel for") for (int64_t i = 0; i < n; ++i) {              \
-      const int64_t si =                                                       \
-          src_base +                                                           \
-          cpu_offset_from_linear(i, src_ndim, src->dims, src->strides);        \
+      const int64_t si = src_base + cpu_offset_from_linear(                    \
+                                        i, src_ndim, src->dims, src->strides); \
       code;                                                                    \
     }                                                                          \
   } while (0)

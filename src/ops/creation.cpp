@@ -8,8 +8,7 @@ namespace ins {
 
 static OpSchema creation_schema(const char *name) {
   return OpSchema(name, OpKind::Creation, {},
-                  {{"out", OpArgumentKind::Array,
-                    OpArgumentAccess::WriteOnly}})
+                  {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
       .promotion(OpPromotionRule::Identity)
       .fallback(OpFallbackRule::StructuredCpu);
 }
@@ -34,11 +33,10 @@ Array full(const Shape &shape, double fill_value, DType dtype,
   Array result(shape, dtype, place);
   ArrayIterator iter = creation_iterator("full", result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "full", place, dtype,
-      {OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::scalar_arg(&fill_value)},
-      {OpRegistry::array_arg(arrays[0].layout_ptr())});
+  OpRegistry::launch_schema("full", place, dtype,
+                            {OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&fill_value)},
+                            {OpRegistry::array_arg(arrays[0].layout_ptr())});
   return result;
 }
 
@@ -49,10 +47,10 @@ Array eye(int64_t n, int64_t m, int64_t k, DType dtype, const Place &place) {
   Array result(shape, dtype, place);
   ArrayIterator iter = creation_iterator("eye", result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "eye", place, dtype,
-      {OpRegistry::array_arg(arrays[0].layout_ptr()), OpRegistry::scalar_arg(&k)},
-      {OpRegistry::array_arg(arrays[0].layout_ptr())});
+  OpRegistry::launch_schema("eye", place, dtype,
+                            {OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&k)},
+                            {OpRegistry::array_arg(arrays[0].layout_ptr())});
   return result;
 }
 
@@ -68,11 +66,11 @@ Array arange(double start, double end, double step, DType dtype,
   Array result(Shape({num}), dtype, place);
   ArrayIterator iter = creation_iterator("arange", result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "arange", place, dtype,
-      {OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::scalar_arg(&start), OpRegistry::scalar_arg(&step)},
-      {OpRegistry::array_arg(arrays[0].layout_ptr())});
+  OpRegistry::launch_schema("arange", place, dtype,
+                            {OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&start),
+                             OpRegistry::scalar_arg(&step)},
+                            {OpRegistry::array_arg(arrays[0].layout_ptr())});
   return result;
 }
 
@@ -81,11 +79,11 @@ Array linspace(double start, double stop, int64_t num, DType dtype,
   Array result(Shape({num}), dtype, place);
   ArrayIterator iter = creation_iterator("linspace", result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "linspace", place, dtype,
-      {OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::scalar_arg(&start), OpRegistry::scalar_arg(&stop)},
-      {OpRegistry::array_arg(arrays[0].layout_ptr())});
+  OpRegistry::launch_schema("linspace", place, dtype,
+                            {OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&start),
+                             OpRegistry::scalar_arg(&stop)},
+                            {OpRegistry::array_arg(arrays[0].layout_ptr())});
   return result;
 }
 
@@ -94,12 +92,12 @@ Array logspace(double start, double stop, int64_t num, double base, DType dtype,
   Array result(Shape({num}), dtype, place);
   ArrayIterator iter = creation_iterator("logspace", result);
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "logspace", place, dtype,
-      {OpRegistry::array_arg(arrays[0].layout_ptr()),
-       OpRegistry::scalar_arg(&start), OpRegistry::scalar_arg(&stop),
-       OpRegistry::scalar_arg(&base)},
-      {OpRegistry::array_arg(arrays[0].layout_ptr())});
+  OpRegistry::launch_schema("logspace", place, dtype,
+                            {OpRegistry::array_arg(arrays[0].layout_ptr()),
+                             OpRegistry::scalar_arg(&start),
+                             OpRegistry::scalar_arg(&stop),
+                             OpRegistry::scalar_arg(&base)},
+                            {OpRegistry::array_arg(arrays[0].layout_ptr())});
   return result;
 }
 

@@ -821,11 +821,11 @@ TEST_F(ManipulationTest, Ediff1dToBeginToEnd) {
   // to_begin(1) + diff(3) + to_end(2) = 6
   EXPECT_EQ(d.shape(), Shape({6}));
   const double *data = d.data<double>();
-  EXPECT_NEAR(data[0], 0.0, 1e-6);   // to_begin
-  EXPECT_NEAR(data[1], 1.0, 1e-6);   // 2-1
-  EXPECT_NEAR(data[2], 2.0, 1e-6);   // 4-2
-  EXPECT_NEAR(data[3], 3.0, 1e-6);   // 7-4
-  EXPECT_NEAR(data[4], 99.0, 1e-6);  // to_end
+  EXPECT_NEAR(data[0], 0.0, 1e-6);  // to_begin
+  EXPECT_NEAR(data[1], 1.0, 1e-6);  // 2-1
+  EXPECT_NEAR(data[2], 2.0, 1e-6);  // 4-2
+  EXPECT_NEAR(data[3], 3.0, 1e-6);  // 7-4
+  EXPECT_NEAR(data[4], 99.0, 1e-6); // to_end
   EXPECT_NEAR(data[5], 100.0, 1e-6);
 }
 
@@ -979,20 +979,20 @@ TEST_F(ManipulationTest, Gradient1D) {
   Array g = gradient(f, 1.0, -1);
   EXPECT_EQ(g.shape(), Shape({5}));
   const double *gd = g.data<double>();
-  EXPECT_NEAR(gd[0], 1.0, 1e-6);   // (2-1)/1
-  EXPECT_NEAR(gd[1], 1.5, 1e-6);   // (4-1)/2
-  EXPECT_NEAR(gd[2], 2.5, 1e-6);   // (7-2)/2
-  EXPECT_NEAR(gd[3], 3.5, 1e-6);   // (11-4)/2
-  EXPECT_NEAR(gd[4], 4.0, 1e-6);   // (11-7)/1
+  EXPECT_NEAR(gd[0], 1.0, 1e-6); // (2-1)/1
+  EXPECT_NEAR(gd[1], 1.5, 1e-6); // (4-1)/2
+  EXPECT_NEAR(gd[2], 2.5, 1e-6); // (7-2)/2
+  EXPECT_NEAR(gd[3], 3.5, 1e-6); // (11-4)/2
+  EXPECT_NEAR(gd[4], 4.0, 1e-6); // (11-7)/1
 }
 
 TEST_F(ManipulationTest, GradientWithDx) {
   Array f = to_array({1.0, 2.0, 4.0, 7.0, 11.0});
   Array g = gradient(f, 2.0, 0);
   const double *gd = g.data<double>();
-  EXPECT_NEAR(gd[0], 0.5, 1e-6);   // (2-1)/2
-  EXPECT_NEAR(gd[1], 0.75, 1e-6);  // (4-1)/4
-  EXPECT_NEAR(gd[4], 2.0, 1e-6);   // (11-7)/2
+  EXPECT_NEAR(gd[0], 0.5, 1e-6);  // (2-1)/2
+  EXPECT_NEAR(gd[1], 0.75, 1e-6); // (4-1)/4
+  EXPECT_NEAR(gd[4], 2.0, 1e-6);  // (11-7)/2
 }
 
 TEST_F(ManipulationTest, Gradient2DAxis) {

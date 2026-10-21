@@ -96,9 +96,6 @@ C_Status logical_not_kernel_gpu(void **inputs, void **outputs) {
 
 } // extern "C"
 
-REGISTER_IXUCA_KERNEL(logical_not, INSIGHT_DTYPE_BOOL,
-                         logical_not_kernel_gpu);
-REGISTER_IXUCA_KERNEL(logical_not, INSIGHT_DTYPE_F32,
-                         logical_not_kernel_gpu);
-REGISTER_IXUCA_KERNEL(logical_not, INSIGHT_DTYPE_F64,
-                         logical_not_kernel_gpu);
+REGISTER_IXUCA_KERNEL(logical_not, INSIGHT_DTYPE_BOOL, logical_not_kernel_gpu);
+REGISTER_IXUCA_KERNEL(logical_not, INSIGHT_DTYPE_F32, logical_not_kernel_gpu);
+REGISTER_IXUCA_KERNEL(logical_not, INSIGHT_DTYPE_F64, logical_not_kernel_gpu);

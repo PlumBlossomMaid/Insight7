@@ -1,5 +1,5 @@
-local state = require "argrule._state"
-local usage_mod = require "argrule._usage"
+local state = require("argrule._state")
+local usage_mod = require("argrule._usage")
 
 local M = {}
 
@@ -158,13 +158,13 @@ M.Nil = make_contract("nil", function(value)
   return value == nil
 end)
 M["nil"] = M.Nil
-M.boolean = builtin "boolean"
-M.number = builtin "number"
-M.string = builtin "string"
-M.table = builtin "table"
-M.userdata = builtin "userdata"
-M.thread = builtin "thread"
-M.func = builtin "function"
+M.boolean = builtin("boolean")
+M.number = builtin("number")
+M.string = builtin("string")
+M.table = builtin("table")
+M.userdata = builtin("userdata")
+M.thread = builtin("thread")
+M.func = builtin("function")
 M["function"] = M.func
 
 M.Callable = make_contract("Callable", is_callable)
@@ -222,7 +222,7 @@ end
 
 function M.Optional(spec)
   sequence(spec, "Optional", 1, 1)
-  return M.Union { spec[1], M.Nil }
+  return M.Union({ spec[1], M.Nil })
 end
 
 local function length_of(value)
@@ -304,20 +304,17 @@ function M.Dict(spec)
   sequence(spec, "Dict", 2, 2)
   local key_is = M.contract(spec[1])
   local value_is = M.contract(spec[2])
-  return make_contract(
-    "Dict[" .. tostring(key_is) .. "," .. tostring(value_is) .. "]",
-    function(value)
-      if type(value) ~= "table" then
+  return make_contract("Dict[" .. tostring(key_is) .. "," .. tostring(value_is) .. "]", function(value)
+    if type(value) ~= "table" then
+      return false
+    end
+    for key, item in pairs(value) do
+      if not key_is(key) or not value_is(item) then
         return false
       end
-      for key, item in pairs(value) do
-        if not key_is(key) or not value_is(item) then
-          return false
-        end
-      end
-      return true
     end
-  )
+    return true
+  end)
 end
 
 function M.Literal(spec)

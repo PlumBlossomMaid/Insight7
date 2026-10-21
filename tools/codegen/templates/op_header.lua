@@ -30,11 +30,16 @@ function M.render(module_name, ops)
   write_line(lines)
   write_line(lines, "inline constexpr OpSchemaStub " .. module_name .. "_ops[] = {")
   for _, op in ipairs(ops) do
-    write_line(lines, string.format("    {\"%s\", \"%s\", \"%s\", %s},",
-      op.name,
-      op.kind,
-      op.promote or "none",
-      op.broadcast and "true" or "false"))
+    write_line(
+      lines,
+      string.format(
+        '    {"%s", "%s", "%s", %s},',
+        op.name,
+        op.kind,
+        op.promote or "none",
+        op.broadcast and "true" or "false"
+      )
+    )
   end
   write_line(lines, "};")
   write_line(lines)

@@ -129,14 +129,15 @@ def arange(*args, dtype=DType.int64, place=None):
     if len(args) == 1:
         return _native_arange(float(args[0]), dtype=dtype, place=place)
     if len(args) == 2:
-        return _native_arange(float(args[0]), float(args[1]), dtype=dtype,
-                              place=place)
+        return _native_arange(float(args[0]), float(args[1]), dtype=dtype, place=place)
     if len(args) == 3:
-        return _native_arange(float(args[0]), float(args[1]), float(args[2]),
-                              dtype=dtype, place=place)
+        return _native_arange(
+            float(args[0]), float(args[1]), float(args[2]), dtype=dtype, place=place
+        )
     raise TypeError(
         "arange expected (stop), (start, stop) or (start, stop, step), got "
-        f"{len(args)} positional arguments")
+        f"{len(args)} positional arguments"
+    )
 
 
 def linspace(start, stop, num, dtype=DType.float32, place=None):

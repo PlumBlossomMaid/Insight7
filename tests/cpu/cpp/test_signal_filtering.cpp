@@ -196,8 +196,8 @@ TEST_F(SignalFilteringTestCPU, LfilterIIRNonUnitB0) {
   ASSERT_EQ(y.numel(), 8);
   // Impulse response from the difference equation
   std::vector<double> expected = {
-      0.0675,           0.2121525,        0.2821263075,     0.2348938174725,
-      0.1520218936351,  0.0767968565722,  0.0250241693695,  -0.0030991168037};
+      0.0675,          0.2121525,       0.2821263075,    0.2348938174725,
+      0.1520218936351, 0.0767968565722, 0.0250241693695, -0.0030991168037};
   expect_float_equal(y, expected, 1e-10);
 }
 
@@ -210,10 +210,9 @@ TEST_F(SignalFilteringTestCPU, LfilterIIRNonUnitB0Ramp) {
   Array x = to_array(x_data);
   Array y = signal::lfilter(b, a, x);
   ASSERT_EQ(y.numel(), 8);
-  std::vector<double> expected = {0.0675,          0.3471525,
-                                  0.9089313075,    1.7056039324725,
-                                  2.6542984510801, 3.5447898262599,
-                                  4.0360003708092, 3.9598591835548};
+  std::vector<double> expected = {
+      0.0675,          0.3471525,       0.9089313075,    1.7056039324725,
+      2.6542984510801, 3.5447898262599, 4.0360003708092, 3.9598591835548};
   expect_float_equal(y, expected, 1e-10);
 }
 

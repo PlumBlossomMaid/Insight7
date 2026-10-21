@@ -132,8 +132,7 @@ Array outer(const Array &a, const Array &b);
  * @return Contracted tensor
  */
 Array tensordot(const Array &a, const Array &b, int axes = 2);
-Array tensordot(const Array &a, const Array &b,
-                const std::vector<int> &axes_a,
+Array tensordot(const Array &a, const Array &b, const std::vector<int> &axes_a,
                 const std::vector<int> &axes_b);
 
 /**

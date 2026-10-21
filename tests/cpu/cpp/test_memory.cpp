@@ -69,7 +69,7 @@ TEST_F(MemoryTestCPU, ArrayStorageMetadataViewSharesRoot) {
   EXPECT_FALSE(root_storage.is_view);
   EXPECT_TRUE(view_storage.is_view);
   EXPECT_EQ(view.data(), static_cast<const char *>(view_storage.data) +
-                            view.offset() * sizeof(float));
+                             view.offset() * sizeof(float));
 }
 
 TEST_F(MemoryTestCPU, ViewKeepsStorageAliveAfterRootDestruction) {

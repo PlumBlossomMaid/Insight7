@@ -35,8 +35,7 @@ static void add_kernel_arg(std::vector<OpRegistry::Arg> &inputs, T *arg) {
 }
 
 template <typename T>
-static void add_kernel_arg(std::vector<OpRegistry::Arg> &inputs,
-                           const T &arg) {
+static void add_kernel_arg(std::vector<OpRegistry::Arg> &inputs, const T &arg) {
   inputs.push_back({const_cast<void *>(static_cast<const void *>(&arg)),
                     OpRegistry::ArgKind::HostScalar});
 }
@@ -49,8 +48,7 @@ static OpSchema manipulation_schema(const char *name, size_t input_count = 1) {
                       OpArgumentKind::Array, OpArgumentAccess::ReadOnly});
   }
   return OpSchema(name, OpKind::Manipulation, inputs,
-                  {{"out", OpArgumentKind::Array,
-                    OpArgumentAccess::WriteOnly}})
+                  {{"out", OpArgumentKind::Array, OpArgumentAccess::WriteOnly}})
       .promotion(OpPromotionRule::Identity)
       .fallback(OpFallbackRule::StructuredCpu);
 }
@@ -68,9 +66,8 @@ static void launch_manipulation_kernel(const char *kernel_name, const Array &x,
 
   (add_kernel_arg(inputs, extra_args), ...);
 
-  OpRegistry::launch_schema(
-      kernel_name, x.place(), x.dtype(), inputs,
-      {OpRegistry::array_arg(arrays[1].layout_ptr())});
+  OpRegistry::launch_schema(kernel_name, x.place(), x.dtype(), inputs,
+                            {OpRegistry::array_arg(arrays[1].layout_ptr())});
 }
 
 // ============================================================================
@@ -405,7 +402,9 @@ Array pad(const Array &x, const std::vector<int64_t> &pad_width,
 // ============================================================================
 
 Array roll(const Array &x, int shift, std::optional<int> axis) {
-  int ax = axis.has_value() ? normalize_axis(axis.value(), x.shape().ndim(), "roll") : -1;
+  int ax = axis.has_value()
+               ? normalize_axis(axis.value(), x.shape().ndim(), "roll")
+               : -1;
   // roll kernel linearly reads the input; copy offset views first.
   Array x_c = x.contiguous();
   Array result(x.shape(), x.dtype(), x.place());
@@ -766,10 +765,12 @@ Array one_hot(const Array &indices, int64_t num_classes, DType dtype) {
             "one_hot: num_classes must be >= 1 (or -1 to infer)");
 
   // Class indices must be integers; promote to int64 for comparison.
-  Array idx = (indices.dtype() == DType::I64) ? indices : indices.to(DType::I64);
+  Array idx =
+      (indices.dtype() == DType::I64) ? indices : indices.to(DType::I64);
 
   if (num_classes < 0) {
-    INS_CHECK(idx.numel() > 0, "one_hot: cannot infer num_classes from empty input");
+    INS_CHECK(idx.numel() > 0,
+              "one_hot: cannot infer num_classes from empty input");
     Array m = max(idx);
     num_classes = m.item<int64_t>() + 1;
   }
@@ -820,9 +821,8 @@ std::vector<Array> histogram(const Array &x, int64_t bins,
 
   // bin index = clamp(floor((x - lo) / width), 0, bins - 1)
   Array xf = flat.to(ftype);
-  Array scaled =
-      div(sub(xf, full(Shape({1}), lo, ftype, x.place())),
-          full(Shape({1}), width, ftype, x.place()));
+  Array scaled = div(sub(xf, full(Shape({1}), lo, ftype, x.place())),
+                     full(Shape({1}), width, ftype, x.place()));
   Array idx = floor(scaled).to(DType::I64);
   idx = maximum(idx, full(Shape({1}), 0, DType::I64, x.place()));
   idx = minimum(idx, full(Shape({1}), bins - 1, DType::I64, x.place()));
@@ -844,10 +844,9 @@ Array contiguous(const Array &x) {
   OpSchema schema = manipulation_schema("contiguous_copy");
   ArrayIterator iter = schema.make_transform_iterator({x}, {result});
   auto arrays = iter.arrays();
-  OpRegistry::launch_schema(
-      "contiguous_copy", x.place(), x.dtype(),
-      {OpRegistry::array_arg(arrays[0].layout_ptr())},
-      {OpRegistry::array_arg(arrays[1].layout_ptr())});
+  OpRegistry::launch_schema("contiguous_copy", x.place(), x.dtype(),
+                            {OpRegistry::array_arg(arrays[0].layout_ptr())},
+                            {OpRegistry::array_arg(arrays[1].layout_ptr())});
 
   return result;
 }

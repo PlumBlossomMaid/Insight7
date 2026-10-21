@@ -22,8 +22,8 @@ __global__ void sigmoid_kernel(const T *x, T *out, int64_t n, int ndim,
   if (idx < n) {
     int64_t off_x = x_offset + unary_offset(idx, ndim, dims, x_strides);
     int64_t off_out = out_offset + unary_offset(idx, ndim, dims, out_strides);
-    out[off_out] = static_cast<T>(1) /
-                   (static_cast<T>(1) + std::exp(-x[off_x]));
+    out[off_out] =
+        static_cast<T>(1) / (static_cast<T>(1) + std::exp(-x[off_x]));
   }
 }
 
@@ -67,9 +67,8 @@ C_Status sigmoid_kernel_gpu(void **inputs, void **outputs) {
     break;
   case INSIGHT_DTYPE_F64:
     sigmoid_kernel<double><<<blocks, threads>>>(
-        static_cast<const double *>(x->data),
-        static_cast<double *>(out->data), n, ndim, d_dims, d_x_strides,
-        d_out_strides, x_offset, out_offset);
+        static_cast<const double *>(x->data), static_cast<double *>(out->data),
+        n, ndim, d_dims, d_x_strides, d_out_strides, x_offset, out_offset);
     break;
   default:
     cudaFree(d_dims);

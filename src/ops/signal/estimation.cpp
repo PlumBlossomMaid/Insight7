@@ -40,8 +40,7 @@ static OpSchema signal_schema(const char *name, size_t input_count,
 }
 
 static void launch_signal_kernel(const char *name, const Place &place,
-                                 DType dtype,
-                                 const std::vector<Array> &inputs,
+                                 DType dtype, const std::vector<Array> &inputs,
                                  const std::vector<Array> &outputs) {
   OpSchema schema = signal_schema(name, inputs.size(), outputs.size());
   ArrayIterator iter = schema.make_transform_iterator(inputs, outputs);
@@ -63,8 +62,7 @@ static void launch_signal_kernel(const char *name, const Place &place,
 }
 
 static void launch_signal_kernel(const char *name, const Place &place,
-                                 DType dtype,
-                                 const std::vector<Array> &inputs,
+                                 DType dtype, const std::vector<Array> &inputs,
                                  const Array &output) {
   launch_signal_kernel(name, place, dtype, inputs, std::vector<Array>{output});
 }

@@ -1212,15 +1212,13 @@ class TestSignalWaveforms:
 class TestSignalWavelets:
     """Insight signal wavelets vs SciPy."""
 
-    @pytest.mark.skipif(not hasattr(sp_signal, "ricker"),
-                        reason="SciPy >= 1.15 removed ricker")
+    @pytest.mark.skipif(not hasattr(sp_signal, "ricker"), reason="SciPy >= 1.15 removed ricker")
     def test_ricker(self):
         result = ins.ricker(100, 4.0)
         expected = sp_signal.ricker(100, 4.0)
         assert_allclose(result.numpy(), expected, rtol=1e-6)
 
-    @pytest.mark.skipif(not hasattr(sp_signal, "morlet"),
-                        reason="SciPy >= 1.15 removed morlet")
+    @pytest.mark.skipif(not hasattr(sp_signal, "morlet"), reason="SciPy >= 1.15 removed morlet")
     def test_morlet(self):
         result = ins.morlet(50, w=5.0, s=1.0, complete=True)
         expected = sp_signal.morlet(50, w=5.0, s=1.0, complete=True)
@@ -1393,9 +1391,9 @@ class TestSignalSpectral:
         f_expected, Pxx_expected = sp_signal.welch(x_np, fs=1000.0, nperseg=256)
         assert_allclose(result.f.numpy(), f_expected, rtol=1e-4)
         Pxx_ins = result.Pxx.numpy()
-        assert (
-            Pxx_ins.shape == Pxx_expected.shape
-        ), f"Shape mismatch: {Pxx_ins.shape} vs {Pxx_expected.shape}"
+        assert Pxx_ins.shape == Pxx_expected.shape, (
+            f"Shape mismatch: {Pxx_ins.shape} vs {Pxx_expected.shape}"
+        )
         assert np.all(Pxx_ins >= 0), "PSD should be non-negative"
 
     def test_periodogram(self):
@@ -1421,9 +1419,9 @@ class TestSignalSpectral:
         f_expected, Pxy_expected = sp_signal.csd(x_np, y_np, fs=1000.0, nperseg=256)
         assert_allclose(result.f.numpy(), f_expected, rtol=1e-4)
         Pxy_ins = result.Pxx.numpy()
-        assert (
-            Pxy_ins.shape == Pxy_expected.shape
-        ), f"Shape mismatch: {Pxy_ins.shape} vs {Pxy_expected.shape}"
+        assert Pxy_ins.shape == Pxy_expected.shape, (
+            f"Shape mismatch: {Pxy_ins.shape} vs {Pxy_expected.shape}"
+        )
 
     def test_coherence(self):
         rng = np.random.RandomState(42)
@@ -1435,9 +1433,9 @@ class TestSignalSpectral:
         f_expected, Cxy_expected = sp_signal.coherence(x_np, y_np, fs=1000.0, nperseg=256)
         assert_allclose(result.f.numpy(), f_expected, rtol=1e-4)
         Cxy_ins = result.Pxx.numpy()
-        assert (
-            Cxy_ins.shape == Cxy_expected.shape
-        ), f"Shape mismatch: {Cxy_ins.shape} vs {Cxy_expected.shape}"
+        assert Cxy_ins.shape == Cxy_expected.shape, (
+            f"Shape mismatch: {Cxy_ins.shape} vs {Cxy_expected.shape}"
+        )
         assert np.all(Cxy_ins >= -0.01) and np.all(Cxy_ins <= 1.01), "Coherence should be in [0, 1]"
 
     def test_spectrogram(self):
@@ -1460,9 +1458,9 @@ class TestSignalSpectral:
         Zxx_ins = result.Sxx.numpy()
         assert Zxx_ins.ndim == 2, "STFT output should be 2D"
         # Insight STFT may return (n_segments, n_freqs) instead of (n_freqs, n_segments)
-        assert Zxx_ins.shape[0] == len(f_exp) or Zxx_ins.shape[1] == len(
-            f_exp
-        ), f"Neither dim matches freq bins: {Zxx_ins.shape} vs {len(f_exp)}"
+        assert Zxx_ins.shape[0] == len(f_exp) or Zxx_ins.shape[1] == len(f_exp), (
+            f"Neither dim matches freq bins: {Zxx_ins.shape} vs {len(f_exp)}"
+        )
 
 
 # ============================================================================
@@ -1474,8 +1472,7 @@ class TestSignalSpectral:
 class TestSignalBSplines:
     """Insight B-spline functions vs SciPy."""
 
-    @pytest.mark.skipif(not hasattr(sp_signal, "cubic"),
-                        reason="SciPy >= 1.15 removed cubic")
+    @pytest.mark.skipif(not hasattr(sp_signal, "cubic"), reason="SciPy >= 1.15 removed cubic")
     def test_cubic(self):
         x_np = np.array([-2, -1, 0, 1, 2], dtype=np.float64)
         x = ins.from_numpy(x_np)
@@ -1485,8 +1482,9 @@ class TestSignalBSplines:
         expected = scipy_cubic(x_np)
         assert_allclose(result.numpy(), expected, atol=1e-10)
 
-    @pytest.mark.skipif(not hasattr(sp_signal, "quadratic"),
-                        reason="SciPy >= 1.15 removed quadratic")
+    @pytest.mark.skipif(
+        not hasattr(sp_signal, "quadratic"), reason="SciPy >= 1.15 removed quadratic"
+    )
     def test_quadratic(self):
         x_np = np.array([-2, -1, 0, 1, 2], dtype=np.float64)
         x = ins.from_numpy(x_np)

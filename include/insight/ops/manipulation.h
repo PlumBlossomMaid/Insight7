@@ -313,9 +313,9 @@ Array one_hot(const Array &indices, int64_t num_classes = -1,
  * @return {hist, bin_edges}: hist has shape (bins,), bin_edges has
  * shape (bins + 1,)
  */
-std::vector<Array> histogram(const Array &x, int64_t bins = 10,
-                             std::optional<std::pair<double, double>> range =
-                                 std::nullopt);
+std::vector<Array>
+histogram(const Array &x, int64_t bins = 10,
+          std::optional<std::pair<double, double>> range = std::nullopt);
 
 // ========== Contiguity (copy if needed) ==========
 

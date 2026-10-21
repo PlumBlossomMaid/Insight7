@@ -15,11 +15,9 @@
 
 template <typename T>
 __global__ void leaky_relu_kernel(const T *x, T *out, int64_t n, int ndim,
-                                  const int64_t *dims,
-                                  const int64_t *x_strides,
-                                  const int64_t *out_strides,
-                                  int64_t x_offset, int64_t out_offset,
-                                  T alpha) {
+                                  const int64_t *dims, const int64_t *x_strides,
+                                  const int64_t *out_strides, int64_t x_offset,
+                                  int64_t out_offset, T alpha) {
   int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx < n) {
     int64_t off_x = x_offset + unary_offset(idx, ndim, dims, x_strides);
@@ -76,9 +74,9 @@ C_Status leaky_relu_kernel_gpu(void **inputs, void **outputs) {
     break;
   case INSIGHT_DTYPE_F64:
     leaky_relu_kernel<double><<<blocks, threads>>>(
-        static_cast<const double *>(x->data),
-        static_cast<double *>(out->data), n, ndim, d_dims, d_x_strides,
-        d_out_strides, x_offset, out_offset, alpha_host);
+        static_cast<const double *>(x->data), static_cast<double *>(out->data),
+        n, ndim, d_dims, d_x_strides, d_out_strides, x_offset, out_offset,
+        alpha_host);
     break;
   default:
     cudaFree(d_dims);

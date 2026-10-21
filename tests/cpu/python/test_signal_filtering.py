@@ -77,11 +77,12 @@ class TestLfilter:
         a = ins.from_numpy(np.array([1.0], dtype=np.float64))
         x = ins.from_numpy(np.array([1, 0, 0, 0, 0], dtype=np.float64))
         y = ins.signal.lfilter(b, a, x)
-        assert y.numel == 6
+        # scipy.signal.lfilter returns len(x) samples: [1, 1, 0, 0, 0]
+        assert y.numel == 5
         d = y.numpy()
         assert abs(d[0] - 1.0) < 1e-10
         assert abs(d[1] - 1.0) < 1e-10
-        for i in range(2, 6):
+        for i in range(2, 5):
             assert abs(d[i]) < 1e-10
 
     def test_lfilter_fir_moving_avg(self):

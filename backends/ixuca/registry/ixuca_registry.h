@@ -6,9 +6,9 @@ extern "C" {
 #endif
 
 void ixuca_register_kernel(const char *op_name, int32_t dtype,
-                              InsightKernel func);
-void ixuca_sync_kernels(C_Status (*register_fn)(const char *, int32_t,
-                                                   int32_t, InsightKernel));
+                           InsightKernel func);
+void ixuca_sync_kernels(C_Status (*register_fn)(const char *, int32_t, int32_t,
+                                                InsightKernel));
 void ixuca_set_last_error(const char *msg);
 const char *ixuca_get_last_error(void);
 
@@ -26,8 +26,8 @@ const char *ixuca_get_last_error(void);
 #define gpu_get_last_error ixuca_get_last_error
 #endif
 
-#define REGISTER_IXUCA_KERNEL(op_name, dtype, func)                         \
-  static bool _ixuca_##op_name##_##dtype = []() {                           \
-    ::ixuca_register_kernel(#op_name, static_cast<int32_t>(dtype), func);   \
+#define REGISTER_IXUCA_KERNEL(op_name, dtype, func)                            \
+  static bool _ixuca_##op_name##_##dtype = []() {                              \
+    ::ixuca_register_kernel(#op_name, static_cast<int32_t>(dtype), func);      \
     return true;                                                               \
   }();
