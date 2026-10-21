@@ -82,6 +82,7 @@ jobs:
             cmake \
             ccache \
             build-essential \
+            python3 \
             libfftw3-dev \
             libopenblas-dev \
             liblapacke-dev \

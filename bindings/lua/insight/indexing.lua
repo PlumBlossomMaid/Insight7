@@ -11,6 +11,19 @@ local M = {}
 local rule = require("argrule.rule")
 local argrule = require("argrule")
 
+-- Lua wrappers follow NumPy-style 0-based axes (matching Python/C++), while
+-- the native binding expects Lua 1-based axes (see lua_axis_to_cpp). Convert
+-- non-negative axes here; negative axes (from-the-end) pass through unchanged.
+local function dim_to_lua(dim)
+  if dim == nil then
+    return 1
+  end
+  if dim >= 0 then
+    return dim + 1
+  end
+  return dim
+end
+
 --- Take elements from an array along an axis by index.
 -- @tparam Array x Input array.
 -- @tparam Array indices Indices of elements to take.
@@ -90,7 +103,7 @@ M.gather = rule({
   { name = "dim", type = argrule.any, opt = true },
   { name = "index", type = argrule.any, opt = true },
 })(function(x, dim, index)
-  return native.gather(x, dim == nil and 1 or dim, index)
+  return native.gather(x, dim_to_lua(dim), index)
 end)
 
 --- Scatter values into an array by index.
@@ -105,7 +118,7 @@ M.scatter = rule({
   { name = "index", type = argrule.any, opt = true },
   { name = "src", type = argrule.any, opt = true },
 })(function(x, dim, index, src)
-  return native.scatter(x, dim == nil and 1 or dim, index, src)
+  return native.scatter(x, dim_to_lua(dim), index, src)
 end)
 
 --- Scatter-add values into an array by index.
@@ -120,7 +133,7 @@ M.scatter_add = rule({
   { name = "index", type = argrule.any, opt = true },
   { name = "src", type = argrule.any, opt = true },
 })(function(x, dim, index, src)
-  return native.scatter_add(x, dim == nil and 1 or dim, index, src)
+  return native.scatter_add(x, dim_to_lua(dim), index, src)
 end)
 
 --- Scatter with reduction into an array by index.
@@ -137,7 +150,7 @@ M.scatter_reduce = rule({
   { name = "src", type = argrule.any, opt = true },
   { name = "reduce", type = argrule.any, opt = true },
 })(function(x, dim, index, src, reduce)
-  return native.scatter_reduce(x, dim == nil and 1 or dim, index, src, reduce)
+  return native.scatter_reduce(x, dim_to_lua(dim), index, src, reduce)
 end)
 
 --- 1-D linear interpolation.
