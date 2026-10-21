@@ -1,5 +1,6 @@
 # Build directories
 build/
+build-*/
 build_win/
 build_win_x86/
 build.luarocks/
@@ -24,6 +25,9 @@ stylua_redirect.html
 test_cpu_support.csv
 test_cuda_support.csv
 .qwen/
+
+# Local dependency checkouts used by FetchContent fallback
+third_party/matplotplusplus/
 
 # IDE files
 .vscode/
@@ -70,7 +74,8 @@ Desktop.ini
 .qwen/settings.local.json
 
 # Doxygen output
-docs/
+/docs/html/
+/docs/latex/
 
 # Generated images / animation frames
 *.png

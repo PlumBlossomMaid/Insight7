@@ -22,8 +22,18 @@ function(apply_patch SOURCE_DIR PATCH_FILE)
     set(PATCH_STAMP "${SOURCE_DIR}/.patch_applied_${PATCH_NAME}")
 
     if(EXISTS "${PATCH_STAMP}")
-        message(STATUS "[patch] ${PATCH_NAME}: already applied (stamp exists)")
-        return()
+        execute_process(
+            COMMAND git apply --reverse --check --ignore-whitespace "${PATCH_FILE}"
+            WORKING_DIRECTORY "${SOURCE_DIR}"
+            RESULT_VARIABLE R_STAMP
+            OUTPUT_QUIET ERROR_QUIET
+        )
+        if(R_STAMP EQUAL 0)
+            message(STATUS "[patch] ${PATCH_NAME}: already applied (stamp verified)")
+            return()
+        endif()
+        message(STATUS "[patch] ${PATCH_NAME}: stale stamp found, reapplying")
+        file(REMOVE "${PATCH_STAMP}")
     endif()
 
     message(STATUS "[patch] ${PATCH_NAME}: applying to ${SOURCE_DIR} ...")

@@ -10,7 +10,7 @@ demos/python/radar_detection.py
   - 可选 Matplotlib 绘图 (--plot DIR)
   - 纯 Insight7 计算，无 numpy 依赖
 
-优化 (2026-06-13 v2):
+优化 (2026-06-13):
   - 回波模拟全向量化: 2D 数组 + broadcasting，零 Python 脉冲循环
   - 预计算匹配滤波器 FFT: 所有帧共享
   - Doppler FFT 全 GPU: fft(axis=0) + fftshift，无 CPU 来回搬运
@@ -80,7 +80,7 @@ def _init_cache(device="cpu"):
 
     # 确定设备
     if device == "gpu" and ins.has_device("gpu"):
-        ins.load_backend("cuda")
+        ins.init()
         _PLACE = ins.GPUPlace(0)
     else:
         _PLACE = ins.CPUPlace()
@@ -239,7 +239,7 @@ def run_detection(
     external_noise_r/external_noise_i: 可选外部噪声数组，用于 --device all 模式共享随机噪声。
     """
     if device == "gpu" and ins.has_device("gpu"):
-        ins.load_backend("cuda")
+        ins.init()
         ins.set_device(ins.GPUPlace(0))
     else:
         if device == "gpu":

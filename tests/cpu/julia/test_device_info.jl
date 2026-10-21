@@ -23,7 +23,7 @@ end
 println("=== Device Info ===")
 
 # device_name cpu
-name = Insight.device_name(0)
+name = Insight.device_name(0, 0)
 check("device_name", typeof(name) == String)
 
 # gpu_version
@@ -51,7 +51,7 @@ catch e
 end
 
 # device_name default
-name2 = Insight.device_name()
+name2 = Insight.device_name(0, 0)
 check("device_name_default", typeof(name2) == String)
 
 # compute_capability default

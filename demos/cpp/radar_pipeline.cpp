@@ -126,9 +126,9 @@ static std::vector<double> kalman_smooth(const std::vector<double> &z,
 }
 
 // ============================================================
-// 中心差分梯度
+// 中心差分梯度（1D，demo 私有；ins::gradient 返回每轴一个数组）
 // ============================================================
-static Array gradient(const Array &x, double dx) {
+static Array gradient_1d(const Array &x, double dx) {
   int64_t n = x.numel();
   if (n < 2)
     return zeros_like(x);
@@ -326,7 +326,7 @@ static FrameResult run_frame(int seed_val, Place place,
   t0 = std::chrono::high_resolution_clock::now();
   Array analytic = signal::hilbert(r.smoothed);
   Array inst_phase = unwrap(angle(analytic));
-  r.inst_freq = gradient(inst_phase, 1.0 / FS) / (2.0 * M_PI);
+  r.inst_freq = gradient_1d(inst_phase, 1.0 / FS) / (2.0 * M_PI);
   t1 = std::chrono::high_resolution_clock::now();
   r.t_demod_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
 
@@ -402,7 +402,7 @@ int main(int argc, char *argv[]) {
   bool do_all = (eff_device == "all");
   Place place = CPUPlace();
   if (use_gpu) {
-    load_backend("cuda");
+    init();
     place = GPUPlace(0);
   }
   if (!do_all)

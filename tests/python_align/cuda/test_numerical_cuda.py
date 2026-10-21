@@ -26,9 +26,9 @@ except ImportError:
 
 # Skip if CUDA not available
 try:
-    ins.load_backend("cuda")
+    ins.init()
 except Exception:
-    pytest.skip("CUDA backend not available", allow_module_level=True)
+    pytest.skip("GPU backend not available", allow_module_level=True)
 
 GPU = ins.GPUPlace(0)
 CPU = ins.CPUPlace()
@@ -540,8 +540,8 @@ class TestElementwiseExtendedGPU:
         a_np = np.array([10.0, 7.5, -3.0, 11.0], dtype=np.float64)
         b_np = np.array([3.0, 2.0, 2.0, 5.0], dtype=np.float64)
         a, b = ins.from_numpy(a_np), ins.from_numpy(b_np)
-        # Insight uses truncated division (like C), not floored (like NumPy)
-        expected = a_np - np.trunc(a_np / b_np) * b_np
+        # Insight mod matches NumPy floored semantics: a - floor(a/b) * b
+        expected = np.mod(a_np, b_np)
         assert_allclose(ins.mod(a, b).numpy(), expected, rtol=1e-8)
 
     def test_bitwise_and(self):
@@ -1236,11 +1236,13 @@ class TestSignalWaveformsGPU:
 class TestSignalWaveletsGPU:
     """Insight signal wavelets vs SciPy."""
 
+    @pytest.mark.skipif(not hasattr(sp_signal, "ricker"), reason="SciPy >= 1.15 removed ricker")
     def test_ricker(self):
         result = ins.ricker(100, 4.0)
         expected = sp_signal.ricker(100, 4.0)
         assert_allclose(result.numpy(), expected, rtol=1e-6)
 
+    @pytest.mark.skipif(not hasattr(sp_signal, "morlet"), reason="SciPy >= 1.15 removed morlet")
     def test_morlet(self):
         result = ins.morlet(50, w=5.0, s=1.0, complete=True)
         expected = sp_signal.morlet(50, w=5.0, s=1.0, complete=True)
@@ -1494,6 +1496,7 @@ class TestSignalSpectralGPU:
 class TestSignalBSplinesGPU:
     """Insight B-spline functions vs SciPy."""
 
+    @pytest.mark.skipif(not hasattr(sp_signal, "cubic"), reason="SciPy >= 1.15 removed cubic")
     def test_cubic(self):
         x_np = np.array([-2, -1, 0, 1, 2], dtype=np.float64)
         x = ins.from_numpy(x_np)
@@ -1503,6 +1506,9 @@ class TestSignalBSplinesGPU:
         expected = scipy_cubic(x_np)
         assert_allclose(result.numpy(), expected, atol=1e-10)
 
+    @pytest.mark.skipif(
+        not hasattr(sp_signal, "quadratic"), reason="SciPy >= 1.15 removed quadratic"
+    )
     def test_quadratic(self):
         x_np = np.array([-2, -1, 0, 1, 2], dtype=np.float64)
         x = ins.from_numpy(x_np)

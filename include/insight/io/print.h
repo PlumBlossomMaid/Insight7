@@ -41,7 +41,7 @@ void set_printoptions(int precision = -1, int threshold = -1,
 /**
  * @brief Convert array to string representation.
  *
- * Format follows Paddle's tensor printing style:
+ * Format follows Paddle-style array display:
  *   Array(shape=[2, 3], dtype=float32, place=cpu,
  *        [[0.1, 0.2, 0.3],
  *         [0.4, 0.5, 0.6]])

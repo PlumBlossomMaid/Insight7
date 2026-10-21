@@ -1,5 +1,6 @@
 // tests/cpu/test_signal_filtering.cpp
 #include "insight/insight.h"
+#include <algorithm>
 #include <cmath>
 #include <complex>
 #include <gtest/gtest.h>
@@ -125,7 +126,7 @@ TEST_F(SignalFilteringTestCPU, DetrendLinearWithNoise) {
 
 TEST_F(SignalFilteringTestCPU, LfilterFIRBasic) {
   // b = [1, 1], a = [1], x = [1, 0, 0, 0, 0]
-  // y = convolve([1,1], [1,0,0,0,0]) = [1, 1, 0, 0, 0, 0]
+  // scipy.signal.lfilter returns len(x) samples: [1, 1, 0, 0, 0]
   std::vector<double> b_data = {1.0, 1.0};
   std::vector<double> a_data = {1.0};
   std::vector<double> x_data = {1.0, 0.0, 0.0, 0.0, 0.0};
@@ -133,11 +134,11 @@ TEST_F(SignalFilteringTestCPU, LfilterFIRBasic) {
   Array a = to_array(a_data);
   Array x = to_array(x_data);
   Array y = signal::lfilter(b, a, x);
-  EXPECT_EQ(y.numel(), 6);
+  EXPECT_EQ(y.numel(), 5);
   const double *d = y.data<double>();
   EXPECT_NEAR(d[0], 1.0, 1e-10);
   EXPECT_NEAR(d[1], 1.0, 1e-10);
-  for (int i = 2; i < 6; ++i) {
+  for (int i = 2; i < 5; ++i) {
     EXPECT_NEAR(d[i], 0.0, 1e-10);
   }
 }
@@ -151,7 +152,9 @@ TEST_F(SignalFilteringTestCPU, LfilterFIRMovingAvg) {
   Array a = to_array(a_data);
   Array x = to_array(x_data);
   Array y = signal::lfilter(b, a, x);
-  // Full convolution: [1/3, 1, 2, 3, 4, 10/3, 5/3]
+  // scipy.signal.lfilter: [1/3, 1, 2, 3, 4]
+  EXPECT_EQ(y.numel(), 5);
+  EXPECT_NEAR(y.data<double>()[0], 1.0 / 3, 1e-10);
   EXPECT_NEAR(y.data<double>()[1], 1.0, 1e-10);
   EXPECT_NEAR(y.data<double>()[2], 2.0, 1e-10);
   EXPECT_NEAR(y.data<double>()[3], 3.0, 1e-10);
@@ -178,6 +181,53 @@ TEST_F(SignalFilteringTestCPU, LfilterIIRBasic) {
   EXPECT_NEAR(d[2], 0.25, 1e-10);
   EXPECT_NEAR(d[3], 0.125, 1e-10);
   EXPECT_NEAR(d[4], 0.0625, 1e-10);
+}
+
+TEST_F(SignalFilteringTestCPU, LfilterIIRNonUnitB0) {
+  // 2nd-order lowpass with b[0] != 1
+  // b = [0.0675, 0.135, 0.0675], a = [1, -1.143, 0.4128]
+  std::vector<double> b_data = {0.0675, 0.135, 0.0675};
+  std::vector<double> a_data = {1.0, -1.143, 0.4128};
+  std::vector<double> x_data = {1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+  Array b = to_array(b_data);
+  Array a = to_array(a_data);
+  Array x = to_array(x_data);
+  Array y = signal::lfilter(b, a, x);
+  ASSERT_EQ(y.numel(), 8);
+  // Impulse response from the difference equation
+  std::vector<double> expected = {
+      0.0675,          0.2121525,       0.2821263075,    0.2348938174725,
+      0.1520218936351, 0.0767968565722, 0.0250241693695, -0.0030991168037};
+  expect_float_equal(y, expected, 1e-10);
+}
+
+TEST_F(SignalFilteringTestCPU, LfilterIIRNonUnitB0Ramp) {
+  std::vector<double> b_data = {0.0675, 0.135, 0.0675};
+  std::vector<double> a_data = {1.0, -1.143, 0.4128};
+  std::vector<double> x_data = {1.0, 2.0, 3.0, 4.0, 5.0, 4.0, 3.0, 2.0};
+  Array b = to_array(b_data);
+  Array a = to_array(a_data);
+  Array x = to_array(x_data);
+  Array y = signal::lfilter(b, a, x);
+  ASSERT_EQ(y.numel(), 8);
+  std::vector<double> expected = {
+      0.0675,          0.3471525,       0.9089313075,    1.7056039324725,
+      2.6542984510801, 3.5447898262599, 4.0360003708092, 3.9598591835548};
+  expect_float_equal(y, expected, 1e-10);
+}
+
+TEST_F(SignalFilteringTestCPU, LfilterPureGain) {
+  // b = [2], a = [1] -> y = 2*x, same length as x
+  std::vector<double> b_data = {2.0};
+  std::vector<double> a_data = {1.0};
+  std::vector<double> x_data = {1.0, -2.0, 3.0, 0.5, 4.0};
+  Array b = to_array(b_data);
+  Array a = to_array(a_data);
+  Array x = to_array(x_data);
+  Array y = signal::lfilter(b, a, x);
+  ASSERT_EQ(y.numel(), 5);
+  std::vector<double> expected = {2.0, -4.0, 6.0, 1.0, 8.0};
+  expect_float_equal(y, expected, 1e-10);
 }
 
 // ========== lfilter_zi ==========
@@ -355,6 +405,47 @@ TEST_F(SignalFilteringTestCPU, ResamplePolyDownsample) {
   EXPECT_LE(y.numel(), 5);
 }
 
+TEST_F(SignalFilteringTestCPU, ResamplePolyPreservesEnergy) {
+  // A constant signal must not be resampled into zeros
+  int64_t N = 32;
+  std::vector<double> x_data(N, 1.0);
+  Array x = to_array(x_data);
+  Array y = signal::resample_poly(x, 2, 1);
+  ASSERT_EQ(y.numel(), 64);
+
+  const double *d = y.data<double>();
+  double max_abs = 0.0;
+  double energy = 0.0;
+  for (int64_t i = 0; i < y.numel(); ++i) {
+    ASSERT_TRUE(std::isfinite(d[i])) << "non-finite at " << i;
+    max_abs = std::max(max_abs, std::abs(d[i]));
+    energy += d[i] * d[i];
+  }
+  EXPECT_GT(max_abs, 0.5) << "resample_poly returned an all-zero signal";
+  EXPECT_GT(energy / y.numel(), 0.25);
+
+  // Interior of a constant signal stays constant and non-zero
+  for (int64_t i = 20; i < 44; ++i) {
+    EXPECT_GT(std::abs(d[i]), 0.5) << "zero interior sample at " << i;
+    EXPECT_NEAR(d[i], d[32], 0.05) << "interior not flat at " << i;
+  }
+}
+
+TEST_F(SignalFilteringTestCPU, ResamplePolySineNotZero) {
+  int64_t N = 64;
+  std::vector<double> x_data(N);
+  for (int64_t i = 0; i < N; ++i)
+    x_data[i] = std::sin(2.0 * M_PI * i / N);
+  Array x = to_array(x_data);
+  Array y = signal::resample_poly(x, 3, 2);
+
+  const double *d = y.data<double>();
+  double max_abs = 0.0;
+  for (int64_t i = 0; i < y.numel(); ++i)
+    max_abs = std::max(max_abs, std::abs(d[i]));
+  EXPECT_GT(max_abs, 0.1) << "resample_poly returned an all-zero signal";
+}
+
 // ========== firfilter ==========
 
 TEST_F(SignalFilteringTestCPU, FirfilterBasic) {
@@ -471,6 +562,48 @@ TEST_F(SignalFilteringTestCPU, UpfirdnDownsampleOnly) {
   EXPECT_NEAR(d[0], 1.0, 1e-10);
   EXPECT_NEAR(d[1], 3.0, 1e-10);
   EXPECT_NEAR(d[2], 5.0, 1e-10);
+}
+
+TEST_F(SignalFilteringTestCPU, UpfirdnFloat32) {
+  // F32 input must be read as float, not reinterpreted as double
+  std::vector<float> h_data = {0.5f, 0.5f};
+  std::vector<float> x_data = {1.0f, 2.0f, 3.0f, 4.0f};
+  Array h = to_array(h_data);
+  Array x = to_array(x_data);
+
+  Array y = signal::upfirdn(h, x, 1, 1);
+
+  ASSERT_EQ(y.dtype(), DType::F32);
+  std::vector<float> expected = {1.5f, 2.5f, 3.5f, 2.0f};
+  expect_float_equal(y, expected, 1e-5f);
+}
+
+TEST_F(SignalFilteringTestCPU, UpfirdnFloat32Upsample) {
+  std::vector<float> h_data = {1.0f};
+  std::vector<float> x_data = {1.0f, 2.0f, 3.0f};
+  Array h = to_array(h_data);
+  Array x = to_array(x_data);
+
+  Array y = signal::upfirdn(h, x, 2, 1);
+
+  ASSERT_EQ(y.dtype(), DType::F32);
+  std::vector<float> expected = {1.0f, 0.0f, 2.0f, 0.0f, 3.0f, 0.0f};
+  expect_float_equal(y, expected, 1e-5f);
+}
+
+TEST_F(SignalFilteringTestCPU, ChannelizePolyFloat32) {
+  std::vector<float> h_data = {1.0f, 1.0f, 1.0f, 1.0f};
+  std::vector<float> x_data = {1.0f, 2.0f, 3.0f, 4.0f};
+  Array h = to_array(h_data);
+  Array x = to_array(x_data);
+
+  Array y = signal::channelize_poly(x, h, 2);
+
+  ASSERT_EQ(y.dtype(), DType::F32);
+  ASSERT_EQ(y.numel(), 4);
+  // channel 0 taps [1,1] over x[0],x[2]; channel 1 taps [1,1] over x[1],x[3]
+  std::vector<float> expected = {1.0f, 4.0f, 2.0f, 6.0f};
+  expect_float_equal(y, expected, 1e-5f);
 }
 
 // ========== channelize_poly ==========

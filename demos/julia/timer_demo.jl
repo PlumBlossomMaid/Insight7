@@ -23,7 +23,7 @@ end
 
 # GPU Timer (if available)
 if has_device(1)
-    load_backend("rocm")
+    load_backend("gpu")
     t = Timer(1, 0)
     timer_start(t)
     a = Insight.ones(Int64[256, 256], Insight.float32, Int32(1))

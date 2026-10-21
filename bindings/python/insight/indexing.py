@@ -17,6 +17,13 @@ from typing import List, Optional, Union
 from insight._insight import Array, Shape  # noqa: F401
 from insight._insight import (
     take as _native_take,
+    take_along_axis as _native_take_along_axis,
+    put as _native_put,
+    put_along_axis as _native_put_along_axis,
+    compress as _native_compress,
+    partition as _native_partition,
+    argpartition as _native_argpartition,
+    lexsort as _native_lexsort,
     nonzero as _native_nonzero,
     flatnonzero as _native_flatnonzero,
     argsort as _native_argsort,
@@ -60,6 +67,34 @@ def take(
         Array containing the taken elements.
     """
     return _native_take(x, indices, axis)
+
+
+def take_along_axis(x: "Array", indices: "Array", axis: int) -> "Array":
+    return _native_take_along_axis(x, indices, axis)
+
+
+def put(x: "Array", indices: "Array", values: "Array", axis=None) -> "Array":
+    return _native_put(x, indices, values, axis)
+
+
+def put_along_axis(x: "Array", indices: "Array", values: "Array", axis: int) -> "Array":
+    return _native_put_along_axis(x, indices, values, axis)
+
+
+def compress(x: "Array", condition: "Array", axis=None) -> "Array":
+    return _native_compress(x, condition, axis)
+
+
+def partition(x: "Array", kth: int, axis: int = -1) -> "Array":
+    return _native_partition(x, kth, axis)
+
+
+def argpartition(x: "Array", kth: int, axis: int = -1) -> "Array":
+    return _native_argpartition(x, kth, axis)
+
+
+def lexsort(keys: list, axis: int = -1) -> "Array":
+    return _native_lexsort(keys, axis)
 
 
 def nonzero(x: "Array") -> "Array":
@@ -364,7 +399,13 @@ def ix_(arrays: List["Array"]) -> List["Array"]:
 
 __all__ = [
     "take",
-    "nonzero",
+    "take_along_axis",
+    "put",
+    "put_along_axis",
+    "compress",
+    "partition",
+    "argpartition",
+    "lexsort",
     "flatnonzero",
     "argsort",
     "sort",

@@ -16,7 +16,9 @@ class ProfilerTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
     ins::init();
-    if (!is_device_available(DeviceKind::GPU)) {
+    try {
+      set_device(GPUPlace(0));
+    } catch (...) {
       GTEST_SKIP() << "GPU not available";
     }
   }

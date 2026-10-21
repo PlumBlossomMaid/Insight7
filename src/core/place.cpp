@@ -6,9 +6,12 @@
 #include "insight/core/exception.h"
 #include "insight/init.h"
 #include <atomic>
+#include <cctype>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <sstream>
+#include <string>
 
 extern "C" {
 
@@ -37,8 +40,6 @@ C_Status insight_get_available_devices(char ***devices_out) {
       }
     }
   }
-
-  // TODO: Add custom backends (ZQ500, ROCm, etc.) when registered
 
   // Allocate C array
   size_t count = device_strings.size();
@@ -86,9 +87,22 @@ namespace ins {
 struct DeviceInfo {
   const C_DeviceInterface *iface = nullptr;
   std::string device_type_name = ""; // "cuda", "rocm", "cpu", etc.
+  std::string sub_device_type_name = "";
 };
 
 static DeviceInfo g_device_infos[2];
+
+static std::string normalize_device_type_name(const char *name,
+                                              DeviceKind kind) {
+  if (!name || name[0] == '\0')
+    return kind == DeviceKind::CPU ? "cpu" : "gpu";
+
+  std::string normalized(name);
+  for (char &ch : normalized)
+    ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+
+  return normalized;
+}
 
 const C_DeviceInterface *get_device_interface(DeviceKind kind) {
   size_t idx = static_cast<size_t>(kind);
@@ -99,13 +113,15 @@ const C_DeviceInterface *get_device_interface(DeviceKind kind) {
 }
 
 void set_device_interface(DeviceKind kind, const C_DeviceInterface *iface,
-                          const char *device_type_name) {
+                          const char *device_type_name,
+                          const char *sub_device_type_name) {
   size_t idx = static_cast<size_t>(kind);
   if (idx < 2) {
     g_device_infos[idx].iface = iface;
     g_device_infos[idx].device_type_name =
-        device_type_name ? device_type_name
-                         : (kind == DeviceKind::CPU ? "cpu" : "gpu");
+        normalize_device_type_name(device_type_name, kind);
+    g_device_infos[idx].sub_device_type_name =
+        sub_device_type_name ? sub_device_type_name : "";
   }
 }
 
@@ -156,7 +172,7 @@ std::string device_name(DeviceKind kind, int device_id) {
   return (status == C_SUCCESS) ? std::string(buf) : "";
 }
 
-int cuda_version() {
+int gpu_runtime_version() {
   const C_DeviceInterface *iface = get_device_interface(DeviceKind::GPU);
   if (!iface || !iface->get_runtime_version)
     return 0;
@@ -252,6 +268,11 @@ thread_local bool g_device_explicitly_set = false;
 // Lazy GPU default: if user hasn't explicitly set device and GPU is available,
 // default to GPUPlace(0) — matches PaddlePaddle behavior.
 Place get_device() {
+  const char *disable_auto = std::getenv("INSIGHT_DISABLE_AUTO_GPU");
+  if (disable_auto && std::string(disable_auto) == "1" &&
+      !g_device_explicitly_set && g_default_device.kind() == DeviceKind::CPU) {
+    return g_default_device;
+  }
   if (!g_device_explicitly_set && g_default_device.kind() == DeviceKind::CPU) {
     if (is_device_available(DeviceKind::GPU)) {
       g_default_device = GPUPlace(0);
@@ -389,9 +410,26 @@ std::string Place::to_string() const {
   return os.str();
 }
 
+std::string active_gpu_backend_name() {
+  return get_device_interface(DeviceKind::GPU)
+             ? g_device_infos[static_cast<size_t>(DeviceKind::GPU)]
+                   .device_type_name
+             : "";
+}
+
+std::string active_gpu_backend_version() {
+  return get_device_interface(DeviceKind::GPU)
+             ? g_device_infos[static_cast<size_t>(DeviceKind::GPU)]
+                   .sub_device_type_name
+             : "";
+}
+
 const char *get_device_type_name(DeviceKind kind) {
-  size_t idx = static_cast<size_t>(kind);
-  return (idx < 2) ? g_device_infos[idx].device_type_name.c_str() : "Unknown";
+  if (kind == DeviceKind::CPU)
+    return "cpu";
+  if (kind == DeviceKind::GPU)
+    return "gpu";
+  return "unknown";
 }
 
 std::vector<Place> get_available_devices() {

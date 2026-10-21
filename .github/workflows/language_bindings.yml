@@ -7,12 +7,18 @@ on:
       - 'bindings/**'
       - '!bindings/**/*.md'
       - '!bindings/**/*.txt'
+      - 'cmake/**'
       - 'include/**'
       - 'src/**'
       - 'backends/**'
+      - 'tests/cpu/python/**'
+      - 'tests/cpu/lua/**'
+      - 'tests/cpu/julia/**'
+      - 'tests/python_align/cpu/**'
       - 'third_party/pybind11/**'
       - 'third_party/sol2/**'
       - 'CMakeLists.txt'
+      - 'pyproject.toml'
       - '.github/workflows/language_bindings.yml'
   pull_request:
     branches: [ main, master ]
@@ -20,12 +26,18 @@ on:
       - 'bindings/**'
       - '!bindings/**/*.md'
       - '!bindings/**/*.txt'
+      - 'cmake/**'
       - 'include/**'
       - 'src/**'
       - 'backends/**'
+      - 'tests/cpu/python/**'
+      - 'tests/cpu/lua/**'
+      - 'tests/cpu/julia/**'
+      - 'tests/python_align/cpu/**'
       - 'third_party/pybind11/**'
       - 'third_party/sol2/**'
       - 'CMakeLists.txt'
+      - 'pyproject.toml'
       - '.github/workflows/language_bindings.yml'
   workflow_dispatch:
 
@@ -92,6 +104,102 @@ jobs:
           cd /tmp
           python3 -m pytest $GITHUB_WORKSPACE/tests/cpu/python/ -v --tb=short --ignore=$GITHUB_WORKSPACE/tests/cpu/python/test_plot.py
           python3 -m pytest $GITHUB_WORKSPACE/tests/cpu/python/test_plot.py -v --tb=short
+
+  python-align:
+    name: NumPy Alignment (CPU)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libfftw3-dev \
+            libopenblas-dev \
+            liblapacke-dev \
+            libomp-dev \
+            cmake \
+            build-essential \
+            python3-dev \
+            python3-numpy \
+            python3-scipy \
+            python3-pip \
+            python3-pytest
+
+      - name: Configure CMake
+        run: |
+          # matplot/sndfile are off: tests/python_align/cpu touches neither, and
+          # skipping them avoids building matplotplusplus + the ogg/vorbis/flac/
+          # opus/libsndfile chain from source.
+          mkdir -p build
+          cd build
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DINSIGHT_WITH_CUDA=OFF \
+            -DINSIGHT_USE_FFTW3=ON \
+            -DINSIGHT_USE_OPENBLAS=ON \
+            -DINSIGHT_USE_MATPLOT=OFF \
+            -DINSIGHT_USE_SNDFILE=OFF \
+            -DINSIGHT_BUILD_TESTS=OFF \
+            -DINSIGHT_BUILD_DEMOS=OFF \
+            -DINSIGHT_BUILD_BINDINGS=ON \
+            -DINSIGHT_BUILD_PYTHON_BINDING=ON \
+            -DINSIGHT_BUILD_LUA_BINDING=OFF \
+            -DINSIGHT_BUILD_JULIA_BINDING=OFF
+
+      - name: Build
+        run: cd build && cmake --build . -j$(nproc)
+
+      - name: Pre-flight import check
+        run: |
+          # Every file in tests/python_align/cpu/ wraps its imports in
+          # `try: ... except ImportError: pytest.skip(allow_module_level=True)`,
+          # so a binding that fails to import turns the whole suite into a
+          # silent green no-op. Import it here, outside pytest, so the job dies
+          # with the real traceback instead.
+          # bindings/python/CMakeLists.txt also `return()`s with a mere WARNING
+          # when Python3 dev headers are missing — this catches that too.
+          pip install -e .
+          cd /tmp
+          python3 -c "import insight; print('insight:', insight.__file__)"
+          python3 -c "import numpy; print('numpy:', numpy.__version__)"
+          python3 -c "import scipy.signal, scipy; print('scipy:', scipy.__version__)"
+
+      - name: Verify the alignment suite is fully collected
+        run: |
+          # Second line of defence against a module-level skip: assert that every
+          # test_*.py file actually contributed collected tests. A skipped module
+          # silently disappears from the node-id list.
+          cd /tmp
+          if ! python3 -m pytest "$GITHUB_WORKSPACE/tests/python_align/cpu/" \
+                 --collect-only -q --strict-markers > collected.txt; then
+            echo "pytest collection returned non-zero; contents follow:"
+            cat collected.txt
+          fi
+          collected_tests=$(awk '/::/ {n++} END {print n+0}' collected.txt)
+          collected_modules=$(awk -F'::' '/::/ {print $1}' collected.txt | sort -u | wc -l)
+          expected_modules=$(ls "$GITHUB_WORKSPACE"/tests/python_align/cpu/test_*.py | wc -l)
+          echo "collected $collected_tests tests from $collected_modules/$expected_modules modules"
+          if [ "$collected_modules" -ne "$expected_modules" ]; then
+            echo "::error::only $collected_modules of $expected_modules alignment modules collected - a module-level skip is hiding tests"
+            cat collected.txt
+            exit 1
+          fi
+          if [ "$collected_tests" -lt 300 ]; then
+            echo "::error::only $collected_tests alignment tests collected (expected ~394)"
+            exit 1
+          fi
+
+      - name: Run NumPy alignment tests (CPU)
+        run: |
+          # The CUDA half (tests/python_align/cuda/) cannot run here - no GPU on
+          # GitHub-hosted runners.
+          cd /tmp
+          python3 -m pytest "$GITHUB_WORKSPACE/tests/python_align/cpu/" \
+            -v --tb=short --strict-markers -rs
 
   lua:
     name: Lua Binding (LuaJIT)

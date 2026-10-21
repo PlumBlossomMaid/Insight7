@@ -1,10 +1,14 @@
 name: CPU Tests (Full)
 
 on:
+  # NOTE: keep the push and pull_request path lists identical. They used to
+  # diverge (PRs omitted cmake/**, third_party/** and tests/CMakeLists.txt), so a
+  # PR touching only cmake/FindOpenBLAS.cmake merged without ever running the
+  # CPU suite.
   push:
     branches: [ main, master, develop ]
     paths:
-      - 'backends/cpu/**'
+      - 'backends/**'
       - 'cmake/**'
       - 'include/**'
       - 'src/**'
@@ -17,9 +21,12 @@ on:
     branches: [ main, master ]
     paths:
       - 'backends/**'
+      - 'cmake/**'
       - 'include/**'
       - 'src/**'
       - 'tests/cpu/**'
+      - 'tests/CMakeLists.txt'
+      - 'third_party/**'
       - 'CMakeLists.txt'
       - '.github/workflows/cpu_tests.yml'
   workflow_dispatch:

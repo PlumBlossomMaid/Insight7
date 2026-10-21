@@ -2,6 +2,7 @@
 #include "insight/ops/signal/spectral_analysis.h"
 #include "insight/core/exception.h"
 #include "insight/core/op_registry.h"
+#include "insight/core/op_schema.h"
 #include "insight/ops/complex.h"
 #include "insight/ops/creation.h"
 #include "insight/ops/elementwise.h"
@@ -16,6 +17,8 @@
 #include <cmath>
 #include <complex>
 #include <numeric>
+#include <string>
+#include <vector>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -25,6 +28,55 @@ namespace ins {
 namespace signal {
 
 namespace {
+
+static OpSchema signal_schema(const char *name, size_t input_count,
+                              size_t output_count = 1) {
+  std::vector<OpArgumentSchema> inputs;
+  inputs.reserve(input_count);
+  for (size_t i = 0; i < input_count; ++i) {
+    inputs.push_back({"x" + std::to_string(i), OpArgumentKind::Array,
+                      OpArgumentAccess::ReadOnly});
+  }
+
+  std::vector<OpArgumentSchema> outputs;
+  outputs.reserve(output_count);
+  for (size_t i = 0; i < output_count; ++i) {
+    outputs.push_back({output_count == 1 ? "out" : "out" + std::to_string(i),
+                       OpArgumentKind::Array, OpArgumentAccess::WriteOnly});
+  }
+
+  return OpSchema(name, OpKind::Signal, inputs, outputs)
+      .promotion(OpPromotionRule::Identity)
+      .fallback(OpFallbackRule::StructuredCpu);
+}
+
+static void launch_signal_kernel(const char *name, const Place &place,
+                                 DType dtype, const std::vector<Array> &inputs,
+                                 const std::vector<Array> &outputs) {
+  OpSchema schema = signal_schema(name, inputs.size(), outputs.size());
+  ArrayIterator iter = schema.make_transform_iterator(inputs, outputs);
+  auto arrays = iter.arrays();
+
+  std::vector<OpRegistry::Arg> launch_inputs;
+  launch_inputs.reserve(inputs.size());
+  for (size_t i = 0; i < inputs.size(); ++i) {
+    launch_inputs.push_back(OpRegistry::array_arg(arrays[i].layout_ptr()));
+  }
+
+  std::vector<OpRegistry::Arg> launch_outputs;
+  launch_outputs.reserve(outputs.size());
+  for (size_t i = inputs.size(); i < arrays.size(); ++i) {
+    launch_outputs.push_back(OpRegistry::array_arg(arrays[i].layout_ptr()));
+  }
+
+  OpRegistry::launch_schema(name, place, dtype, launch_inputs, launch_outputs);
+}
+
+static void launch_signal_kernel(const char *name, const Place &place,
+                                 DType dtype, const std::vector<Array> &inputs,
+                                 const Array &output) {
+  launch_signal_kernel(name, place, dtype, inputs, std::vector<Array>{output});
+}
 
 Array detrend_segment(const Array &seg, const std::string &method) {
   if (method == "none" || method.empty())
@@ -126,8 +178,9 @@ SpectralResult csd(const Array &x, const Array &y, double fs,
 
   int64_t freq_len = onesided_fft_len(nfft, return_onesided);
 
-  // Accumulate cross-spectrum using Array composites
-  Array Pxx_sum = zeros({freq_len}, DType::F64, cpu);
+  // Accumulate cross-spectrum using Array composites. Pxy is complex; keep
+  // both real and imaginary parts so phase information survives.
+  Array Pxx_sum = zeros({freq_len}, DType::C64, cpu);
 
   for (int64_t seg = 0; seg < n_segments; ++seg) {
     int64_t start = seg * step;
@@ -143,9 +196,8 @@ SpectralResult csd(const Array &x, const Array &y, double fs,
 
     // Accumulate cross-spectrum using composite ops (no per-element extraction)
     Array Pxy_cpu = (Pxy.place().kind() == DeviceKind::CPU) ? Pxy : Pxy.to(cpu);
-    Array Pxy_real_full = real(Pxy_cpu);
-    Array Pxy_real = slice(Pxy_real_full, 0, 0, static_cast<int>(freq_len));
-    Pxx_sum = add(Pxx_sum, Pxy_real.to(Pxx_sum.dtype()));
+    Array Pxy_trunc = slice(Pxy_cpu, {0}, {0}, {static_cast<int>(freq_len)});
+    Pxx_sum = add(Pxx_sum, Pxy_trunc.to(Pxx_sum.dtype()));
   }
 
   // Average and scale using composite ops
@@ -178,8 +230,12 @@ SpectralResult welch(const Array &x, double fs, const std::string &window,
                      int64_t nperseg, int64_t noverlap, int64_t nfft,
                      const std::string &detrend, bool return_onesided,
                      const std::string &scaling) {
-  return csd(x, x, fs, window, nperseg, noverlap, nfft, detrend,
-             return_onesided, scaling);
+  // csd keeps the full complex cross-spectrum; for x == y the imaginary
+  // part is numerically zero, so return the real one-sided PSD.
+  SpectralResult r = csd(x, x, fs, window, nperseg, noverlap, nfft, detrend,
+                         return_onesided, scaling);
+  r.Pxx = real(r.Pxx);
+  return r;
 }
 
 // ============================================================================
@@ -189,7 +245,11 @@ SpectralResult welch(const Array &x, double fs, const std::string &window,
 SpectralResult periodogram(const Array &x, double fs, const std::string &window,
                            int64_t nfft, const std::string &detrend,
                            bool return_onesided, const std::string &scaling) {
-  return welch(x, fs, window, 256, 0, nfft, detrend, return_onesided, scaling);
+  // NumPy/scipy periodogram uses a single, unsegmented transform over the
+  // whole signal; nperseg therefore defaults to the signal length rather than
+  // the fixed 256 used by welch.
+  int64_t n = x.numel();
+  return welch(x, fs, window, n, 0, nfft, detrend, return_onesided, scaling);
 }
 
 // ============================================================================
@@ -204,8 +264,10 @@ SpectralResult coherence(const Array &x, const Array &y, double fs,
   SpectralResult Pyy = welch(y, fs, window, nperseg, noverlap, nfft, detrend);
   SpectralResult Pxy = csd(x, y, fs, window, nperseg, noverlap, nfft, detrend);
 
-  // Cxy = |Pxy|^2 / (Pxx * Pyy) using composite ops
-  Array pxy_sq = square(Pxy.Pxx);
+  // Cxy = |Pxy|^2 / (Pxx * Pyy) using composite ops.
+  // Pxy is complex (csd keeps the imaginary part), so |Pxy|^2 must come
+  // from abs() — square() on a complex value would compute z*z, not |z|^2.
+  Array pxy_sq = square(abs(Pxy.Pxx));
   Array pxx_pyy = mul(Pxx.Pxx, Pyy.Pxx);
 
   // Avoid division by zero
@@ -524,9 +586,7 @@ Array lombscargle(const Array &x, const Array &y, const Array &freqs) {
   Array out(f_c.shape(), dtype, dev);
 
   // Dispatch to backend
-  ops().launch("signal_lombscargle", dev, dtype,
-               {x_c.layout_ptr(), y_c.layout_ptr(), f_c.layout_ptr()},
-               {out.layout_ptr()});
+  launch_signal_kernel("signal_lombscargle", dev, dtype, {x_c, y_c, f_c}, out);
 
   return out;
 }

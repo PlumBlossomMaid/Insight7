@@ -38,6 +38,16 @@ int32_t ref_count_decrement(int32_t *ref_count) {
 #endif
 }
 
+int32_t ref_count_value(const int32_t *ref_count) {
+  if (!ref_count)
+    return 0;
+#if defined(__GNUC__) || defined(__clang__)
+  return __atomic_load_n(ref_count, __ATOMIC_ACQUIRE);
+#else
+  return *ref_count;
+#endif
+}
+
 } // namespace
 
 // ========================================================================
@@ -210,7 +220,15 @@ size_t insight_array_storage_nbytes(const InsightArray *array) {
 }
 
 int insight_array_is_contiguous(const InsightArray *array) {
-  if (!array || array->ndim <= 0)
+  if (!array)
+    return 0;
+  if (array->ndim == 0 || array->numel <= 1)
+    return 1;
+  // A view produced by slicing (e.g. A["1:3, :"]) keeps dense strides but
+  // starts partway into the parent buffer. Kernels that linearly read from
+  // arr->data would silently compute on the wrong elements, so offset views
+  // of more than one element are treated as non-contiguous.
+  if (array->offset != 0)
     return 0;
   int64_t expected_stride = 1;
   for (int32_t i = array->ndim - 1; i >= 0; --i) {
@@ -485,6 +503,13 @@ size_t Array::storage_nbytes() const {
   return insight_array_storage_nbytes(&layout_);
 }
 
+ArrayStorageMetadata Array::storage_metadata() const {
+  INS_CHECK(defined(), "Array is not initialized");
+  return {insight_array_storage_data(&layout_),
+          insight_array_storage_nbytes(&layout_), place_,
+          ref_count_value(layout_.ref_count), layout_.is_view != 0};
+}
+
 // ========== Memory Layout ==========
 
 bool Array::is_contiguous() const {
@@ -633,8 +658,13 @@ Array Array::slice(const std::vector<Slice> &slices) const {
 Array Array::operator[](int64_t index) const { return at({index}); }
 
 Array Array::operator[](const Slice &slice) const {
-  return this->slice(0, slice.start.value_or(0),
-                     slice.stop.value_or(shape_.dim(0)), slice.step);
+  INS_CHECK(shape_.ndim() > 0, "operator[]: cannot slice a 0-d array");
+  // Pass the Slice through unmodified: substituting defaults here would
+  // discard nullopt and break reverse slices, whose defaults depend on the
+  // sign of the step.
+  std::vector<Slice> slices(shape_.ndim(), Slice::all());
+  slices[0] = slice;
+  return this->slice(slices);
 }
 
 // Helper: parse a single dimension spec (":", "1:-1", "5", etc.)
@@ -693,7 +723,8 @@ Array Array::operator[](const std::string &spec) const {
   std::vector<Slice> slices;
   bool any_slice = false;
 
-  for (const auto &p : parts) {
+  for (size_t i = 0; i < parts.size(); ++i) {
+    const auto &p = parts[i];
     std::optional<Slice> s;
     std::optional<int64_t> idx;
     parse_dim_spec(p, s, idx);
@@ -702,9 +733,14 @@ Array Array::operator[](const std::string &spec) const {
       slices.push_back(s.value());
       any_slice = true;
     } else {
-      // Integer index: convert to a slice that selects a single element
-      // We'll apply at() for pure integer indexing below
-      slices.push_back(Slice(idx.value(), idx.value() + 1, 1));
+      // Integer index: convert to a slice that selects a single element.
+      // Normalize negative indices per-dimension so that -1 selects the
+      // last element; a raw Slice(-1, 0, 1) normalizes to an empty dim.
+      int64_t v = idx.value();
+      if (v < 0 && i < static_cast<size_t>(shape_.ndim())) {
+        v += shape_.dim(static_cast<int>(i));
+      }
+      slices.push_back(Slice(v, v + 1, 1));
     }
   }
 
@@ -901,8 +937,15 @@ Array Array::view(const Shape &new_shape) const {
   }
 
   result.shape_ = new_shape;
-  result.strides_ = Strides(new_shape);
+  result.compute_strides();
 
+  // Refresh the C-ABI layout so kernels observe the reshaped dims/strides
+  // (compute_strides() updates strides_ and layout_.strides only).
+  result.layout_.ndim = new_shape.ndim();
+  result.layout_.numel = new_shape.numel();
+  for (int i = 0; i < new_shape.ndim(); ++i) {
+    result.layout_.dims[i] = new_shape.dim(i);
+  }
   result.layout_.is_view = 1;
 
   result.place_ = place_;
@@ -1089,8 +1132,10 @@ void Array::fill_(double value) {
   if (is_contiguous()) {
     // Contiguous: use the "full" backend kernel directly
     double val = value;
-    ops().launch("full", place(), dtype(), {layout_ptr(), &val},
-                 {layout_ptr()});
+    OpRegistry::launch_schema(
+        "full", place(), dtype(),
+        {OpRegistry::array_arg(layout_ptr()), OpRegistry::scalar_arg(&val)},
+        {OpRegistry::array_arg(layout_ptr())});
   } else {
     // Non-contiguous view: create a contiguous filled array, then copy
     Array filled = full(shape(), value, dtype(), place());
@@ -1109,13 +1154,15 @@ void Array::copy_from_(const Array &src) {
   if (dtype() == src.dtype()) {
     // Same dtype: use contiguous_copy backend kernel (CPU + GPU)
     Array src_dev = src.to(place());
-    ops().launch("contiguous_copy", place(), dtype(),
-                 {(void *)src_dev.layout_ptr()}, {layout_ptr()});
+    OpRegistry::launch_schema("contiguous_copy", place(), dtype(),
+                              {OpRegistry::array_arg(src_dev.layout_ptr())},
+                              {OpRegistry::array_arg(layout_ptr())});
   } else {
     // Different dtype: cast first, then copy
     Array converted = src.to(dtype()).to(place());
-    ops().launch("contiguous_copy", place(), dtype(),
-                 {(void *)converted.layout_ptr()}, {layout_ptr()});
+    OpRegistry::launch_schema("contiguous_copy", place(), dtype(),
+                              {OpRegistry::array_arg(converted.layout_ptr())},
+                              {OpRegistry::array_arg(layout_ptr())});
   }
 }
 

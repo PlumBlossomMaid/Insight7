@@ -3,6 +3,9 @@
 #include <complex>
 #include <cstddef>
 #include <cstdint>
+#include <ostream>
+#include <string>
+#include <type_traits>
 
 namespace ins {
 
@@ -35,6 +38,38 @@ enum class DType {
   DTYPE_COUNT ///< Number of data types (must be last)
 };
 
+enum class DTypeKind {
+  Unknown = 0,
+  Bool,
+  UInt,
+  Int,
+  Float,
+  Complex,
+};
+
+inline constexpr uint32_t DTYPE_FLAG_NONE = 0;
+inline constexpr uint32_t DTYPE_FLAG_BUILTIN = 1u << 0;
+inline constexpr uint32_t DTYPE_FLAG_NUMERIC = 1u << 1;
+inline constexpr uint32_t DTYPE_FLAG_EXPERIMENTAL = 1u << 2;
+
+struct DTypeDescriptor {
+  DType id;
+  const char *name;
+  DTypeKind kind;
+  size_t size;
+  size_t alignment;
+  uint32_t flags;
+  int promotion_rank;
+  bool is_signed;
+};
+
+/**
+ * @brief Returns the centralized descriptor for a data type.
+ * @param dtype The data type enumerator
+ * @return Descriptor for dtype, or UNKNOWN descriptor for invalid values
+ */
+const DTypeDescriptor &dtype_descriptor(DType dtype);
+
 /**
  * @brief Returns the string name of a data type.
  * @param dtype The data type enumerator
@@ -55,6 +90,34 @@ DType dtype_from_name(const std::string &name);
  * @return Size in bytes (0 for UNKNOWN)
  */
 size_t dtype_size(DType dtype);
+
+/**
+ * @brief Returns the natural alignment in bytes of a data type.
+ * @param dtype The data type enumerator
+ * @return Alignment in bytes (0 for UNKNOWN)
+ */
+size_t dtype_alignment(DType dtype);
+
+/**
+ * @brief Returns the broad dtype kind.
+ * @param dtype The data type enumerator
+ * @return DTypeKind category
+ */
+DTypeKind dtype_kind(DType dtype);
+
+/**
+ * @brief Returns descriptor flags for built-in, numeric, experimental, etc.
+ * @param dtype The data type enumerator
+ * @return Bitmask of DTYPE_FLAG_* values
+ */
+uint32_t dtype_flags(DType dtype);
+
+/**
+ * @brief Returns the centralized promotion rank.
+ * @param dtype The data type enumerator
+ * @return Rank used by promotion logic, or 0 for non-promotable/unknown types
+ */
+int dtype_promotion_rank(DType dtype);
 
 /**
  * @brief Checks if a data type is floating point.

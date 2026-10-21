@@ -373,4 +373,50 @@ Array nanquantile(const Array &x, const Array &q,
 Array bincount(const Array &x, std::optional<Array> weights = std::nullopt,
                int64_t minlength = 0);
 
+// ========== Stable Log-Sum-Exp ==========
+
+/**
+ * @brief Log-sum-exp along specified axis.
+ *
+ * Computes log(sum(exp(x))) along axis in a numerically stable way:
+ * m = max(x, axis), result = m + log(sum(exp(x - m))).
+ * This avoids overflow/underflow for large or small values.
+ *
+ * @param x Input array (integer inputs are promoted to float64)
+ * @param axis Axis to reduce (nullopt means flatten all)
+ * @param keepdim If true, keep reduced dimensions as size 1
+ * @return Array containing log-sum-exp values
+ */
+Array logsumexp(const Array &x, std::optional<int> axis = std::nullopt,
+                bool keepdim = false);
+
+// ========== Softmax / Log-Softmax ==========
+
+/**
+ * @brief Softmax normalization along the specified axis.
+ *
+ * Computes softmax(x) = exp(x - m) / sum(exp(x - m)) along axis, where
+ * m = max(x, axis) for numerical stability. Output has the same shape
+ * as the input.
+ *
+ * @param x Input array (integer inputs are promoted to float64)
+ * @param axis Axis along which to normalize (default -1, the last axis)
+ * @return Array of the same shape with values in (0, 1) summing to 1 along
+ * axis
+ */
+Array softmax(const Array &x, int axis = -1);
+
+/**
+ * @brief Log-softmax along the specified axis.
+ *
+ * Computes log_softmax(x) = (x - m) - log(sum(exp(x - m))) along axis,
+ * where m = max(x, axis) for numerical stability. Output has the same
+ * shape as the input.
+ *
+ * @param x Input array (integer inputs are promoted to float64)
+ * @param axis Axis along which to normalize (default -1, the last axis)
+ * @return Array of the same shape with log-softmax values
+ */
+Array log_softmax(const Array &x, int axis = -1);
+
 } // namespace ins

@@ -22,6 +22,9 @@ from insight._insight import (
     get_seed as _native_get_seed,
     rand_like as _native_rand_like,
     randn_like as _native_randn_like,
+    randint_like as _native_randint_like,
+    normal_like as _native_normal_like,
+    uniform_like as _native_uniform_like,
     exponential as _native_exponential,
     gamma as _native_gamma,
     beta as _native_beta,
@@ -254,6 +257,30 @@ def randn_like(x: "Array") -> "Array":
     return _native_randn_like(x)
 
 
+def randint_like(x: "Array", low: int, high: int, dtype: "DType" = None) -> "Array":
+    return (
+        _native_randint_like(x, low, high, dtype)
+        if dtype is not None
+        else _native_randint_like(x, low, high)
+    )
+
+
+def normal_like(x: "Array", mean: float = 0.0, std: float = 1.0, dtype: "DType" = None) -> "Array":
+    return (
+        _native_normal_like(x, mean, std, dtype)
+        if dtype is not None
+        else _native_normal_like(x, mean, std)
+    )
+
+
+def uniform_like(x: "Array", low: float = 0.0, high: float = 1.0, dtype: "DType" = None) -> "Array":
+    return (
+        _native_uniform_like(x, low, high, dtype)
+        if dtype is not None
+        else _native_uniform_like(x, low, high)
+    )
+
+
 def exponential(
     scale: float,
     shape: "Shape",
@@ -404,6 +431,9 @@ __all__ = [
     "get_seed",
     "rand_like",
     "randn_like",
+    "randint_like",
+    "normal_like",
+    "uniform_like",
     "exponential",
     "gamma",
     "beta",

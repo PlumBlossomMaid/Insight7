@@ -2,6 +2,7 @@
 #pragma once
 #include "insight/core/array.h"
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace ins {
@@ -90,25 +91,25 @@ Array rot90(const Array &x, int k = 1, const std::vector<int> &axes = {0, 1});
 /**
  * @brief Concatenate arrays along an existing axis.
  */
-Array concat(const std::vector<Array> &tensors, int axis = 0);
+Array concat(const std::vector<Array> &arrays, int axis = 0);
 
 /**
  * @brief Stack arrays along a new axis.
  */
-Array stack(const std::vector<Array> &tensors, int axis = 0);
+Array stack(const std::vector<Array> &arrays, int axis = 0);
 
 /**
  * @brief Stack arrays vertically (axis=0).
  */
-inline Array vstack(const std::vector<Array> &tensors) {
-  return concat(tensors, 0);
+inline Array vstack(const std::vector<Array> &arrays) {
+  return concat(arrays, 0);
 }
 
 /**
  * @brief Stack arrays horizontally (axis=1).
  */
-inline Array hstack(const std::vector<Array> &tensors) {
-  return concat(tensors, 1);
+inline Array hstack(const std::vector<Array> &arrays) {
+  return concat(arrays, 1);
 }
 
 // ========== Splitting (views) ==========
@@ -142,6 +143,18 @@ inline std::vector<Array> hsplit(const Array &x, int indices_or_sections) {
 Array repeat(const Array &x, int repeats,
              std::optional<int> axis = std::nullopt);
 Array repeat(const Array &x, const std::vector<int> &repeats, int axis);
+
+/**
+ * @brief Repeat elements of an array (Torch/NumPy repeat_interleave).
+ *
+ * Alias for repeat(): each element along the axis (or the flattened array)
+ * is repeated `repeats` times. NumPy-style repeat and Torch-style
+ * repeat_interleave share the same element-wise semantics.
+ */
+inline Array repeat_interleave(const Array &x, int repeats,
+                               std::optional<int> axis = std::nullopt) {
+  return repeat(x, repeats, axis);
+}
 
 /**
  * @brief Tile an array by repeating it along specified axes.
@@ -215,6 +228,94 @@ Array slice(Array &x, const std::vector<Slice> &slices);
  * @endcode
  */
 Array diff(const Array &x, int n = 1, int axis = -1);
+
+// ========== Numerical (composite) ==========
+
+/**
+ * @brief Calculate the differences between consecutive elements of a
+ * flattened array (NumPy ediff1d).
+ *
+ * The input is flattened to 1D, then out[i] = x[i+1] - x[i].
+ * Optional to_end/to_begin arrays are appended/prepended.
+ */
+Array ediff1d(const Array &x, std::optional<Array> to_end = std::nullopt,
+              std::optional<Array> to_begin = std::nullopt);
+
+/**
+ * @brief Return coordinate grids from 1D coordinate vectors (NumPy
+ * meshgrid).
+ *
+ * @param xi 1D coordinate vectors
+ * @param indexing "xy" (default, like NumPy) or "ij" (matrix indexing)
+ * @return Broadcast views, each with shape (n0, n1, ...)
+ */
+std::vector<Array> meshgrid(const std::vector<Array> &xi,
+                            const std::string &indexing = "xy");
+
+/**
+ * @brief Integrate along the given axis using the composite trapezoidal
+ * rule (NumPy trapz).
+ *
+ * @param y Input array
+ * @param x Optional sample coordinates (1D with length of axis, or same
+ * shape as y); if omitted, uniform spacing dx is used
+ * @param dx Sample spacing when x is omitted
+ * @param axis Axis to integrate along (default: -1)
+ * @return Integral; shape of y with axis removed
+ */
+Array trapz(const Array &y, std::optional<Array> x = std::nullopt,
+            double dx = 1.0, int axis = -1);
+
+/**
+ * @brief Return the gradient of a 1D array along an axis (NumPy gradient
+ * subset).
+ *
+ * Interior points use central differences, boundaries use one-sided
+ * differences. Integer input is promoted to float64.
+ *
+ * @param f Input array
+ * @param dx Sample spacing (default: 1.0)
+ * @param axis Axis along which to differentiate (default: -1)
+ * @return Array with the same shape as f
+ */
+Array gradient(const Array &f, double dx, int axis);
+
+/**
+ * @brief Return the gradient along every axis (NumPy gradient, uniform
+ * spacing).
+ *
+ * @param f Input array
+ * @param dx Sample spacing (default: 1.0)
+ * @return One array per axis, each with the same shape as f
+ */
+std::vector<Array> gradient(const Array &f, double dx = 1.0);
+
+/**
+ * @brief One-hot encode integer indices (Paddle one_hot).
+ *
+ * Returns an array of shape indices.shape + [num_classes] where
+ * out[..., i] == 1.0 iff indices[..., i] == i, else 0.0.
+ *
+ * @param indices Integer array of class indices
+ * @param num_classes Number of classes (default: max(indices) + 1)
+ * @param dtype Output dtype (default F32)
+ * @return One-hot encoded array
+ */
+Array one_hot(const Array &indices, int64_t num_classes = -1,
+              DType dtype = DType::F32);
+
+/**
+ * @brief Compute the histogram of an array (NumPy histogram subset).
+ *
+ * @param x Input array (any shape, flattened internally)
+ * @param bins Number of equal-width bins (default: 10)
+ * @param range Optional (min, max) pair; defaults to (min(x), max(x))
+ * @return {hist, bin_edges}: hist has shape (bins,), bin_edges has
+ * shape (bins + 1,)
+ */
+std::vector<Array>
+histogram(const Array &x, int64_t bins = 10,
+          std::optional<std::pair<double, double>> range = std::nullopt);
 
 // ========== Contiguity (copy if needed) ==========
 

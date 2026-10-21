@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from insight._insight import Array, DType  # noqa: F401
 from insight._insight import cast as _native_cast
+from insight._insight import cast_like as _native_cast_like
 
 
 def cast(x: "Array", dtype: "DType", copy: bool = True) -> "Array":
@@ -29,4 +30,9 @@ def cast(x: "Array", dtype: "DType", copy: bool = True) -> "Array":
     return _native_cast(x, dtype, copy)
 
 
-__all__ = ["cast"]
+def cast_like(input: "Array", other: "Array", copy: bool = True) -> "Array":
+    """Cast ``input`` to the dtype of ``other``."""
+    return _native_cast_like(input, other, copy)
+
+
+__all__ = ["cast", "cast_like"]

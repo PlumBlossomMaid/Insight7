@@ -80,6 +80,10 @@ C_Status inv_kernel_cpu(void **inputs, void **outputs) {
     return C_FAILED;
   }
 
+  // Clear stale error state before running, otherwise a leftover error from
+  // an earlier kernel would make the final error check below fail spuriously.
+  cpu_set_last_error("");
+
   if (x->dtype == INSIGHT_DTYPE_F32) {
     inv_f32((float *)x->data, (float *)out->data, n);
   } else if (x->dtype == INSIGHT_DTYPE_F16 || x->dtype == INSIGHT_DTYPE_BF16) {
@@ -104,6 +108,11 @@ C_Status inv_kernel_cpu(void **inputs, void **outputs) {
     }
   } else {
     inv_f64((double *)x->data, (double *)out->data, n);
+  }
+
+  const char *err = cpu_get_last_error();
+  if (err && err[0] != '\0') {
+    return C_FAILED;
   }
   return C_SUCCESS;
 }

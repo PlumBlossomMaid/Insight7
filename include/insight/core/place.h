@@ -49,7 +49,8 @@ const C_DeviceInterface *get_device_interface(DeviceKind kind);
  * "ROCM")
  */
 void set_device_interface(DeviceKind kind, const C_DeviceInterface *iface,
-                          const char *device_type_name);
+                          const char *device_type_name,
+                          const char *sub_device_type_name = nullptr);
 
 // ========================================================================
 // Device availability queries
@@ -114,20 +115,16 @@ std::vector<std::string> get_available_device_strings();
 std::string device_name(DeviceKind kind, int device_id = 0);
 
 /**
- * @brief Get the CUDA runtime version (major * 1000 + minor * 10).
+ * @brief Get the active GPU backend runtime version.
  *
- * Returns 0 if CUDA backend is not loaded.
- *
- * @return CUDA runtime version, or 0 if not available
+ * @return GPU runtime version, or 0 if not available
  */
-int cuda_version();
+int gpu_runtime_version();
 
 /**
- * @brief Get the CUDA driver version (major * 1000 + minor * 10).
+ * @brief Get the active GPU backend driver version.
  *
- * Returns 0 if CUDA backend is not loaded.
- *
- * @return CUDA driver version, or 0 if not available
+ * @return GPU driver version, or 0 if not available
  */
 int driver_version();
 
@@ -155,6 +152,24 @@ struct DeviceMemoryInfo {
  * @return DeviceMemoryInfo with total and free memory
  */
 DeviceMemoryInfo device_memory_info(DeviceKind kind, int device_id = 0);
+
+/**
+ * @brief Get the active concrete GPU backend name.
+ *
+ * The public device kind remains GPU, while the registered backend name
+ * identifies the concrete implementation selected at runtime (for example
+ * "cuda", "rocm", "ixuca", or "sdaa").
+ *
+ * @return Active GPU backend name, or empty string if no GPU backend is loaded.
+ */
+std::string active_gpu_backend_name();
+
+/**
+ * @brief Get the active concrete GPU backend version/subtype string.
+ *
+ * @return Backend version/subtype string, or empty string if unavailable.
+ */
+std::string active_gpu_backend_version();
 
 /**
  * @brief Get memory information for a GPU device (convenience wrapper).

@@ -23,9 +23,9 @@ except ImportError:
 
 # Skip if CUDA not available
 try:
-    ins.load_backend("cuda")
+    ins.init()
 except Exception:
-    pytest.skip("CUDA backend not available", allow_module_level=True)
+    pytest.skip("GPU backend not available", allow_module_level=True)
 
 GPU = ins.GPUPlace(0)
 CPU = ins.CPUPlace()
@@ -153,9 +153,8 @@ class TestElementwiseExtendedGPU:
         a_np = np.array([10.0, 7.5, -3.0, 11.0], dtype=np.float64)
         b_np = np.array([3.0, 2.0, 2.0, 5.0], dtype=np.float64)
         a, b = ins.from_numpy(a_np), ins.from_numpy(b_np)
-        # Insight uses truncated division (like C), not floored (like NumPy)
-        # Insight: a - trunc(a/b) * b
-        expected = a_np - np.trunc(a_np / b_np) * b_np
+        # Insight mod matches NumPy floored semantics: a - floor(a/b) * b
+        expected = np.mod(a_np, b_np)
         assert_allclose(ins.mod(a, b).numpy(), expected, rtol=1e-8)
 
     def test_bitwise_and(self):

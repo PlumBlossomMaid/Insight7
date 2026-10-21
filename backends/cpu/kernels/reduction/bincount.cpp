@@ -28,27 +28,44 @@ C_Status bincount_kernel_cpu(void **inputs, void **outputs) {
   }
 
   int64_t n = x->numel;
+  int64_t out_len = out->numel;
   int64_t *dst = (int64_t *)out->data;
+  int out_of_range = 0;
 
   switch (x->dtype) {
   case INSIGHT_DTYPE_I32: {
     const int32_t *src = (const int32_t *)x->data;
-    _Pragma("omp parallel for") for (int64_t i = 0; i < n; ++i) {
+    _Pragma("omp parallel for reduction(| : out_of_range)") for (int64_t i = 0;
+                                                                 i < n; ++i) {
       int64_t idx = src[i];
+      if (idx < 0 || idx >= out_len) {
+        out_of_range = 1;
+        continue;
+      }
       _Pragma("omp atomic") dst[idx]++;
     }
     break;
   }
   case INSIGHT_DTYPE_I64: {
     const int64_t *src = (const int64_t *)x->data;
-    _Pragma("omp parallel for") for (int64_t i = 0; i < n; ++i) {
+    _Pragma("omp parallel for reduction(| : out_of_range)") for (int64_t i = 0;
+                                                                 i < n; ++i) {
       int64_t idx = src[i];
+      if (idx < 0 || idx >= out_len) {
+        out_of_range = 1;
+        continue;
+      }
       _Pragma("omp atomic") dst[idx]++;
     }
     break;
   }
   default:
     cpu_set_last_error("bincount: unsupported dtype (need int32/int64)");
+    return C_FAILED;
+  }
+
+  if (out_of_range) {
+    cpu_set_last_error("bincount: value out of range for output buffer");
     return C_FAILED;
   }
 

@@ -6,7 +6,16 @@ for ergonomic signal processing and scientific computing in Lua.
 
 ## Installation
 
-### From luarocks (after CMake build)
+### Lua-only dependency: argrule
+
+Insight7's Lua wrapper layer vendors the Lua-only `argrule` source under `bindings/lua/argrule`, so the dual positional/named calling convention does not require a separate LuaRocks dependency. The installed Lua modules include both `insight` and `argrule`.
+
+For source-tree execution, include the binding path:
+
+```bash
+export LUA_PATH="bindings/lua/?.lua;bindings/lua/?/init.lua;;"
+```
+
 
 ```bash
 # Build C++ backend + Lua binding first
@@ -229,8 +238,8 @@ luajit tests/bindings/test_lua_binding.lua
 local ins = require("insight")
 -- Backend auto-detected (GPU when available, no manual init needed)
 
-print(ins.get_device())       -- "cuda:0" or "cpu:0"
-print(ins.gpu_version())      -- 11080 (CUDA 11.8), 0 if no GPU
+print(ins.get_device())       -- "gpu:0" or "cpu:0"
+print(ins.gpu_version())      -- GPU runtime version, 0 if no GPU
 
 -- Array creation (default: current device)
 local a = ins.zeros({2, 3}, ins.float32)
@@ -242,8 +251,8 @@ local row = a[1]              -- partial indexing → shape (3,)
 local val = a[1][2]           -- scalar extraction
 
 -- Device management
-local a_gpu = a:to(1)         -- CPU → GPU (0=CPU, 1=GPU)
-local a_cpu = a_gpu:to(0)     -- GPU → CPU
+local a_gpu = a:to(ins.GPUPlace(0)) -- cpu:0 → gpu:0, active backend selected by init/env
+local a_cpu = a_gpu:to(ins.CPUPlace()) -- gpu:0 → cpu:0
 
 -- Reduction
 local s = ins.sum(c)
@@ -259,7 +268,7 @@ local w2 = ins.signal.hann{n=256}
 ## Dual Calling Convention
 
 All Insight functions support both **positional** and **named-table** argument styles,
-powered by a shared `_wrap.lua` utility:
+powered by the vendored `argrule` module (`bindings/lua/argrule`):
 
 ```lua
 -- Positional arguments
@@ -275,15 +284,14 @@ local y = ins.signal.filtfilt{b=b, a=a, x=signal}
 local y2 = ins.signal.filtfilt(b, a, signal)
 ```
 
-The `_wrap` utility (in `insight/_wrap.lua`) automatically detects whether the caller
-is using positional or table-style arguments by checking for non-numeric keys.
+The `argrule` rules (declared per wrapper module) validate argument names, types,
+and defaults, and render usage errors when a call does not match the rule.
 
 ## Module Structure
 
 ```
 insight/
 ├── init.lua            # Main entry point, loads all submodules
-├── _wrap.lua           # Shared dual calling convention utility
 ├── elementwise.lua     # add, sub, mul, div, pow, comparisons, logical ops
 ├── unary.lua           # abs, sqrt, exp, log, sin, cos, floor, ceil, ...
 ├── reduction.lua       # sum, mean, max, min, prod, argmax, argmin, var, std, ...
@@ -323,8 +331,8 @@ ins.int8, ins.int16, ins.int32, ins.int64
 ins.uint8, ins.uint16, ins.uint32, ins.uint64
 ins.bool, ins.complex64, ins.complex128
 
-ins.CPUPlace()       -- CPU device
-ins.GPUPlace(0)      -- GPU device 0
+ins.CPUPlace()       -- public CPU place (cpu:0)
+ins.GPUPlace(0)      -- public GPU place (gpu:0, active backend selected by init/env)
 ```
 
 ### Array Properties
@@ -411,13 +419,14 @@ local eq = (a == b)   -- elementwise equality
 ### GPU Support
 
 ```lua
--- Transfer arrays between devices
+-- Transfer arrays between public devices
+-- Concrete GPU backend is selected by INSIGHT_GPU_BACKEND or initialization.
 local a_cpu = ins.zeros({100, 100}, ins.float32)
-local a_gpu = a_cpu:to(ins.GPUPlace(0))   -- CPU -> GPU
-local a_back = a_gpu:to(ins.CPUPlace())   -- GPU -> CPU
+local a_gpu = a_cpu:to(ins.GPUPlace(0))   -- cpu:0 -> gpu:0
+local a_back = a_gpu:to(ins.CPUPlace())   -- gpu:0 -> cpu:0
 
--- Operations auto-dispatch to the correct backend
-local c = ins.matmul(a_gpu, a_gpu)  -- runs on GPU
+-- Operations auto-dispatch to the active backend
+local c = ins.matmul(a_gpu, a_gpu)  -- runs on active GPU backend
 ```
 
 ## LDoc Documentation

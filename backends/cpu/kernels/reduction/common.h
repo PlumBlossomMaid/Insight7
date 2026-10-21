@@ -15,7 +15,9 @@
 #include "../common/half_utils.h"
 #include "insight/c_api/array.h"
 #include <algorithm>
+#include <cmath>
 #include <float.h>
+#include <limits>
 #include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -79,6 +81,10 @@ static inline bool cpu_is_nan_other(const void *x) {
       CTYPE max_val = src[i * reduce_size];                                    \
       for (int64_t j = 1; j < reduce_size; ++j) {                              \
         CTYPE val = src[i * reduce_size + j];                                  \
+        if (std::isnan(val)) {                                                 \
+          max_val = val;                                                       \
+          break;                                                               \
+        }                                                                      \
         if (val > max_val)                                                     \
           max_val = val;                                                       \
       }                                                                        \
@@ -102,6 +108,10 @@ static inline bool cpu_is_nan_other(const void *x) {
       CTYPE min_val = src[i * reduce_size];                                    \
       for (int64_t j = 1; j < reduce_size; ++j) {                              \
         CTYPE val = src[i * reduce_size + j];                                  \
+        if (std::isnan(val)) {                                                 \
+          min_val = val;                                                       \
+          break;                                                               \
+        }                                                                      \
         if (val < min_val)                                                     \
           min_val = val;                                                       \
       }                                                                        \
@@ -193,8 +203,16 @@ static inline bool cpu_is_nan_other(const void *x) {
     _Pragma("omp parallel for") for (int64_t i = 0; i < total_out; ++i) {      \
       int64_t max_idx = 0;                                                     \
       CTYPE max_val = src[i * reduce_size];                                    \
+      if (std::isnan(max_val)) {                                               \
+        dst[i] = 0;                                                            \
+        continue;                                                              \
+      }                                                                        \
       for (int64_t j = 1; j < reduce_size; ++j) {                              \
         CTYPE val = src[i * reduce_size + j];                                  \
+        if (std::isnan(val)) {                                                 \
+          max_idx = j;                                                         \
+          break;                                                               \
+        }                                                                      \
         if (val > max_val) {                                                   \
           max_val = val;                                                       \
           max_idx = j;                                                         \
@@ -219,8 +237,16 @@ static inline bool cpu_is_nan_other(const void *x) {
     _Pragma("omp parallel for") for (int64_t i = 0; i < total_out; ++i) {      \
       int64_t min_idx = 0;                                                     \
       CTYPE min_val = src[i * reduce_size];                                    \
+      if (std::isnan(min_val)) {                                               \
+        dst[i] = 0;                                                            \
+        continue;                                                              \
+      }                                                                        \
       for (int64_t j = 1; j < reduce_size; ++j) {                              \
         CTYPE val = src[i * reduce_size + j];                                  \
+        if (std::isnan(val)) {                                                 \
+          min_idx = j;                                                         \
+          break;                                                               \
+        }                                                                      \
         if (val < min_val) {                                                   \
           min_val = val;                                                       \
           min_idx = j;                                                         \
@@ -279,7 +305,8 @@ static inline bool cpu_is_nan_other(const void *x) {
           }                                                                    \
         }                                                                      \
       }                                                                        \
-      dst[i] = found ? max_val : 0;                                            \
+      /* NumPy nanmax of an all-NaN slice is NaN, not 0. */                    \
+      dst[i] = found ? max_val : std::numeric_limits<CTYPE>::quiet_NaN();      \
     }                                                                          \
   } while (0)
 
@@ -309,7 +336,8 @@ static inline bool cpu_is_nan_other(const void *x) {
           }                                                                    \
         }                                                                      \
       }                                                                        \
-      dst[i] = found ? min_val : 0;                                            \
+      /* NumPy nanmin of an all-NaN slice is NaN, not 0. */                    \
+      dst[i] = found ? min_val : std::numeric_limits<CTYPE>::quiet_NaN();      \
     }                                                                          \
   } while (0)
 

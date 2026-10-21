@@ -9,10 +9,10 @@ using Insight
 
 # Try GPU
 try
-    Insight.load_backend("cuda")
+    Insight.load_backend("gpu")
     Insight.set_device(Insight.GPUPlace(0))
 catch e
-    println("SKIP: CUDA backend not available: $e")
+    println("SKIP: GPU backend not available: $e")
     exit(0)
 end
 
@@ -29,10 +29,10 @@ function check(name, cond)
     end
 end
 
-println("=== Device Info CUDA ===")
+println("=== Device Info GPU ===")
 
 # device_name gpu
-name = Insight.device_name(0)
+name = Insight.device_name(1, 0)
 check("device_name", typeof(name) == String && length(name) > 0)
 
 # gpu_version positive
@@ -55,15 +55,14 @@ check("gpu_count_positive", gc > 0)
 mem = Insight.device_memory(0)
 check("device_memory", mem.total > 0 && mem.free > 0 && mem.total >= mem.free)
 
-# compute_capability range
-check("compute_capability_range", 30 <= cc <= 100)
+# compute_capability positive on repeated query
+check("compute_capability_stays_positive", cc > 0)
 
-# gpu_version format
-major = div(ver, 1000)
-check("gpu_version_format", major >= 11)
+# gpu runtime version positive on repeated query
+check("gpu_version_stays_positive", ver > 0)
 
 # device_name stable
-name2 = Insight.device_name(0)
+name2 = Insight.device_name(1, 0)
 check("device_name_stable", name == name2)
 
 # compute_capability stable
@@ -73,9 +72,12 @@ check("compute_capability_stable", cc == cc2)
 # device_memory total reasonable
 check("device_memory_total", mem.total >= 1024 * 1024 * 1024)
 
-# driver_version format
-dmajor = div(dver, 1000)
-check("driver_version_format", dmajor >= 11)
+# driver version positive on repeated query
+check("driver_version_stays_positive", dver > 0)
+
+# active backend name
+backend_name = Insight.active_gpu_backend_name()
+check("active_gpu_backend_name", typeof(backend_name) == String && length(backend_name) > 0)
 
 # ============================================================================
 # Results

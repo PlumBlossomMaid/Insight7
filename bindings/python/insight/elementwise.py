@@ -34,6 +34,11 @@ from insight._insight import (
     bitwise_and as _native_bitwise_and,
     bitwise_or as _native_bitwise_or,
     bitwise_xor as _native_bitwise_xor,
+    greater_than as _native_greater_than,
+    less_than as _native_less_than,
+    bitwise_left_shift as _native_bitwise_left_shift,
+    bitwise_right_shift as _native_bitwise_right_shift,
+    bitwise_not as _native_bitwise_not,
 )
 
 
@@ -366,10 +371,29 @@ def bitwise_xor(a: "Array", b: "Array") -> "Array":
     return _native_bitwise_xor(a, b)
 
 
+def greater_than(a: "Array", b: "Array") -> "Array":
+    return _native_greater_than(a, b)
+
+
+def less_than(a: "Array", b: "Array") -> "Array":
+    return _native_less_than(a, b)
+
+
+def bitwise_left_shift(a: "Array", b: "Array") -> "Array":
+    return _native_bitwise_left_shift(a, b)
+
+
+def bitwise_right_shift(a: "Array", b: "Array") -> "Array":
+    return _native_bitwise_right_shift(a, b)
+
+
+def bitwise_not(x: "Array") -> "Array":
+    return _native_bitwise_not(x)
+
+
 __all__ = [
     "add",
     "sub",
-    "mul",
     "div",
     "pow",
     "mod",
@@ -378,11 +402,19 @@ __all__ = [
     "equal",
     "not_equal",
     "greater",
+    "greater_than",
     "less",
+    "less_than",
     "greater_equal",
     "less_equal",
     "logical_and",
     "logical_or",
     "logical_xor",
     "logical_not",
+    "bitwise_and",
+    "bitwise_or",
+    "bitwise_xor",
+    "bitwise_left_shift",
+    "bitwise_right_shift",
+    "bitwise_not",
 ]

@@ -37,10 +37,10 @@ Array broadcast_to(const Array &x, const Shape &target_shape);
  * Returns a vector of views (zero-copy) all with the same shape.
  * The common shape is computed by broadcasting all input shapes.
  *
- * @param tensors Vector of input arrays
+ * @param arrays Vector of input arrays
  * @return Vector of broadcasted views (same order as input)
  * @throws Exception if inputs are empty or shapes are not broadcastable
  */
-std::vector<Array> broadcast_arrays(const std::vector<Array> &tensors);
+std::vector<Array> broadcast_arrays(const std::vector<Array> &arrays);
 
 } // namespace ins

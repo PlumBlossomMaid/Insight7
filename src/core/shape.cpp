@@ -1,6 +1,7 @@
 // src/core/shape.cpp
 #include "insight/core/shape.h"
 #include "insight/core/array.h"
+#include "insight/core/axis.h"
 #include "insight/core/exception.h"
 #include <algorithm>
 #include <numeric>
@@ -38,12 +39,7 @@ Shape::Shape(const std::vector<int64_t> &dims) {
 // ========== Accessors ==========
 
 int64_t Shape::dim(int i) const {
-  int nd = ndim();
-  if (i < 0)
-    i += nd;
-  INS_CHECK(i >= 0 && i < nd, "Shape dimension index out of range: ", i,
-            " (ndim=", nd, ")");
-  return dims_[i];
+  return dims_[normalize_axis(i, ndim(), "Shape::dim")];
 }
 
 // ========== Shape Manipulation ==========
@@ -59,9 +55,7 @@ Shape Shape::squeeze() const {
 }
 
 Shape Shape::squeeze(int dim) const {
-  if (dim < 0)
-    dim += ndim_;
-  INS_CHECK(dim >= 0 && dim < ndim_, "squeeze: dimension out of range: ", dim);
+  dim = normalize_axis(dim, ndim_, "Shape::squeeze");
   INS_CHECK(dims_[dim] == 1, "squeeze: dimension ", dim,
             " is not 1 (value=", dims_[dim], ")");
 
@@ -76,10 +70,7 @@ Shape Shape::squeeze(int dim) const {
 }
 
 Shape Shape::unsqueeze(int dim) const {
-  if (dim < 0)
-    dim += ndim_ + 1;
-  INS_CHECK(dim >= 0 && dim <= ndim_,
-            "unsqueeze: dimension out of range: ", dim, " (ndim=", ndim_, ")");
+  dim = normalize_axis_insert(dim, ndim_, "Shape::unsqueeze");
 
   int64_t new_dims_arr[INSIGHT_MAX_NDIM];
   for (int i = 0, j = 0; i <= ndim_; ++i) {

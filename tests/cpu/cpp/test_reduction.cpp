@@ -245,6 +245,24 @@ TEST_F(ReductionTest, CumMaxCumMin2D) {
   EXPECT_NEAR(cmin_data[3], 1.0f, 1e-5);
 }
 
+TEST_F(ReductionTest, CumulativeNegativeAxis) {
+  Array x = arange_2d(2, 4, 1.0f, 1.0f);
+
+  Array cs = cumsum(x, -1);
+  const float *cs_data = cs.data<float>();
+  EXPECT_NEAR(cs_data[0], 1.0f, 1e-5);
+  EXPECT_NEAR(cs_data[1], 3.0f, 1e-5);
+  EXPECT_NEAR(cs_data[2], 6.0f, 1e-5);
+  EXPECT_NEAR(cs_data[3], 10.0f, 1e-5);
+
+  Array cp = cumprod(x, -1);
+  const float *cp_data = cp.data<float>();
+  EXPECT_NEAR(cp_data[0], 1.0f, 1e-5);
+  EXPECT_NEAR(cp_data[1], 2.0f, 1e-5);
+  EXPECT_NEAR(cp_data[2], 6.0f, 1e-5);
+  EXPECT_NEAR(cp_data[3], 24.0f, 1e-5);
+}
+
 // ========== Median/Quantile ==========
 
 TEST_F(ReductionTest, Median2D) {
@@ -352,7 +370,7 @@ TEST_F(ReductionTest, NanMedianNanQuantile) {
   EXPECT_NEAR(nanquantile(x, 0.25).item<float>(), 2.0, 1e-5);
 }
 
-// ========== 3D Tensors ==========
+// ========== 3D Arrays ==========
 
 TEST_F(ReductionTest, Sum3D) {
   Array x = arange_3d(2, 3, 4); // values 0..23
@@ -478,4 +496,153 @@ TEST_F(ReductionTest, BincountMinlength) {
 TEST_F(ReductionTest, BincountEmpty) {
   Array x;
   EXPECT_THROW(bincount(x), Exception);
+}
+
+// ========== Log-Sum-Exp ==========
+
+TEST_F(ReductionTest, LogSumExp1D) {
+  Array x = to_array<float>({1.0f, 2.0f, 3.0f});
+  Array result = logsumexp(x);
+  float expected = std::log(std::exp(1.0f) + std::exp(2.0f) + std::exp(3.0f));
+  EXPECT_NEAR(result.item<float>(), expected, 1e-5);
+}
+
+TEST_F(ReductionTest, LogSumExp2D) {
+  Array x = arange_2d(2, 3, 0.0f, 1.0f); // [[0,1,2],[3,4,5]]
+
+  // axis=0: per column
+  Array s0 = logsumexp(x, 0);
+  EXPECT_EQ(s0.shape(), Shape({3}));
+  const float *data0 = s0.data<float>();
+  for (int j = 0; j < 3; ++j) {
+    float e = std::log(std::exp(static_cast<float>(j)) +
+                       std::exp(static_cast<float>(j + 3)));
+    EXPECT_NEAR(data0[j], e, 1e-5);
+  }
+
+  // axis=1: per row
+  Array s1 = logsumexp(x, 1);
+  EXPECT_EQ(s1.shape(), Shape({2}));
+  const float *data1 = s1.data<float>();
+  for (int i = 0; i < 2; ++i) {
+    float base = static_cast<float>(i * 3);
+    float e = std::log(std::exp(base) + std::exp(base + 1.0f) +
+                       std::exp(base + 2.0f));
+    EXPECT_NEAR(data1[i], e, 1e-5);
+  }
+}
+
+TEST_F(ReductionTest, LogSumExpKeepdim) {
+  Array x = arange_2d(2, 3, 0.0f, 1.0f);
+  Array s = logsumexp(x, 1, true);
+  EXPECT_EQ(s.shape(), Shape({2, 1}));
+  const float *data = s.data<float>();
+  float e0 = std::log(std::exp(0.0f) + std::exp(1.0f) + std::exp(2.0f));
+  float e1 = std::log(std::exp(3.0f) + std::exp(4.0f) + std::exp(5.0f));
+  EXPECT_NEAR(data[0], e0, 1e-5);
+  EXPECT_NEAR(data[1], e1, 1e-5);
+}
+
+TEST_F(ReductionTest, LogSumExpStableLargeValues) {
+  // Numerically stable: subtracting max avoids overflow.
+  Array x = to_array<float>({1000.0f, 1000.0f, 1000.0f});
+  Array result = logsumexp(x);
+  EXPECT_NEAR(result.item<float>(), 1000.0f + std::log(3.0f), 1e-4);
+}
+
+TEST_F(ReductionTest, LogSumExpIntPromotesToF64) {
+  Array x = to_array<int32_t>({1, 2, 3});
+  Array result = logsumexp(x);
+  EXPECT_EQ(result.dtype(), DType::F64);
+  double expected = std::log(std::exp(1.0) + std::exp(2.0) + std::exp(3.0));
+  EXPECT_NEAR(result.item<double>(), expected, 1e-9);
+}
+
+// ========== Softmax / Log-Softmax ==========
+
+TEST_F(ReductionTest, Softmax1D) {
+  Array x = to_array<float>({1.0f, 2.0f, 3.0f});
+  Array result = softmax(x);
+
+  const float *data = result.data<float>();
+  float total = 0.0f;
+  for (int64_t i = 0; i < 3; ++i) {
+    float e = std::exp(static_cast<float>(i + 1) - 3.0f);
+    float expected = e / (std::exp(-2.0f) + std::exp(-1.0f) + std::exp(0.0f));
+    EXPECT_NEAR(data[i], expected, 1e-5);
+    total += data[i];
+  }
+  EXPECT_NEAR(total, 1.0f, 1e-5);
+}
+
+TEST_F(ReductionTest, Softmax2DAxis) {
+  Array x = arange_2d(2, 3, 0.0f, 1.0f); // [[0,1,2],[3,4,5]]
+
+  // axis=0: columns sum to 1
+  Array s0 = softmax(x, 0);
+  EXPECT_EQ(s0.shape(), Shape({2, 3}));
+  const float *data0 = s0.data<float>();
+  for (int j = 0; j < 3; ++j) {
+    float e0 = std::exp(static_cast<float>(j));
+    float e1 = std::exp(static_cast<float>(j + 3));
+    EXPECT_NEAR(data0[j], e0 / (e0 + e1), 1e-5);
+    EXPECT_NEAR(data0[j + 3], e1 / (e0 + e1), 1e-5);
+  }
+
+  // axis=1: rows sum to 1
+  Array s1 = softmax(x, 1);
+  const float *data1 = s1.data<float>();
+  for (int i = 0; i < 2; ++i) {
+    float total = 0.0f;
+    for (int j = 0; j < 3; ++j) {
+      total += data1[i * 3 + j];
+    }
+    EXPECT_NEAR(total, 1.0f, 1e-5);
+  }
+}
+
+TEST_F(ReductionTest, SoftmaxDefaultAxis) {
+  Array x = arange_2d(2, 3, 0.0f, 1.0f);
+  Array s = softmax(x); // default axis=-1 (last)
+  const float *data = s.data<float>();
+  for (int i = 0; i < 2; ++i) {
+    float total = 0.0f;
+    for (int j = 0; j < 3; ++j) {
+      total += data[i * 3 + j];
+    }
+    EXPECT_NEAR(total, 1.0f, 1e-5);
+  }
+}
+
+TEST_F(ReductionTest, SoftmaxStableLargeValues) {
+  Array x = to_array<float>({1000.0f, 1000.0f, 1000.0f});
+  Array result = softmax(x);
+  const float *data = result.data<float>();
+  for (int64_t i = 0; i < 3; ++i) {
+    EXPECT_NEAR(data[i], 1.0f / 3.0f, 1e-4);
+  }
+}
+
+TEST_F(ReductionTest, LogSoftmax1D) {
+  Array x = to_array<float>({1.0f, 2.0f, 3.0f});
+  Array result = log_softmax(x);
+
+  const float *data = result.data<float>();
+  for (int64_t i = 0; i < 3; ++i) {
+    float e = std::exp(static_cast<float>(i + 1) - 3.0f);
+    float p = e / (std::exp(-2.0f) + std::exp(-1.0f) + std::exp(0.0f));
+    EXPECT_NEAR(data[i], std::log(p), 1e-5);
+  }
+}
+
+TEST_F(ReductionTest, LogSoftmaxIntPromotesToF64) {
+  Array x = to_array<int32_t>({1, 2, 3});
+  Array result = log_softmax(x);
+  EXPECT_EQ(result.dtype(), DType::F64);
+  const double *data = result.data<double>();
+  for (int64_t i = 0; i < 3; ++i) {
+    double e = std::exp(static_cast<double>(i + 1) - 3.0);
+    double p = e / (std::exp(-2.0) + std::exp(-1.0) + std::exp(0.0));
+    EXPECT_NEAR(data[i], std::log(p), 1e-9);
+  }
 }

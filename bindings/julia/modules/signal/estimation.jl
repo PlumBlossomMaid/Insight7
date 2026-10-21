@@ -78,31 +78,31 @@ function Base.getproperty(kf::KalmanFilter, sym::Symbol)
     if sym === :x
         ptr = ccall((:insight_jl_kf_get_x, LIB_INSIGHT), Ptr{Cvoid},
                     (Ptr{Cvoid},), kf.ptr)
-        a = InsightArray(ptr); finalizer(_free, a); return a
+        return _wrap_ptr(ptr, "KalmanFilter.$sym")
     elseif sym === :P
         ptr = ccall((:insight_jl_kf_get_P, LIB_INSIGHT), Ptr{Cvoid},
                     (Ptr{Cvoid},), kf.ptr)
-        a = InsightArray(ptr); finalizer(_free, a); return a
+        return _wrap_ptr(ptr, "KalmanFilter.$sym")
     elseif sym === :z
         ptr = ccall((:insight_jl_kf_get_z, LIB_INSIGHT), Ptr{Cvoid},
                     (Ptr{Cvoid},), kf.ptr)
-        a = InsightArray(ptr); finalizer(_free, a); return a
+        return _wrap_ptr(ptr, "KalmanFilter.$sym")
     elseif sym === :R
         ptr = ccall((:insight_jl_kf_get_R, LIB_INSIGHT), Ptr{Cvoid},
                     (Ptr{Cvoid},), kf.ptr)
-        a = InsightArray(ptr); finalizer(_free, a); return a
+        return _wrap_ptr(ptr, "KalmanFilter.$sym")
     elseif sym === :Q
         ptr = ccall((:insight_jl_kf_get_Q, LIB_INSIGHT), Ptr{Cvoid},
                     (Ptr{Cvoid},), kf.ptr)
-        a = InsightArray(ptr); finalizer(_free, a); return a
+        return _wrap_ptr(ptr, "KalmanFilter.$sym")
     elseif sym === :F
         ptr = ccall((:insight_jl_kf_get_F, LIB_INSIGHT), Ptr{Cvoid},
                     (Ptr{Cvoid},), kf.ptr)
-        a = InsightArray(ptr); finalizer(_free, a); return a
+        return _wrap_ptr(ptr, "KalmanFilter.$sym")
     elseif sym === :H
         ptr = ccall((:insight_jl_kf_get_H, LIB_INSIGHT), Ptr{Cvoid},
                     (Ptr{Cvoid},), kf.ptr)
-        a = InsightArray(ptr); finalizer(_free, a); return a
+        return _wrap_ptr(ptr, "KalmanFilter.$sym")
     elseif sym === :dim_x
         return Int(ccall((:insight_jl_kf_get_dim_x, LIB_INSIGHT), Int32,
                          (Ptr{Cvoid},), kf.ptr))

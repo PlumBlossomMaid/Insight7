@@ -9,7 +9,7 @@ source = {
 description = {
     summary = "Insight7 — lightweight scientific computing framework for Lua",
     detailed = [[
-        Insight is a C++ tensor computing framework with GPU support.
+        Insight is a C++ array computing framework with GPU support.
         This package provides Lua/LuaJIT bindings via sol2 with
         Penlight-enhanced API wrappers. Supports signal processing,
         linear algebra, FFT, and more.
@@ -43,7 +43,7 @@ build = {
     ]],
 
     install_command = [[
-        mkdir -p "$(LIBDIR)" "$(LUADIR)/insight" && \
+        mkdir -p "$(LIBDIR)" "$(LUADIR)/insight" "$(LUADIR)/argrule" && \
         cp build.luarocks/bindings/lua/_insight.so "$(LIBDIR)/" 2>/dev/null; \
         cp build.luarocks/bindings/lua/_insight.dll "$(LIBDIR)/" 2>/dev/null; \
         for f in build.luarocks/backends/*/*insight*backend*.so \
@@ -52,6 +52,7 @@ build = {
         done; \
         cp bindings/lua/insight/init.lua "$(LUADIR)/insight/" && \
         cp bindings/lua/insight/*.lua "$(LUADIR)/insight/" 2>/dev/null; \
+        cp bindings/lua/argrule/*.lua "$(LUADIR)/argrule/"; \
         true
     ]],
 }

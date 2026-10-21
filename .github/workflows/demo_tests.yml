@@ -1,6 +1,7 @@
 name: Demo Tests
 
 on:
+  # NOTE: keep the push and pull_request path lists identical.
   push:
     branches: [ main, master, develop ]
     paths:
@@ -8,6 +9,7 @@ on:
       - 'bindings/**'
       - '!bindings/**/*.md'
       - '!bindings/**/*.txt'
+      - 'cmake/**'
       - 'include/**'
       - 'src/**'
       - 'backends/**'
@@ -20,9 +22,10 @@ on:
       - 'bindings/**'
       - '!bindings/**/*.md'
       - '!bindings/**/*.txt'
-      - 'backends/**'
+      - 'cmake/**'
       - 'include/**'
       - 'src/**'
+      - 'backends/**'
       - 'CMakeLists.txt'
       - '.github/workflows/demo_tests.yml'
   workflow_dispatch:

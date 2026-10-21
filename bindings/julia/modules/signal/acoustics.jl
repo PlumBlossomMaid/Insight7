@@ -9,7 +9,7 @@ Convert mel frequencies to Hz.
 function mel2hz(mels::InsightArray)::InsightArray
     ptr = ccall((:insight_jl_mel2hz, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid},), mels)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "mel2hz")
 end
 
 """
@@ -20,7 +20,7 @@ Convert Hz frequencies to mel scale.
 function hz2mel(hz::InsightArray)::InsightArray
     ptr = ccall((:insight_jl_hz2mel, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid},), hz)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "hz2mel")
 end
 
 """
@@ -32,7 +32,7 @@ function mel_frequencies(n_mels::Int; f_low::Float64=0.0,
                          f_high::Float64=11000.0)::InsightArray
     ptr = ccall((:insight_jl_mel_frequencies, LIB_INSIGHT), Ptr{Cvoid},
                 (Int64, Float64, Float64), Int64(n_mels), f_low, f_high)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "mel_frequencies")
 end
 
 """
@@ -43,7 +43,7 @@ Convert Hz frequencies to Bark scale.
 function hz2bark(hz::InsightArray)::InsightArray
     ptr = ccall((:insight_jl_hz2bark, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid},), hz)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "hz2bark")
 end
 
 """
@@ -54,5 +54,5 @@ Convert Bark scale frequencies to Hz.
 function bark2hz(bark::InsightArray)::InsightArray
     ptr = ccall((:insight_jl_bark2hz, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid},), bark)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "bark2hz")
 end

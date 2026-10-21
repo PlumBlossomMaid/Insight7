@@ -75,7 +75,11 @@ void Slice::normalize(int64_t dim_size, int64_t &start_out, int64_t &stop_out,
     if (start_out < 0) {
       start_out += dim_size;
     }
-    start_out = std::clamp<int64_t>(start_out, 0, dim_size - 1);
+    if (step_out > 0) {
+      start_out = std::clamp<int64_t>(start_out, 0, dim_size);
+    } else {
+      start_out = std::clamp<int64_t>(start_out, -1, dim_size - 1);
+    }
   } else {
     start_out = (step_out > 0) ? 0 : dim_size - 1;
   }
@@ -100,9 +104,9 @@ int64_t Slice::size(int64_t dim_size) const {
   int64_t s, e, st;
   normalize(dim_size, s, e, st);
   if (st > 0) {
-    return (e - s + st - 1) / st;
+    return (e > s) ? (e - s + st - 1) / st : 0;
   } else {
-    return (s - e + (-st) - 1) / (-st);
+    return (s > e) ? (s - e + (-st) - 1) / (-st) : 0;
   }
 }
 

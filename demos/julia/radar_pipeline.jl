@@ -144,7 +144,7 @@ function init_cache(device)
     global _T, _COMPOSITE_BASE, _TAPS, _GAUSS_KERNEL, _CWT_WAVELETS
 
     if device == "gpu" && Insight.has_device(Int64(1))
-        Insight.load_backend("rocm")
+        Insight.load_backend("gpu")
         Insight.set_device(Insight.GPUPlace(0))
     else
         Insight.set_device(Insight.CPUPlace())

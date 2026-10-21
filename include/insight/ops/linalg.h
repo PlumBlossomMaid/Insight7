@@ -2,6 +2,7 @@
 #pragma once
 #include "insight/core/array.h"
 #include <string>
+#include <vector>
 
 namespace ins {
 
@@ -113,6 +114,79 @@ inline Array inner(const Array &a, const Array &b) { return dot(a, b); }
  * @return Outer product matrix
  */
 Array outer(const Array &a, const Array &b);
+
+// ============================================================================
+// Tensor contraction / products
+// ============================================================================
+
+/**
+ * @brief Tensor dot product (NumPy tensordot).
+ *
+ * Contracts axes of a with axes of b. When axes is an int (default 2),
+ * the last `axes` axes of a are contracted with the first `axes` axes of b.
+ * Otherwise the two integer sequences specify the exact axes to contract.
+ *
+ * @param a First tensor
+ * @param b Second tensor
+ * @param axes Number of trailing axes of a / leading axes of b (default: 2)
+ * @return Contracted tensor
+ */
+Array tensordot(const Array &a, const Array &b, int axes = 2);
+Array tensordot(const Array &a, const Array &b, const std::vector<int> &axes_a,
+                const std::vector<int> &axes_b);
+
+/**
+ * @brief Kronecker product (NumPy kron).
+ *
+ * The Kronecker product of a and b: a[i,j] * b placed in blocks.
+ * Result shape is (a0*b0, a1*b1, ...) and dtype is the promoted type.
+ *
+ * @param a First array
+ * @param b Second array
+ * @return Kronecker product
+ */
+Array kron(const Array &a, const Array &b);
+
+/**
+ * @brief Cross product of 3-element vectors (NumPy cross subset).
+ *
+ * Computes the cross product of two arrays whose elements are 3-vectors
+ * along the given axis (the axis must have size 3). Result dtype follows
+ * promotion of a and b.
+ *
+ * @param a First array (axis of size 3)
+ * @param b Second array (axis of size 3)
+ * @param axis Axis holding the 3-vector components (default: -1)
+ * @return Cross product array
+ */
+Array cross(const Array &a, const Array &b, int axis = -1);
+
+/**
+ * @brief Chain matrix multiplication with optimal order (NumPy multi_dot).
+ *
+ * Multiplies a sequence of 2D matrices together, choosing the
+ * parenthesization that minimizes the total number of scalar
+ * multiplications.
+ *
+ * @param arrays Sequence of 2D matrices (at least two)
+ * @return Product A0 * A1 * ... * An
+ */
+Array multi_dot(const std::vector<Array> &arrays);
+
+/**
+ * @brief Einstein summation (NumPy einsum subset).
+ *
+ * Evaluates an Einstein summation convention expression. Supports
+ * explicit output labels ("ij,jk->ik") and implicit output (labels
+ * appearing exactly once, in alphabetical order, e.g. "ij,jk").
+ * Repeated labels within one operand (diagonal) and ellipsis ("...")
+ * are not supported yet.
+ *
+ * @param subscripts Comma-separated label lists, optionally "->output"
+ * @param operands One array per comma-separated term
+ * @return Contracted tensor
+ */
+Array einsum(const std::string &subscripts, const std::vector<Array> &operands);
 
 // ============================================================================
 // Matrix decompositions

@@ -61,11 +61,10 @@ InsightKernel insight_find_kernel(const char *op_name, int32_t device_type,
 /**
  * @brief Launch a kernel with automatic CPU fallback.
  *
- * First attempts the kernel on the requested device. If it returns
- * C_FALLBACK (and the device is GPU), all InsightArray data is
- * transferred to CPU, the CPU kernel is invoked, and results are
- * transferred back. Input/output counts are derived by scanning
- * the NULL-terminated arrays.
+ * First attempts the kernel on the requested device. This legacy raw-pointer
+ * launch path cannot perform CPU fallback because scalar attributes and arrays
+ * are not distinguishable. Use insight_kernel_launch_schema() for GPU kernels
+ * that may return C_FALLBACK.
  *
  * @param op_name     Operator name
  * @param device_type Preferred device type

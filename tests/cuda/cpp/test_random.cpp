@@ -1,8 +1,10 @@
 // tests/cuda/test_random.cpp
 #include "insight/insight.h"
 #include "insight/ops/random.h"
+#include <algorithm>
 #include <cmath>
 #include <gtest/gtest.h>
+#include <vector>
 
 using namespace ins;
 
@@ -27,7 +29,7 @@ void expect_float_equal_gpu(const Array &gpu_arr,
 class RandomTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "iluvatar"});
+    ins::init();
     try {
       set_device(GPUPlace(0));
     } catch (...) {
@@ -109,7 +111,8 @@ TEST_F(RandomTestGPU, RandnShape) {
 }
 
 TEST_F(RandomTestGPU, RandnStatisticalMeanAndStd) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // ========== randint ==========
@@ -153,7 +156,8 @@ TEST_F(RandomTestGPU, NormalShape) {
 }
 
 TEST_F(RandomTestGPU, NormalStatisticalMeanAndStd) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 // ========== uniform ==========
@@ -242,11 +246,13 @@ TEST_F(RandomTestGPU, ExponentialShape) {
 }
 
 TEST_F(RandomTestGPU, ExponentialValuesPositive) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(RandomTestGPU, ExponentialStatisticalMean) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(RandomTestGPU, GammaShape) {
@@ -255,7 +261,8 @@ TEST_F(RandomTestGPU, GammaShape) {
 }
 
 TEST_F(RandomTestGPU, GammaValuesPositive) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(RandomTestGPU, ChisquareShape) {
@@ -264,7 +271,8 @@ TEST_F(RandomTestGPU, ChisquareShape) {
 }
 
 TEST_F(RandomTestGPU, ChisquareValuesPositive) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
 }
 
 TEST_F(RandomTestGPU, PoissonShape) {
@@ -283,5 +291,156 @@ TEST_F(RandomTestGPU, BetaShape) {
 }
 
 TEST_F(RandomTestGPU, BetaValuesInRange) {
-  GTEST_SKIP() << "Iluvatar: no native FP64";
+  if (active_gpu_backend_name() == "ixuca")
+    GTEST_SKIP() << "IXUCA: no native FP64";
+}
+
+// ========== multinomial ==========
+
+TEST_F(RandomTestGPU, MultinomialShape) {
+  Array probs = to_array(std::vector<double>{0.1, 0.2, 0.7}).to(GPUPlace(0));
+  Array out = multinomial(probs, 10, /*replacement=*/true, GPUPlace(0));
+  EXPECT_EQ(out.shape(), Shape({10}));
+  EXPECT_EQ(out.dtype(), DType::I64);
+  EXPECT_EQ(out.place(), GPUPlace(0));
+}
+
+TEST_F(RandomTestGPU, MultinomialValuesInRange) {
+  Array probs =
+      to_array(std::vector<double>{1.0, 2.0, 3.0, 4.0, 5.0}).to(GPUPlace(0));
+  seed(42);
+  Array out = multinomial(probs, 10000, /*replacement=*/true, GPUPlace(0));
+  Array cpu_out = out.to(CPUPlace());
+  const int64_t *data = cpu_out.data<int64_t>();
+  for (int i = 0; i < 10000; ++i) {
+    EXPECT_GE(data[i], 0);
+    EXPECT_LT(data[i], 5);
+  }
+}
+
+TEST_F(RandomTestGPU, MultinomialWeightedDominant) {
+  Array probs = to_array(std::vector<double>{0.05, 0.05, 0.9}).to(GPUPlace(0));
+  seed(42);
+  Array out = multinomial(probs, 20000, /*replacement=*/true, GPUPlace(0));
+  Array cpu_out = out.to(CPUPlace());
+  const int64_t *data = cpu_out.data<int64_t>();
+  int64_t count2 = 0;
+  for (int i = 0; i < 20000; ++i) {
+    if (data[i] == 2)
+      ++count2;
+  }
+  EXPECT_GT(count2, 16000);
+}
+
+TEST_F(RandomTestGPU, MultinomialWithoutReplacementUnique) {
+  Array probs =
+      to_array(std::vector<double>{1.0, 1.0, 1.0, 1.0, 1.0}).to(GPUPlace(0));
+  seed(42);
+  Array out = multinomial(probs, 5, /*replacement=*/false, GPUPlace(0));
+  Array cpu_out = out.to(CPUPlace());
+  const int64_t *data = cpu_out.data<int64_t>();
+  std::vector<bool> seen(5, false);
+  for (int i = 0; i < 5; ++i) {
+    EXPECT_GE(data[i], 0);
+    EXPECT_LT(data[i], 5);
+    EXPECT_FALSE(seen[data[i]]) << "duplicate index " << data[i];
+    seen[data[i]] = true;
+  }
+}
+
+// ========== choice ==========
+
+TEST_F(RandomTestGPU, ChoiceShapeAndDtype) {
+  Array x = arange(10, DType::F32, GPUPlace(0));
+  Array out = choice(x, 5);
+  EXPECT_EQ(out.shape(), Shape({5}));
+  EXPECT_EQ(out.dtype(), DType::F32);
+}
+
+TEST_F(RandomTestGPU, ChoiceValuesInRange) {
+  Array x = arange(10, DType::I64, GPUPlace(0));
+  seed(42);
+  Array out = choice(x, 5000, /*replace=*/true);
+  EXPECT_EQ(out.place(), GPUPlace(0));
+  Array cpu_out = out.to(CPUPlace());
+  const int64_t *data = cpu_out.data<int64_t>();
+  for (int i = 0; i < 5000; ++i) {
+    EXPECT_GE(data[i], 0);
+    EXPECT_LT(data[i], 10);
+  }
+}
+
+TEST_F(RandomTestGPU, ChoiceWithP) {
+  Array x = arange(4, DType::I64, GPUPlace(0));
+  Array p =
+      to_array(std::vector<double>{0.05, 0.05, 0.05, 0.85}).to(GPUPlace(0));
+  seed(42);
+  Array out = choice(x, 20000, /*replace=*/true, p);
+  Array cpu_out = out.to(CPUPlace());
+  const int64_t *data = cpu_out.data<int64_t>();
+  int64_t count3 = 0;
+  for (int i = 0; i < 20000; ++i) {
+    if (data[i] == 3)
+      ++count3;
+  }
+  EXPECT_GT(count3, 15000);
+}
+
+TEST_F(RandomTestGPU, ChoiceWithoutReplacementUnique) {
+  Array x = arange(8, DType::I64, GPUPlace(0));
+  seed(42);
+  Array out = choice(x, 8, /*replace=*/false);
+  Array cpu_out = out.to(CPUPlace());
+  const int64_t *data = cpu_out.data<int64_t>();
+  std::vector<bool> seen(8, false);
+  for (int i = 0; i < 8; ++i) {
+    EXPECT_GE(data[i], 0);
+    EXPECT_LT(data[i], 8);
+    EXPECT_FALSE(seen[data[i]]) << "duplicate index " << data[i];
+    seen[data[i]] = true;
+  }
+}
+
+// ========== shuffle ==========
+
+TEST_F(RandomTestGPU, ShuffleShapeAndDtype) {
+  Array x = arange(50, DType::F32, GPUPlace(0));
+  seed(42);
+  Array out = shuffle(x);
+  EXPECT_EQ(out.shape(), Shape({50}));
+  EXPECT_EQ(out.dtype(), DType::F32);
+  EXPECT_EQ(out.place(), GPUPlace(0));
+}
+
+TEST_F(RandomTestGPU, ShufflePreservesSet) {
+  Array x = arange(100, DType::I64, GPUPlace(0));
+  seed(42);
+  Array out = shuffle(x);
+  Array cpu_src = x.to(CPUPlace());
+  Array cpu_dst = out.to(CPUPlace());
+  std::vector<int64_t> src(cpu_src.data<int64_t>(),
+                           cpu_src.data<int64_t>() + 100);
+  std::vector<int64_t> dst(cpu_dst.data<int64_t>(),
+                           cpu_dst.data<int64_t>() + 100);
+  std::sort(src.begin(), src.end());
+  std::sort(dst.begin(), dst.end());
+  for (int i = 0; i < 100; ++i) {
+    EXPECT_EQ(src[i], dst[i]);
+  }
+}
+
+TEST_F(RandomTestGPU, ShuffleChangesOrder) {
+  Array x = arange(50, DType::I64, GPUPlace(0));
+  seed(42);
+  Array out = shuffle(x);
+  Array cpu_src = x.to(CPUPlace());
+  Array cpu_dst = out.to(CPUPlace());
+  const int64_t *src = cpu_src.data<int64_t>();
+  const int64_t *dst = cpu_dst.data<int64_t>();
+  int changed = 0;
+  for (int i = 0; i < 50; ++i) {
+    if (src[i] != dst[i])
+      ++changed;
+  }
+  EXPECT_GT(changed, 0);
 }

@@ -18,16 +18,12 @@ namespace {
 class SignalTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "iluvatar"});
+    ins::init();
     try {
       set_device(GPUPlace(0));
-      // Iluvatar: signal API uses F64
-      GTEST_SKIP() << "Iluvatar: signal API uses F64 (hardware limit)";
     } catch (...) {
       GTEST_SKIP() << "GPU not available";
     }
-    // Iluvatar: FFT uses F64 (hardware limit)
-    GTEST_SKIP() << "Iluvatar: FFT uses F64";
   }
 };
 

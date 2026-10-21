@@ -19,7 +19,7 @@ def main():
 
     # GPU Timer (if available)
     if ins.has_device("gpu"):
-        ins.load_backend("cuda")
+        ins.init()
         t = ins.Timer((1, 0))
         t.start()
         a = ins.ones([256, 256], dtype=ins.float32, place=ins.GPUPlace(0))

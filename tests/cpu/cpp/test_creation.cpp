@@ -57,6 +57,12 @@ TEST_F(CreationTest, FullFloat64) {
   }
 }
 
+TEST_F(CreationTest, FullScalar) {
+  Array a = full({}, 7.0, DType::F32);
+  EXPECT_EQ(a.shape(), Shape({}));
+  EXPECT_FLOAT_EQ(a.item<float>(), 7.0f);
+}
+
 // ========== eye ==========
 
 TEST_F(CreationTest, Eye) {

@@ -1,8 +1,22 @@
 diff --git a/source/matplot/backend/gnuplot.cpp b/source/matplot/backend/gnuplot.cpp
-index 1e4a330..61907fc 100644
+index 1e4a330..cbe651b 100644
 --- a/source/matplot/backend/gnuplot.cpp
 +++ b/source/matplot/backend/gnuplot.cpp
-@@ -69,11 +69,35 @@ namespace matplot::backend {
+@@ -52,10 +52,13 @@ namespace matplot::backend {
+         char *environment_terminal = std::getenv("GNUTERM");
+         bool env_found = environment_terminal != nullptr;
+ #endif
++        const bool headless = std::getenv("DISPLAY") == nullptr;
+         if (env_found) {
+             if (terminal_is_available(environment_terminal)) {
+                 terminal_ = environment_terminal;
+             }
++        } else if (headless && terminal_is_available("pngcairo")) {
++            terminal_ = "pngcairo";
+ #if defined(_WIN32) || defined(_WIN64) || defined(__MINGW32__)
+         } else if (terminal_is_available("wxt")) {
+             // 2nd option: wxt on windows, even if not default
+@@ -69,11 +72,35 @@ namespace matplot::backend {
              terminal_ = default_terminal_type();
          }
  
@@ -40,7 +54,7 @@ index 1e4a330..61907fc 100644
          }
  
          // Check if everything is OK
-@@ -86,6 +110,8 @@ namespace matplot::backend {
+@@ -86,6 +113,8 @@ namespace matplot::backend {
      }
  
      gnuplot::~gnuplot() {
@@ -49,7 +63,7 @@ index 1e4a330..61907fc 100644
          if constexpr (dont_let_it_close_too_fast) {
              auto time_since_last_flush =
                  std::chrono::high_resolution_clock::now() - last_flush_;
-@@ -94,12 +120,15 @@ namespace matplot::backend {
+@@ -94,12 +123,15 @@ namespace matplot::backend {
                                              time_since_last_flush);
              }
          }
@@ -70,7 +84,7 @@ index 1e4a330..61907fc 100644
      }
  
      bool gnuplot::is_interactive() { return output_.empty(); }
-@@ -278,11 +307,22 @@ namespace matplot::backend {
+@@ -278,11 +310,22 @@ namespace matplot::backend {
      bool gnuplot::render_data() { return flush_commands(); }
  
      bool gnuplot::flush_commands() {
@@ -95,7 +109,7 @@ index 1e4a330..61907fc 100644
          if constexpr (trace_commands) {
              std::cout << "\n\n\n\n" << std::endl;
          }
-@@ -297,16 +337,30 @@ namespace matplot::backend {
+@@ -297,16 +340,30 @@ namespace matplot::backend {
          if (!pipe_) {
              return;
          }
@@ -128,7 +142,7 @@ index 1e4a330..61907fc 100644
          bytes_in_pipe_ += command.size();
          if constexpr (trace_commands) {
              std::cout << command << std::endl;
-@@ -451,7 +505,7 @@ namespace matplot::backend {
+@@ -451,7 +508,7 @@ namespace matplot::backend {
              "hpljii",   "hppj",    "imagen",  "linux",   "lua",
              "lua tikz", "mf",      "mif",     "mp",      "pbm",
              "pm",       "qms",     "regis",   "svga",    "texdraw",

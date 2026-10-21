@@ -32,7 +32,7 @@ function firwin(numtaps::Int, cutoff::Vector{Float64};
                 (Int64, Ptr{Float64}, Int32, Cstring, Cstring, Int32),
                 Int64(numtaps), cutoff, Int32(length(cutoff)),
                 window, pass_zero, scale ? Int32(1) : Int32(0))
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "firwin")
 end
 
 """
@@ -45,7 +45,7 @@ function firwin2(numtaps::Int, freq::Vector{Float64}, gain::Vector{Float64};
     ptr = ccall((:insight_jl_firwin2, LIB_INSIGHT), Ptr{Cvoid},
                 (Int64, Ptr{Float64}, Int32, Ptr{Float64}, Int32, Cstring),
                 Int64(numtaps), freq, Int32(length(freq)), gain, Int32(length(gain)), window)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "firwin2")
 end
 
 """
@@ -56,5 +56,5 @@ Sort complex roots by magnitude and conjugate pairs.
 function cmplx_sort(p::InsightArray)::InsightArray
     ptr = ccall((:insight_jl_cmplx_sort, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid},), p)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "cmplx_sort")
 end

@@ -10,7 +10,11 @@ class ElementwiseTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
     ins::init();
-    set_device(ins::GPUPlace(0));
+    try {
+      set_device(GPUPlace(0));
+    } catch (...) {
+      GTEST_SKIP() << "GPU not available";
+    }
   }
 };
 

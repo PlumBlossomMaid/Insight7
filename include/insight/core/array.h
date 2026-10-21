@@ -13,6 +13,14 @@
 
 namespace ins {
 
+struct ArrayStorageMetadata {
+  const void *data = nullptr;
+  size_t nbytes = 0;
+  Place place;
+  int32_t ref_count = 0;
+  bool is_view = false;
+};
+
 /**
  * @brief Multi-dimensional array container.
  *
@@ -116,6 +124,9 @@ public:
 
   /// Return the byte size of the shared base storage allocation
   size_t storage_nbytes() const;
+
+  /// Return explicit shared storage metadata for layout/storage protocols
+  ArrayStorageMetadata storage_metadata() const;
 
   // ========== Memory Layout ==========
 
@@ -342,7 +353,7 @@ private:
 
   friend class OpRegistry;
   friend Array broadcast_to(const Array &x, const Shape &target_shape);
-  friend std::vector<Array> broadcast_arrays(const std::vector<Array> &tensors);
+  friend std::vector<Array> broadcast_arrays(const std::vector<Array> &arrays);
 
   template <typename T> void set_scalar(T value) {
     *data<T>() = value;

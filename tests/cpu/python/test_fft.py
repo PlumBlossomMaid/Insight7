@@ -48,6 +48,19 @@ class TestFFTCPU:
         expected = np.fft.irfft(rfft_np)
         assert result.numel == expected.shape[0]
 
+    def test_ihfft(self):
+        x_np = np.array([1, 2, 3, 4], dtype=np.float64)
+        result = ins.ihfft(ins.from_numpy(x_np))
+        expected = np.fft.ihfft(x_np)
+        np.testing.assert_allclose(result.numpy(), expected, atol=1e-8)
+
+    def test_hfft(self):
+        x_np = np.array([1, 2, 3, 4], dtype=np.float64)
+        spectrum = np.fft.ihfft(x_np)
+        result = ins.hfft(ins.from_numpy(spectrum.astype(np.complex128)), n=x_np.shape[0])
+        expected = np.fft.hfft(spectrum, n=x_np.shape[0])
+        np.testing.assert_allclose(result.numpy(), expected, atol=1e-8)
+
     def test_fftfreq(self):
         result = ins.fftfreq(8, 1.0)
         expected = np.fft.fftfreq(8, 1.0)

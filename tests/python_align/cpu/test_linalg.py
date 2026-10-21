@@ -229,3 +229,82 @@ class TestLinalgExtended:
         result = ins.inner(a, b)
         expected = np.inner(a_np, b_np)
         assert_allclose(result.numpy(), expected)
+
+
+class TestLinalgBatch6:
+    """Batch 6 contraction/product ops vs NumPy
+    (tensordot/kron/cross/multi_dot/einsum)."""
+
+    def test_tensordot_axes1(self):
+        a_np = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float64)
+        b_np = np.array([[7, 8], [9, 10], [11, 12]], dtype=np.float64)
+        a, b = ins.from_numpy(a_np), ins.from_numpy(b_np)
+        result = ins.tensordot(a, b, 1)
+        assert_allclose(result.numpy(), np.tensordot(a_np, b_np, 1), rtol=1e-10)
+
+    def test_tensordot_default(self):
+        a_np = np.array([[1, 2], [3, 4]], dtype=np.float64)
+        b_np = np.array([[5, 6], [7, 8]], dtype=np.float64)
+        a, b = ins.from_numpy(a_np), ins.from_numpy(b_np)
+        result = ins.tensordot(a, b)
+        assert_allclose(result.numpy(), np.tensordot(a_np, b_np), rtol=1e-10)
+
+    def test_tensordot_axes_lists(self):
+        a_np = np.array([[1, 2], [3, 4]], dtype=np.float64)
+        b_np = np.array([[5, 6], [7, 8]], dtype=np.float64)
+        a, b = ins.from_numpy(a_np), ins.from_numpy(b_np)
+        result = ins.tensordot(a, b, [1], [0])
+        assert_allclose(result.numpy(), np.tensordot(a_np, b_np, ([1], [0])), rtol=1e-10)
+
+    def test_kron(self):
+        a_np = np.array([[1, 2], [3, 4]], dtype=np.float64)
+        b_np = np.array([[0, 5], [6, 7]], dtype=np.float64)
+        a, b = ins.from_numpy(a_np), ins.from_numpy(b_np)
+        assert_allclose(ins.kron(a, b).numpy(), np.kron(a_np, b_np), rtol=1e-10)
+
+    def test_cross(self):
+        a_np = np.array([1.0, 0.0, 0.0])
+        b_np = np.array([0.0, 1.0, 0.0])
+        a, b = ins.from_numpy(a_np), ins.from_numpy(b_np)
+        assert_allclose(ins.cross(a, b).numpy(), np.cross(a_np, b_np), rtol=1e-10)
+
+    def test_cross_batched(self):
+        a_np = np.array([[1, 0, 0], [0, 1, 0]], dtype=np.float64)
+        b_np = np.array([[0, 1, 0], [1, 0, 0]], dtype=np.float64)
+        a, b = ins.from_numpy(a_np), ins.from_numpy(b_np)
+        assert_allclose(ins.cross(a, b, 1).numpy(), np.cross(a_np, b_np, 1), rtol=1e-10)
+
+    def test_multi_dot(self):
+        a_np = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float64)
+        b_np = np.array([[7, 8], [9, 10], [11, 12]], dtype=np.float64)
+        c_np = np.array([[1, 0], [0, 1]], dtype=np.float64)
+        a, b, c = ins.from_numpy(a_np), ins.from_numpy(b_np), ins.from_numpy(c_np)
+        result = ins.multi_dot([a, b, c])
+        assert_allclose(result.numpy(), np.linalg.multi_dot([a_np, b_np, c_np]), rtol=1e-10)
+
+    def test_einsum_matmul(self):
+        a_np = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float64)
+        b_np = np.array([[7, 8], [9, 10], [11, 12]], dtype=np.float64)
+        a, b = ins.from_numpy(a_np), ins.from_numpy(b_np)
+        result = ins.einsum("ij,jk->ik", a, b)
+        assert_allclose(result.numpy(), np.einsum("ij,jk->ik", a_np, b_np), rtol=1e-10)
+
+    def test_einsum_implicit(self):
+        a_np = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float64)
+        b_np = np.array([[7, 8], [9, 10], [11, 12]], dtype=np.float64)
+        a, b = ins.from_numpy(a_np), ins.from_numpy(b_np)
+        result = ins.einsum("ij,jk", a, b)
+        assert_allclose(result.numpy(), np.einsum("ij,jk", a_np, b_np), rtol=1e-10)
+
+    def test_einsum_transpose(self):
+        a_np = np.array([[1, 2, 3], [4, 5, 6]], dtype=np.float64)
+        a = ins.from_numpy(a_np)
+        assert_allclose(ins.einsum("ij->ji", a).numpy(), np.einsum("ij->ji", a_np), rtol=1e-10)
+
+    def test_einsum_vector_dot(self):
+        a_np = np.array([1, 2, 3], dtype=np.float64)
+        b_np = np.array([4, 5, 6], dtype=np.float64)
+        a, b = ins.from_numpy(a_np), ins.from_numpy(b_np)
+        assert_allclose(
+            ins.einsum("i,i->", a, b).numpy(), np.einsum("i,i->", a_np, b_np), rtol=1e-10
+        )

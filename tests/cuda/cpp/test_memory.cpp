@@ -8,7 +8,9 @@ class MemoryTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
     ins::init();
-    if (!ins::is_device_available(ins::DeviceKind::GPU)) {
+    try {
+      ins::set_device(ins::GPUPlace(0));
+    } catch (...) {
       GTEST_SKIP() << "GPU not available";
     }
   }

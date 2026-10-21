@@ -10,7 +10,7 @@ function fftconvolve(in1::InsightArray, in2::InsightArray;
                      mode::String="full")::InsightArray
     ptr = ccall((:insight_jl_fftconvolve, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Ptr{Cvoid}, Cstring), in1, in2, mode)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "fftconvolve")
 end
 
 """
@@ -22,7 +22,7 @@ function correlate(in1::InsightArray, in2::InsightArray;
                    mode::String="full")::InsightArray
     ptr = ccall((:insight_jl_correlate, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Ptr{Cvoid}, Cstring), in1, in2, mode)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "correlate")
 end
 
 """
@@ -34,7 +34,7 @@ function convolve2d(in1::InsightArray, in2::InsightArray;
                     mode::String="full")::InsightArray
     ptr = ccall((:insight_jl_convolve2d, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Ptr{Cvoid}, Cstring), in1, in2, mode)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "convolve2d")
 end
 
 """
@@ -46,7 +46,7 @@ function correlate2d(in1::InsightArray, in2::InsightArray;
                      mode::String="full")::InsightArray
     ptr = ccall((:insight_jl_correlate2d, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Ptr{Cvoid}, Cstring), in1, in2, mode)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "correlate2d")
 end
 
 """
@@ -58,7 +58,7 @@ function correlation_lags(in1_len::Int, in2_len::Int;
                           mode::String="full")::InsightArray
     ptr = ccall((:insight_jl_correlation_lags, LIB_INSIGHT), Ptr{Cvoid},
                 (Int64, Int64, Cstring), Int64(in1_len), Int64(in2_len), mode)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "correlation_lags")
 end
 
 """
@@ -68,7 +68,8 @@ Choose the faster convolution method (direct or FFT).
 """
 function choose_conv_method(in1::InsightArray, in2::InsightArray;
                             mode::String="full")::String
-    ptr = ccall((:insight_jl_choose_conv_method, LIB_INSIGHT), Cstring,
+    ptr = ccall((:insight_jl_choose_conv_method, LIB_INSIGHT), Ptr{UInt8},
                 (Ptr{Cvoid}, Ptr{Cvoid}, Cstring), in1, in2, mode)
+    ptr == C_NULL && _fail("choose_conv_method")
     return unsafe_string(ptr)
 end

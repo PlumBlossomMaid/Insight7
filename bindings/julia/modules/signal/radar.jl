@@ -29,8 +29,8 @@ function ca_cfar(data::InsightArray, guard_cells::Vector{Int32},
           data, guard_cells, Int32(length(guard_cells)),
           reference_cells, Int32(length(reference_cells)), pfa,
           thresh_ref, det_ref)
-    thresh = InsightArray(thresh_ref[]); finalizer(_free, thresh)
-    det = InsightArray(det_ref[]); finalizer(_free, det)
+    thresh = _wrap_ptr(thresh_ref[], "ca_cfar")
+    det = _wrap_ptr(det_ref[], "ca_cfar")
     return (thresh, det)
 end
 
@@ -43,7 +43,7 @@ function pulse_compression(x::InsightArray, tpl::InsightArray;
                            normalize::Bool=false)::InsightArray
     ptr = ccall((:insight_jl_pulse_compression, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Ptr{Cvoid}, Int32), x, tpl, Int32(normalize ? 1 : 0))
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "pulse_compression")
 end
 
 """
@@ -54,7 +54,7 @@ Compute the pulse-Doppler processing (FFT along slow-time axis).
 function pulse_doppler(x::InsightArray)::InsightArray
     ptr = ccall((:insight_jl_pulse_doppler, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid},), x)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "pulse_doppler")
 end
 
 """
@@ -65,7 +65,7 @@ Compute the pulse-Doppler processing with windowing (FFT along slow-time axis).
 function pulse_doppler(x::InsightArray, window::String, nfft::Integer)::InsightArray
     ptr = ccall((:insight_jl_pulse_doppler_window, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Cstring, Int64), x, window, Int64(nfft))
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "pulse_doppler")
 end
 
 """
@@ -76,7 +76,7 @@ Apply MVDR (Capon) beamforming.
 function mvdr(x::InsightArray, sv::InsightArray)::InsightArray
     ptr = ccall((:insight_jl_mvdr, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Ptr{Cvoid}), x, sv)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "mvdr")
 end
 
 """
@@ -87,5 +87,5 @@ Compute the ambiguity function of a signal.
 function ambgfun(x::InsightArray, fs::Float64, prf::Float64)::InsightArray
     ptr = ccall((:insight_jl_ambgfun, LIB_INSIGHT), Ptr{Cvoid},
                 (Ptr{Cvoid}, Float64, Float64), x, fs, prf)
-    arr = InsightArray(ptr); finalizer(_free, arr); return arr
+    return _wrap_ptr(ptr, "ambgfun")
 end

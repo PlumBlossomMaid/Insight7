@@ -8,23 +8,28 @@ local sig = native.signal
 
 local M = {}
 
-local _wrap = require("insight._wrap")
+local rule = require("argrule.rule")
+local argrule = require("argrule")
 
 --- Return a periodic sawtooth or triangle waveform.
 -- @number t Time array or scalar.
 -- @number[opt=1.0] width Width of the rising ramp (0 to 1).
 -- @treturn Array Sawtooth waveform.
-M.sawtooth = _wrap({ "t", "width" }, function(t, width)
-  return sig.sawtooth(t, width or 1.0)
-end)
+M.sawtooth = rule({ { name = "t", type = argrule.any, opt = true }, { name = "width", type = argrule.any, opt = true } })(
+  function(t, width)
+    return sig.sawtooth(t, width or 1.0)
+  end
+)
 
 --- Return a periodic square-wave waveform.
 -- @number t Time array or scalar.
 -- @number[opt=0.5] duty Duty cycle (0 to 1).
 -- @treturn Array Square waveform.
-M.square = _wrap({ "t", "duty" }, function(t, duty)
-  return sig.square_wf(t, duty or 0.5)
-end)
+M.square = rule({ { name = "t", type = argrule.any, opt = true }, { name = "duty", type = argrule.any, opt = true } })(
+  function(t, duty)
+    return sig.square_wf(t, duty or 0.5)
+  end
+)
 
 --- Return a Gaussian pulse.
 -- @number t Time array or scalar.
@@ -33,7 +38,13 @@ end)
 -- @number[opt=6] bwr Bandwidth reference level in dB.
 -- @number[opt=-60] tpr Pulse reference level in dB.
 -- @treturn Array Gaussian pulse.
-M.gausspulse = _wrap({ "t", "fc", "bw", "bwr", "tpr" }, function(t, fc, bw, bwr, tpr)
+M.gausspulse = rule({
+  { name = "t", type = argrule.any, opt = true },
+  { name = "fc", type = argrule.any, opt = true },
+  { name = "bw", type = argrule.any, opt = true },
+  { name = "bwr", type = argrule.any, opt = true },
+  { name = "tpr", type = argrule.any, opt = true },
+})(function(t, fc, bw, bwr, tpr)
   return sig.gausspulse(t, fc, bw, bwr, tpr)
 end)
 
@@ -45,7 +56,14 @@ end)
 -- @string[opt="linear"] method Chirp method: 'linear', 'quadratic', 'logarithmic', 'hyperbolic'.
 -- @number[opt=0] phi Initial phase in degrees.
 -- @treturn Array Chirp signal.
-M.chirp = _wrap({ "t", "f0", "t1", "f1", "method", "phi" }, function(t, f0, t1, f1, method, phi)
+M.chirp = rule({
+  { name = "t", type = argrule.any, opt = true },
+  { name = "f0", type = argrule.any, opt = true },
+  { name = "t1", type = argrule.any, opt = true },
+  { name = "f1", type = argrule.any, opt = true },
+  { name = "method", type = argrule.any, opt = true },
+  { name = "phi", type = argrule.any, opt = true },
+})(function(t, f0, t1, f1, method, phi)
   return sig.chirp(t, f0, t1, f1, method or "linear", phi or 0)
 end)
 
@@ -53,7 +71,10 @@ end)
 -- @tparam table|Array shape Shape of the output array or an existing array.
 -- @int[opt] idx Index of the impulse (default: center).
 -- @treturn Array Unit impulse.
-M.unit_impulse = _wrap({ "shape", "idx" }, function(shape, idx)
+M.unit_impulse = rule({
+  { name = "shape", type = argrule.table, opt = true },
+  { name = "idx", type = argrule.any, opt = true },
+})(function(shape, idx)
   if idx then
     return sig.unit_impulse(shape, idx)
   end

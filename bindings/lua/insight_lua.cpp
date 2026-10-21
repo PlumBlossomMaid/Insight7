@@ -15,6 +15,7 @@
 #define SOL_NO_EXCEPTIONS 0
 #include <sol/sol.hpp>
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -111,6 +112,26 @@ static void infer_lua_shape(sol::table t, std::vector<int64_t> &shape,
         std::to_string(INSIGHT_MAX_NDIM) + ") at " + path);
   }
   int64_t len = static_cast<int64_t>(t.size());
+  int64_t entry_count = 0;
+  int64_t max_index = 0;
+  bool has_invalid_key = false;
+  t.for_each([&](sol::object key, sol::object) {
+    if (!key.is<int64_t>()) {
+      has_invalid_key = true;
+      return;
+    }
+    int64_t index = key.as<int64_t>();
+    if (index < 1) {
+      has_invalid_key = true;
+      return;
+    }
+    ++entry_count;
+    max_index = std::max(max_index, index);
+  });
+  if (has_invalid_key || entry_count != len || max_index != len) {
+    throw std::runtime_error(
+        "Lua table must contain contiguous array indices at " + path);
+  }
   if (depth >= static_cast<int>(shape.size())) {
     shape.push_back(len);
   } else if (shape[depth] != len) {
@@ -212,31 +233,58 @@ static void lua_write_sigmf(const std::string &data_file,
 }
 
 // Convert a Lua 1-based slice spec string to C++ 0-based.
-// Positive numbers are decremented by 1; negative numbers and colons unchanged.
-// Example: "1:3" → "0:2", "2,1:-1" → "1,0:-1", "::-1" → "::-1"
+// Only the start and stop fields of each comma-separated dimension are
+// converted: positive values are decremented by 1, negatives already count
+// from the end in both conventions, and the step is passed through untouched.
+// Example: "1:3" → "0:2", "1:5:2" → "0:4:2", "2,1:-1" → "1,0:-1",
+//          "::-1" → "::-1", "::2" → "::2"
 static std::string lua_spec_to_cpp(const std::string &spec) {
-  std::string out;
-  for (size_t i = 0; i < spec.size(); i++) {
-    char c = spec[i];
-    if (c == ':' || c == ',') {
-      out += c;
-    } else if (c == '-' || (c >= '0' && c <= '9')) {
-      size_t start = i;
-      if (c == '-')
-        i++;
-      while (i < spec.size() && spec[i] >= '0' && spec[i] <= '9')
-        i++;
-      std::string num = spec.substr(start, i - start);
-      int val = std::stoi(num);
-      if (val > 0) {
-        out += std::to_string(val - 1);
-      } else {
-        out += num;
-      }
-      i--;
-    } else {
-      out += c;
+  auto trim = [](const std::string &s) -> std::string {
+    size_t begin = s.find_first_not_of(" \t");
+    if (begin == std::string::npos)
+      return std::string();
+    return s.substr(begin, s.find_last_not_of(" \t") - begin + 1);
+  };
+  auto to_zero_based = [](const std::string &field) -> std::string {
+    if (field.empty())
+      return field;
+    try {
+      size_t pos = 0;
+      long long val = std::stoll(field, &pos);
+      if (pos == field.size() && val > 0)
+        return std::to_string(val - 1);
+    } catch (const std::exception &) {
     }
+    return field;
+  };
+
+  std::string out;
+  size_t dim_begin = 0;
+  while (true) {
+    size_t dim_end = spec.find(',', dim_begin);
+    std::string dim = spec.substr(dim_begin, dim_end == std::string::npos
+                                                 ? std::string::npos
+                                                 : dim_end - dim_begin);
+    size_t field_begin = 0;
+    int field_idx = 0;
+    while (true) {
+      size_t field_end = dim.find(':', field_begin);
+      std::string field =
+          trim(dim.substr(field_begin, field_end == std::string::npos
+                                           ? std::string::npos
+                                           : field_end - field_begin));
+      // Fields 0 (start) and 1 (stop) are 1-based in Lua; field 2 is the step.
+      out += (field_idx < 2) ? to_zero_based(field) : field;
+      if (field_end == std::string::npos)
+        break;
+      out += ':';
+      field_begin = field_end + 1;
+      field_idx++;
+    }
+    if (dim_end == std::string::npos)
+      break;
+    out += ',';
+    dim_begin = dim_end + 1;
   }
   return out;
 }
@@ -355,11 +403,19 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   m["device_name"] = [](sol::optional<std::string> kind,
                         sol::optional<int> device_id) {
     std::string k = kind.value_or("cpu");
-    ins::DeviceKind dk = (k == "gpu" || k == "cuda") ? ins::DeviceKind::GPU
-                                                     : ins::DeviceKind::CPU;
-    return ins::device_name(dk, device_id.value_or(0));
+    if (k == "gpu")
+      return ins::device_name(ins::DeviceKind::GPU, device_id.value_or(0));
+    if (k == "cpu")
+      return ins::device_name(ins::DeviceKind::CPU, device_id.value_or(0));
+    throw std::runtime_error("device_name() expects 'cpu' or 'gpu'");
   };
-  m["gpu_version"] = []() { return ins::cuda_version(); };
+  m["active_gpu_backend_name"] = []() {
+    return ins::active_gpu_backend_name();
+  };
+  m["active_gpu_backend_version"] = []() {
+    return ins::active_gpu_backend_version();
+  };
+  m["gpu_version"] = []() { return ins::gpu_runtime_version(); };
   m["driver_version"] = []() { return ins::driver_version(); };
   m["compute_capability"] = [](sol::optional<int> device_id) {
     return ins::compute_capability(device_id.value_or(0));
@@ -511,8 +567,10 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
     return sol::make_object(ts.lua_state(), val);
   };
   array_type["get"] = [](const ins::Array &a, int64_t idx) -> double {
-    ins::Array cpu =
-        (a.place().kind() == ins::DeviceKind::CPU) ? a : a.to(ins::CPUPlace());
+    // contiguous() is required as well: to(CPUPlace()) is a no-op for an
+    // array already on CPU, and the read below follows memory order, which
+    // is wrong for a strided view (e.g. after transpose()).
+    ins::Array cpu = a.to(ins::CPUPlace()).contiguous();
     if (idx < 0 || idx >= cpu.numel())
       return 0.0;
     switch (cpu.dtype()) {
@@ -541,8 +599,10 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   array_type["table"] = [](const ins::Array &a,
                            sol::this_state ts) -> sol::table {
     sol::state_view lv(ts);
-    ins::Array cpu =
-        (a.place().kind() == ins::DeviceKind::CPU) ? a : a.to(ins::CPUPlace());
+    // contiguous() is required as well: to(CPUPlace()) is a no-op for an
+    // array already on CPU, and the loop below reads in memory order, which
+    // is wrong for a strided view (e.g. after transpose()).
+    ins::Array cpu = a.to(ins::CPUPlace()).contiguous();
     sol::table t = lv.create_table(cpu.numel());
     int64_t n = cpu.numel();
     switch (cpu.dtype()) {
@@ -894,6 +954,17 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   m["trunc"] = [](const ins::Array &x) { return ins::trunc(x); };
   m["deg2rad"] = [](const ins::Array &x) { return ins::deg2rad(x); };
   m["rad2deg"] = [](const ins::Array &x) { return ins::rad2deg(x); };
+  m["relu"] = [](const ins::Array &x) { return ins::relu(x); };
+  m["sigmoid"] = [](const ins::Array &x) { return ins::sigmoid(x); };
+  m["leaky_relu"] = [](const ins::Array &x, sol::optional<double> alpha) {
+    return ins::leaky_relu(x, alpha.value_or(0.01));
+  };
+  m["clip"] = [](const ins::Array &x, double min_val, double max_val) {
+    return ins::clip(x, min_val, max_val);
+  };
+  m["clamp"] = [](const ins::Array &x, double min_val, double max_val) {
+    return ins::clip(x, min_val, max_val);
+  };
 
   // ====================================================================
   // Complex
@@ -934,6 +1005,19 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
                 sol::optional<bool> keepdims) {
     std::optional<int> ax = lua_optional_axis_to_cpp(axis);
     return ins::min(x, ax, keepdims.value_or(false));
+  };
+  m["logsumexp"] = [](const ins::Array &x, sol::optional<int> axis,
+                      sol::optional<bool> keepdims) {
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
+    return ins::logsumexp(x, ax, keepdims.value_or(false));
+  };
+  m["softmax"] = [](const ins::Array &x, sol::optional<int> axis) {
+    int ax = axis ? lua_axis_to_cpp(*axis) : -1;
+    return ins::softmax(x, ax);
+  };
+  m["log_softmax"] = [](const ins::Array &x, sol::optional<int> axis) {
+    int ax = axis ? lua_axis_to_cpp(*axis) : -1;
+    return ins::log_softmax(x, ax);
   };
   m["prod"] = [](const ins::Array &x, sol::optional<int> axis,
                  sol::optional<bool> keepdims) {
@@ -1115,6 +1199,74 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
                  sol::optional<int> axis) {
     return ins::diff(x, n.value_or(1), lua_axis_or_default_to_cpp(axis, -1));
   };
+  m["ediff1d"] = [](const ins::Array &x, sol::optional<ins::Array> to_end,
+                    sol::optional<ins::Array> to_begin) {
+    std::optional<ins::Array> te =
+        to_end.has_value() ? std::optional<ins::Array>(to_end.value())
+                           : std::nullopt;
+    std::optional<ins::Array> tb =
+        to_begin.has_value() ? std::optional<ins::Array>(to_begin.value())
+                             : std::nullopt;
+    return ins::ediff1d(x, te, tb);
+  };
+  m["meshgrid"] = [](sol::table xi, sol::optional<std::string> indexing) {
+    return ins::meshgrid(table_to_arrays(xi), indexing.value_or("xy"));
+  };
+  m["trapz"] = [](const ins::Array &y, sol::optional<ins::Array> x,
+                  sol::optional<double> dx, sol::optional<int> axis) {
+    std::optional<ins::Array> xo =
+        x.has_value() ? std::optional<ins::Array>(x.value()) : std::nullopt;
+    return ins::trapz(y, xo, dx.value_or(1.0),
+                      lua_axis_or_default_to_cpp(axis, -1));
+  };
+  m["gradient"] = [](sol::this_state L, const ins::Array &f,
+                     sol::optional<double> dx,
+                     sol::optional<int> axis) -> sol::object {
+    try {
+      double d = dx.value_or(1.0);
+      if (axis.has_value()) {
+        return sol::make_object(L, ins::gradient(f, d, axis.value()));
+      }
+      std::vector<ins::Array> grads = ins::gradient(f, d);
+      sol::table t = sol::state_view(L).create_table();
+      for (size_t i = 0; i < grads.size(); ++i) {
+        t[i + 1] = grads[i];
+      }
+      return sol::make_object(L, t);
+    } catch (const std::exception &e) {
+      luaL_error(L, "gradient: %s", e.what());
+      return sol::nil;
+    }
+  };
+  m["repeat_interleave"] = [](const ins::Array &x, int repeats,
+                              sol::optional<int> axis) {
+    std::optional<int> ax = lua_optional_axis_to_cpp(axis);
+    return ins::repeat_interleave(x, repeats, ax);
+  };
+  m["one_hot"] = [](const ins::Array &indices,
+                    sol::optional<int64_t> num_classes,
+                    sol::optional<ins::DType> dtype) {
+    return ins::one_hot(indices, num_classes.value_or(-1),
+                        dtype.value_or(ins::DType::F32));
+  };
+  m["histogram"] =
+      [](sol::this_state L, const ins::Array &x, sol::optional<int64_t> bins,
+         sol::optional<std::pair<double, double>> range) -> sol::object {
+    try {
+      std::optional<std::pair<double, double>> r =
+          range.has_value()
+              ? std::optional<std::pair<double, double>>(range.value())
+              : std::nullopt;
+      std::vector<ins::Array> res = ins::histogram(x, bins.value_or(10), r);
+      sol::table t = sol::state_view(L).create_table();
+      t["hist"] = res[0];
+      t["bin_edges"] = res[1];
+      return sol::make_object(L, t);
+    } catch (const std::exception &e) {
+      luaL_error(L, "histogram: %s", e.what());
+      return sol::nil;
+    }
+  };
 
   // ====================================================================
   // Linear Algebra
@@ -1148,6 +1300,45 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   };
   m["cond"] = [](const ins::Array &x, sol::optional<double> p) {
     return ins::cond(x, p.value_or(2.0));
+  };
+  // Tensor contraction / products (NumPy-compatible subset)
+  m["tensordot"] = [](const ins::Array &a, const ins::Array &b,
+                      sol::variadic_args va) {
+    if (va.size() == 0) {
+      return ins::tensordot(a, b, 2);
+    }
+    sol::object first = va[0];
+    if (first.is<int>()) {
+      return ins::tensordot(a, b, first.as<int>());
+    }
+    // axes as two tables: tensordot(a, b, {axes_a}, {axes_b})
+    sol::table t1 = first.as<sol::table>();
+    sol::table t2 = va[1].as<sol::table>();
+    std::vector<int> axes_a, axes_b;
+    for (auto &kv : t1)
+      axes_a.push_back(kv.second.as<int>());
+    for (auto &kv : t2)
+      axes_b.push_back(kv.second.as<int>());
+    return ins::tensordot(a, b, axes_a, axes_b);
+  };
+  m["kron"] = [](const ins::Array &a, const ins::Array &b) {
+    return ins::kron(a, b);
+  };
+  m["cross"] = [](const ins::Array &a, const ins::Array &b,
+                  sol::optional<int> axis) {
+    return ins::cross(a, b, axis.value_or(-1));
+  };
+  m["multi_dot"] = [](sol::table arrays) {
+    std::vector<ins::Array> mats;
+    for (auto &kv : arrays)
+      mats.push_back(kv.second.as<ins::Array>());
+    return ins::multi_dot(mats);
+  };
+  m["einsum"] = [](const std::string &subscripts, sol::variadic_args va) {
+    std::vector<ins::Array> ops;
+    for (auto item : va)
+      ops.push_back(item.as<ins::Array>());
+    return ins::einsum(subscripts, ops);
   };
   m["matrix_rank"] = [](const ins::Array &x) { return ins::matrix_rank(x); };
   m["matrix_power"] = [](const ins::Array &x, int n) {
@@ -2541,6 +2732,19 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
     return ins::randperm(n, dtype.value_or(ins::DType::I64),
                          place.value_or(ins::get_device()));
   };
+  m["multinomial"] = [](const ins::Array &probs, int64_t num_samples,
+                        sol::optional<bool> replacement,
+                        sol::optional<ins::Place> place) {
+    return ins::multinomial(probs, num_samples, replacement.value_or(false),
+                            place.value_or(ins::get_device()));
+  };
+  m["choice"] = [](const ins::Array &x, sol::optional<int64_t> num,
+                   sol::optional<bool> replace, sol::optional<ins::Array> p) {
+    std::optional<ins::Array> pv =
+        p.has_value() ? std::optional<ins::Array>(p.value()) : std::nullopt;
+    return ins::choice(x, num.value_or(1), replace.value_or(true), pv);
+  };
+  m["shuffle"] = [](const ins::Array &x) { return ins::shuffle(x); };
   m["seed"] = [](uint64_t s) { return ins::seed(s); };
   m["get_seed"] = []() { return ins::get_seed(); };
   m["rand_like"] = [](const ins::Array &x) { return ins::rand_like(x); };

@@ -27,15 +27,19 @@ function(add_insight_demo TARGET_NAME SOURCE_FILE)
         )
     endif()
 
-    # Copy GPU backend DLL
-    if(INSIGHT_WITH_CUDA AND INSIGHT_DYNAMIC_GPU_BACKEND)
-        add_dependencies(${TARGET_NAME} insight_cuda_backend)
-        add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                "$<TARGET_FILE:insight_cuda_backend>"
-                "$<TARGET_FILE_DIR:${TARGET_NAME}>/$<TARGET_FILE_NAME:insight_cuda_backend>"
-            COMMENT "Copying GPU backend DLL to ${TARGET_NAME}"
-        )
+    # Copy GPU backend DLLs
+    if(INSIGHT_DYNAMIC_GPU_BACKEND)
+        foreach(_gpu_backend insight_cuda_backend insight_rocm_backend insight_ixuca_backend insight_sdaa_backend)
+            if(TARGET ${_gpu_backend})
+                add_dependencies(${TARGET_NAME} ${_gpu_backend})
+                add_custom_command(TARGET ${TARGET_NAME} POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                        "$<TARGET_FILE:${_gpu_backend}>"
+                        "$<TARGET_FILE_DIR:${TARGET_NAME}>/$<TARGET_FILE_NAME:${_gpu_backend}>"
+                    COMMENT "Copying ${_gpu_backend} to ${TARGET_NAME}"
+                )
+            endif()
+        endforeach()
     endif()
 endfunction()
 

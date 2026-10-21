@@ -8,14 +8,19 @@ local sig = native.signal
 
 local M = {}
 
-local _wrap = require("insight._wrap")
+local rule = require("argrule.rule")
+local argrule = require("argrule")
 
 --- Convolve two N-dimensional arrays using FFT.
 -- @tparam Array a First input array.
 -- @tparam Array b Second input array.
 -- @string[opt="full"] mode Convolution mode: 'full', 'valid', or 'same'.
 -- @treturn Array Convolved array.
-M.fftconvolve = _wrap({ "a", "b", "mode" }, function(a, b, mode)
+M.fftconvolve = rule({
+  { name = "a", type = argrule.any, opt = true },
+  { name = "b", type = argrule.any, opt = true },
+  { name = "mode", type = argrule.any, opt = true },
+})(function(a, b, mode)
   return sig.fftconvolve(a, b, mode or "full")
 end)
 
@@ -24,7 +29,11 @@ end)
 -- @tparam Array b Second input array.
 -- @string[opt="full"] mode Correlation mode: 'full', 'valid', or 'same'.
 -- @treturn Array Cross-correlation result.
-M.correlate = _wrap({ "a", "b", "mode" }, function(a, b, mode)
+M.correlate = rule({
+  { name = "a", type = argrule.any, opt = true },
+  { name = "b", type = argrule.any, opt = true },
+  { name = "mode", type = argrule.any, opt = true },
+})(function(a, b, mode)
   return sig.correlate(a, b, mode or "full")
 end)
 
@@ -35,7 +44,13 @@ end)
 -- @string[opt="fill"] boundary Boundary handling: 'fill', 'wrap', 'symm'.
 -- @number[opt=0] fillvalue Value for fill boundary.
 -- @treturn Array 2-D convolved array.
-M.convolve2d = _wrap({ "a", "b", "mode", "boundary", "fillvalue" }, function(a, b, mode, boundary, fillvalue)
+M.convolve2d = rule({
+  { name = "a", type = argrule.any, opt = true },
+  { name = "b", type = argrule.any, opt = true },
+  { name = "mode", type = argrule.any, opt = true },
+  { name = "boundary", type = argrule.any, opt = true },
+  { name = "fillvalue", type = argrule.any, opt = true },
+})(function(a, b, mode, boundary, fillvalue)
   return sig.convolve2d(a, b, mode or "full", boundary or "fill", fillvalue or 0)
 end)
 
@@ -46,7 +61,13 @@ end)
 -- @string[opt="fill"] boundary Boundary handling: 'fill', 'wrap', 'symm'.
 -- @number[opt=0] fillvalue Value for fill boundary.
 -- @treturn Array 2-D cross-correlation result.
-M.correlate2d = _wrap({ "a", "b", "mode", "boundary", "fillvalue" }, function(a, b, mode, boundary, fillvalue)
+M.correlate2d = rule({
+  { name = "a", type = argrule.any, opt = true },
+  { name = "b", type = argrule.any, opt = true },
+  { name = "mode", type = argrule.any, opt = true },
+  { name = "boundary", type = argrule.any, opt = true },
+  { name = "fillvalue", type = argrule.any, opt = true },
+})(function(a, b, mode, boundary, fillvalue)
   return sig.correlate2d(a, b, mode or "full", boundary or "fill", fillvalue or 0)
 end)
 
@@ -55,7 +76,11 @@ end)
 -- @tparam Array b Second input array.
 -- @string mode Convolution mode.
 -- @treturn string Best method: 'direct' or 'fft'.
-M.choose_conv_method = _wrap({ "a", "b", "mode" }, function(a, b, mode)
+M.choose_conv_method = rule({
+  { name = "a", type = argrule.any, opt = true },
+  { name = "b", type = argrule.any, opt = true },
+  { name = "mode", type = argrule.any, opt = true },
+})(function(a, b, mode)
   return sig.choose_conv_method(a, b, mode)
 end)
 
@@ -64,7 +89,11 @@ end)
 -- @int kernel_length Length of the second input (kernel).
 -- @string[opt="full"] mode Correlation mode.
 -- @treturn Array Lag values.
-M.correlation_lags = _wrap({ "input_length", "kernel_length", "mode" }, function(input_length, kernel_length, mode)
+M.correlation_lags = rule({
+  { name = "input_length", type = argrule.any, opt = true },
+  { name = "kernel_length", type = argrule.any, opt = true },
+  { name = "mode", type = argrule.any, opt = true },
+})(function(input_length, kernel_length, mode)
   return sig.correlation_lags(input_length, kernel_length, mode or "full")
 end)
 

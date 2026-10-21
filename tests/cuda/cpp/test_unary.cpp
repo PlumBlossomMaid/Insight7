@@ -12,7 +12,7 @@ namespace {
 class UnaryTestGPU : public ::testing::Test {
 protected:
   static void SetUpTestSuite() {
-    ins::init({"cpu", "iluvatar"});
+    ins::init();
     try {
       set_device(GPUPlace(0));
     } catch (...) {
@@ -464,4 +464,124 @@ TEST_F(UnaryTestGPU, AngleComplex) {
                                  static_cast<float>(M_PI),
                                  static_cast<float>(-M_PI / 2.0)},
                                 1e-5f);
+}
+
+// ============================================================================
+// Activation function tests
+// ============================================================================
+
+TEST_F(UnaryTestGPU, Relu) {
+  Array a_cpu({6}, DType::F32, CPUPlace());
+  float *a_data = a_cpu.data<float>();
+  a_data[0] = -2.0f;
+  a_data[1] = -1.0f;
+  a_data[2] = 0.0f;
+  a_data[3] = 1.0f;
+  a_data[4] = 2.0f;
+  a_data[5] = 0.5f;
+  Array a = a_cpu.to(GPUPlace(0));
+  Array c = relu(a);
+  ASSERT_EQ(c.dtype(), DType::F32);
+  expect_float_equal_gpu<float>(c, {0.0f, 0.0f, 0.0f, 1.0f, 2.0f, 0.5f}, 1e-6f);
+}
+
+TEST_F(UnaryTestGPU, ReluInt) {
+  Array a_cpu({5}, DType::I32, CPUPlace());
+  int32_t *a_data = a_cpu.data<int32_t>();
+  a_data[0] = -3;
+  a_data[1] = -1;
+  a_data[2] = 0;
+  a_data[3] = 4;
+  a_data[4] = 9;
+  Array a = a_cpu.to(GPUPlace(0));
+  Array c = relu(a);
+  ASSERT_EQ(c.dtype(), DType::I32);
+  Array c_cpu = c.to(CPUPlace());
+  std::vector<int32_t> expected = {0, 0, 0, 4, 9};
+  const int32_t *c_data = c_cpu.data<int32_t>();
+  for (int64_t i = 0; i < 5; ++i) {
+    EXPECT_EQ(c_data[i], expected[i]);
+  }
+}
+
+TEST_F(UnaryTestGPU, Sigmoid) {
+  Array a_cpu({4}, DType::F32, CPUPlace());
+  float *a_data = a_cpu.data<float>();
+  a_data[0] = 0.0f;
+  a_data[1] = -1.0f;
+  a_data[2] = 1.0f;
+  a_data[3] = 2.0f;
+  Array a = a_cpu.to(GPUPlace(0));
+  Array c = sigmoid(a);
+  ASSERT_EQ(c.dtype(), DType::F32);
+  expect_float_equal_gpu<float>(c,
+                                {0.5f, 1.0f / (1.0f + std::exp(1.0f)),
+                                 1.0f / (1.0f + std::exp(-1.0f)),
+                                 1.0f / (1.0f + std::exp(-2.0f))},
+                                1e-5f);
+}
+
+TEST_F(UnaryTestGPU, LeakyRelu) {
+  Array a_cpu({4}, DType::F32, CPUPlace());
+  float *a_data = a_cpu.data<float>();
+  a_data[0] = 2.0f;
+  a_data[1] = -2.0f;
+  a_data[2] = 0.5f;
+  a_data[3] = -0.5f;
+  Array a = a_cpu.to(GPUPlace(0));
+  Array c = leaky_relu(a, 0.1);
+  ASSERT_EQ(c.dtype(), DType::F32);
+  expect_float_equal_gpu<float>(c, {2.0f, -0.2f, 0.5f, -0.05f}, 1e-5f);
+}
+
+TEST_F(UnaryTestGPU, LeakyReluDefaultAlpha) {
+  Array a_cpu({3}, DType::F32, CPUPlace());
+  float *a_data = a_cpu.data<float>();
+  a_data[0] = 1.0f;
+  a_data[1] = -1.0f;
+  a_data[2] = -10.0f;
+  Array a = a_cpu.to(GPUPlace(0));
+  Array c = leaky_relu(a);
+  ASSERT_EQ(c.dtype(), DType::F32);
+  expect_float_equal_gpu<float>(c, {1.0f, -0.01f, -0.1f}, 1e-5f);
+}
+
+TEST_F(UnaryTestGPU, Clip) {
+  Array a_cpu({6}, DType::F32, CPUPlace());
+  float *a_data = a_cpu.data<float>();
+  a_data[0] = -2.0f;
+  a_data[1] = -1.0f;
+  a_data[2] = 0.0f;
+  a_data[3] = 1.0f;
+  a_data[4] = 2.0f;
+  a_data[5] = 3.0f;
+  Array a = a_cpu.to(GPUPlace(0));
+  Array c = clip(a, -1.0, 2.0);
+  ASSERT_EQ(c.dtype(), DType::F32);
+  expect_float_equal_gpu<float>(c, {-1.0f, -1.0f, 0.0f, 1.0f, 2.0f, 2.0f},
+                                1e-6f);
+}
+
+TEST_F(UnaryTestGPU, ClipInt) {
+  Array a_cpu({4}, DType::I32, CPUPlace());
+  int32_t *a_data = a_cpu.data<int32_t>();
+  a_data[0] = -5;
+  a_data[1] = 0;
+  a_data[2] = 3;
+  a_data[3] = 100;
+  Array a = a_cpu.to(GPUPlace(0));
+  Array c = clip(a, 0, 10);
+  ASSERT_EQ(c.dtype(), DType::I32);
+  Array c_cpu = c.to(CPUPlace());
+  std::vector<int32_t> expected = {0, 0, 3, 10};
+  const int32_t *c_data = c_cpu.data<int32_t>();
+  for (int64_t i = 0; i < 4; ++i) {
+    EXPECT_EQ(c_data[i], expected[i]);
+  }
+}
+
+TEST_F(UnaryTestGPU, ClipInvalidBounds) {
+  Array a_cpu({3}, DType::F32, CPUPlace());
+  Array a = a_cpu.to(GPUPlace(0));
+  EXPECT_THROW(clip(a, 5.0, 2.0), Exception);
 }

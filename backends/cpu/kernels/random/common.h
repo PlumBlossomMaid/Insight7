@@ -28,13 +28,32 @@ extern "C" {
 // ============================================================================
 
 /**
+ * @brief Access the shared global seed storage.
+ *
+ * @return std::atomic<uint64_t>& Reference to the process-wide seed
+ */
+inline std::atomic<uint64_t> &cpu_global_seed_storage(void) {
+  static std::atomic<uint64_t> seed{0};
+  return seed;
+}
+
+/**
+ * @brief Access the seed generation counter, bumped on every seed change.
+ *
+ * @return std::atomic<uint64_t>& Reference to the process-wide generation
+ */
+inline std::atomic<uint64_t> &cpu_global_seed_generation(void) {
+  static std::atomic<uint64_t> generation{0};
+  return generation;
+}
+
+/**
  * @brief Get the global seed for CPU backend.
  *
  * @return uint64_t Current global seed
  */
 static inline uint64_t cpu_get_global_seed(void) {
-  static std::atomic<uint64_t> seed{0};
-  return seed.load();
+  return cpu_global_seed_storage().load();
 }
 
 /**
@@ -43,8 +62,8 @@ static inline uint64_t cpu_get_global_seed(void) {
  * @param seed New global seed value
  */
 static inline void cpu_set_global_seed(uint64_t seed) {
-  static std::atomic<uint64_t> global_seed{0};
-  global_seed.store(seed);
+  cpu_global_seed_storage().store(seed);
+  cpu_global_seed_generation().fetch_add(1);
 }
 
 // ============================================================================
@@ -54,18 +73,25 @@ static inline void cpu_set_global_seed(uint64_t seed) {
 /**
  * @brief Get thread-local RNG instance.
  *
- * Each thread gets its own RNG seeded with global_seed + thread_id.
+ * Each thread gets its own RNG seeded with global_seed + thread_id, and is
+ * re-seeded whenever the global seed changes.
  *
  * @return std::mt19937& Reference to thread-local RNG
  */
 static inline std::mt19937 &cpu_get_rng(void) {
-  static thread_local std::mt19937 rng([] {
+  static thread_local std::mt19937 rng;
+  static thread_local uint64_t seeded_generation = UINT64_MAX;
+
+  uint64_t generation = cpu_global_seed_generation().load();
+  if (seeded_generation != generation) {
     uint64_t seed = cpu_get_global_seed();
     // Mix with thread ID for better distribution
     seed ^= static_cast<uint64_t>(
         std::hash<std::thread::id>{}(std::this_thread::get_id()));
-    return static_cast<uint32_t>(seed);
-  }());
+    rng.seed(static_cast<uint32_t>(seed));
+    seeded_generation = generation;
+  }
+
   return rng;
 }
 

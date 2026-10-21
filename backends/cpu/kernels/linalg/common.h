@@ -123,8 +123,18 @@ static inline void cpu_check_lapack_info(int info, const char *func_name) {
 
 /**
  * @brief Check if array is contiguous; if not, set error and return 0.
+ *
+ * The linalg kernels read straight from arr->data, so a view with a non-zero
+ * offset is rejected as well: insight_array_is_contiguous only inspects
+ * strides, and a row slice such as A["1:3, :"] keeps dense strides while
+ * pointing partway into the parent buffer.
  */
 static inline int cpu_ensure_contiguous(InsightArray *arr) {
+  if (arr && arr->offset != 0) {
+    cpu_set_last_error(
+        "offset view not supported for this operation; call .contiguous()");
+    return 0;
+  }
   if (insight_array_is_contiguous(arr))
     return 1;
   cpu_set_last_error("non-contiguous array not supported for this operation");

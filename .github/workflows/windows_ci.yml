@@ -1,6 +1,9 @@
 name: Windows CI
 
 on:
+  # NOTE: the pull_request path list must stay at least as broad as the push
+  # list. It previously omitted cmake/**, so a PR touching only a Find*.cmake
+  # module merged without a Windows build.
   push:
     branches: [ main, master, develop ]
     paths:
@@ -11,16 +14,19 @@ on:
       - 'tests/**'
       - 'bindings/**'
       - '!bindings/**/*.md'
+      - 'third_party/**'
       - 'CMakeLists.txt'
       - '.github/workflows/windows_ci.yml'
   pull_request:
     branches: [ main, master ]
     paths:
       - 'backends/**'
+      - 'cmake/**'
       - 'include/**'
       - 'src/**'
       - 'tests/**'
       - 'bindings/**'
+      - 'third_party/**'
       - 'CMakeLists.txt'
       - '.github/workflows/windows_ci.yml'
   workflow_dispatch:

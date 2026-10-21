@@ -22,6 +22,8 @@ from insight._insight import (
     inv as _native_inv,
     pinv as _native_pinv,
     solve as _native_solve,
+    cholesky_solve as _native_cholesky_solve,
+    solve_triangular as _native_solve_triangular,
     lstsq as _native_lstsq,
     svd as _native_svd,
     svdvals as _native_svdvals,
@@ -179,6 +181,16 @@ def solve(a: "Array", b: "Array") -> "Array":
         Array containing the solution ``X``.
     """
     return _native_solve(a, b)
+
+
+def cholesky_solve(A: "Array", B: "Array", lower: bool = True) -> "Array":
+    return _native_cholesky_solve(A, B, lower)
+
+
+def solve_triangular(
+    A: "Array", B: "Array", lower: bool = True, unit_diag: bool = False
+) -> "Array":
+    return _native_solve_triangular(A, B, lower, unit_diag)
 
 
 def lstsq(a: "Array", b: "Array", rcond: float = -1.0) -> "Array":
@@ -458,9 +470,10 @@ __all__ = [
     "inv",
     "pinv",
     "solve",
+    "cholesky_solve",
+    "solve_triangular",
     "lstsq",
     "svd",
-    "svdvals",
     "eigh",
     "eigvalsh",
     "eig",

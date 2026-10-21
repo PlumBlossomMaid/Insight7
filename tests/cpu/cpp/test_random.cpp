@@ -1,8 +1,10 @@
 // tests/cpu/test_random.cpp
 #include "insight/insight.h"
 #include "insight/ops/random.h"
+#include <algorithm>
 #include <cmath>
 #include <gtest/gtest.h>
+#include <vector>
 
 using namespace ins;
 
@@ -35,6 +37,42 @@ TEST_F(RandomTest, DifferentSeedsProduceDifferentSequences) {
     }
   }
   EXPECT_FALSE(all_same);
+}
+
+TEST_F(RandomTest, GetSeedReturnsWhatWasSet) {
+  seed(1234567);
+  EXPECT_EQ(get_seed(), 1234567u);
+
+  seed(42);
+  EXPECT_EQ(get_seed(), 42u);
+}
+
+TEST_F(RandomTest, SameSeedProducesSameSequence) {
+  seed(42);
+  Array a = rand({100});
+
+  seed(42);
+  Array b = rand({100});
+
+  const float *a_data = a.data<float>();
+  const float *b_data = b.data<float>();
+  for (int i = 0; i < 100; ++i) {
+    EXPECT_EQ(a_data[i], b_data[i]) << "mismatch at index " << i;
+  }
+}
+
+TEST_F(RandomTest, SameSeedProducesSameSequenceRandn) {
+  seed(7);
+  Array a = randn({256}, DType::F64);
+
+  seed(7);
+  Array b = randn({256}, DType::F64);
+
+  const double *a_data = a.data<double>();
+  const double *b_data = b.data<double>();
+  for (int i = 0; i < 256; ++i) {
+    EXPECT_EQ(a_data[i], b_data[i]) << "mismatch at index " << i;
+  }
 }
 
 // ========== rand ==========
@@ -312,4 +350,137 @@ TEST_F(RandomTest, BetaValuesInRange) {
     EXPECT_GE(data[i], 0.0);
     EXPECT_LE(data[i], 1.0);
   }
+}
+
+// ========== multinomial ==========
+
+TEST_F(RandomTest, MultinomialShape) {
+  Array probs = to_array(std::vector<double>{0.1, 0.2, 0.7});
+  Array out = multinomial(probs, 10, /*replacement=*/true);
+  EXPECT_EQ(out.shape(), Shape({10}));
+  EXPECT_EQ(out.dtype(), DType::I64);
+}
+
+TEST_F(RandomTest, MultinomialValuesInRange) {
+  Array probs = to_array(std::vector<double>{1.0, 2.0, 3.0, 4.0, 5.0});
+  seed(42);
+  Array out = multinomial(probs, 10000, /*replacement=*/true);
+  const int64_t *data = out.data<int64_t>();
+  for (int i = 0; i < 10000; ++i) {
+    EXPECT_GE(data[i], 0);
+    EXPECT_LT(data[i], 5);
+  }
+}
+
+TEST_F(RandomTest, MultinomialWeightedDominant) {
+  // Category 2 has 90% of the mass.
+  Array probs = to_array(std::vector<double>{0.05, 0.05, 0.9});
+  seed(42);
+  Array out = multinomial(probs, 20000, /*replacement=*/true);
+  const int64_t *data = out.data<int64_t>();
+  int64_t count2 = 0;
+  for (int i = 0; i < 20000; ++i) {
+    if (data[i] == 2)
+      ++count2;
+  }
+  EXPECT_GT(count2, 16000);
+}
+
+TEST_F(RandomTest, MultinomialWithoutReplacementUnique) {
+  Array probs = to_array(std::vector<double>{1.0, 1.0, 1.0, 1.0, 1.0});
+  seed(42);
+  Array out = multinomial(probs, 5, /*replacement=*/false);
+  const int64_t *data = out.data<int64_t>();
+  std::vector<bool> seen(5, false);
+  for (int i = 0; i < 5; ++i) {
+    EXPECT_GE(data[i], 0);
+    EXPECT_LT(data[i], 5);
+    EXPECT_FALSE(seen[data[i]]) << "duplicate index " << data[i];
+    seen[data[i]] = true;
+  }
+}
+
+// ========== choice ==========
+
+TEST_F(RandomTest, ChoiceShapeAndDtype) {
+  Array x = arange(10, DType::F32);
+  Array out = choice(x, 5);
+  EXPECT_EQ(out.shape(), Shape({5}));
+  EXPECT_EQ(out.dtype(), DType::F32);
+}
+
+TEST_F(RandomTest, ChoiceValuesInRange) {
+  Array x = arange(10, DType::I64);
+  seed(42);
+  Array out = choice(x, 5000, /*replace=*/true);
+  const int64_t *data = out.data<int64_t>();
+  for (int i = 0; i < 5000; ++i) {
+    EXPECT_GE(data[i], 0);
+    EXPECT_LT(data[i], 10);
+  }
+}
+
+TEST_F(RandomTest, ChoiceWithP) {
+  Array x = arange(4, DType::I64);
+  Array p = to_array(std::vector<double>{0.05, 0.05, 0.05, 0.85});
+  seed(42);
+  Array out = choice(x, 20000, /*replace=*/true, p);
+  const int64_t *data = out.data<int64_t>();
+  int64_t count3 = 0;
+  for (int i = 0; i < 20000; ++i) {
+    if (data[i] == 3)
+      ++count3;
+  }
+  EXPECT_GT(count3, 15000);
+}
+
+TEST_F(RandomTest, ChoiceWithoutReplacementUnique) {
+  Array x = arange(8, DType::I64);
+  seed(42);
+  Array out = choice(x, 8, /*replace=*/false);
+  const int64_t *data = out.data<int64_t>();
+  std::vector<bool> seen(8, false);
+  for (int i = 0; i < 8; ++i) {
+    EXPECT_GE(data[i], 0);
+    EXPECT_LT(data[i], 8);
+    EXPECT_FALSE(seen[data[i]]) << "duplicate index " << data[i];
+    seen[data[i]] = true;
+  }
+}
+
+// ========== shuffle ==========
+
+TEST_F(RandomTest, ShuffleShapeAndDtype) {
+  Array x = arange(50, DType::F32);
+  seed(42);
+  Array out = shuffle(x);
+  EXPECT_EQ(out.shape(), Shape({50}));
+  EXPECT_EQ(out.dtype(), DType::F32);
+}
+
+TEST_F(RandomTest, ShufflePreservesSet) {
+  Array x = arange(100, DType::I64);
+  seed(42);
+  Array out = shuffle(x);
+  std::vector<int64_t> src(x.data<int64_t>(), x.data<int64_t>() + 100);
+  std::vector<int64_t> dst(out.data<int64_t>(), out.data<int64_t>() + 100);
+  std::sort(src.begin(), src.end());
+  std::sort(dst.begin(), dst.end());
+  for (int i = 0; i < 100; ++i) {
+    EXPECT_EQ(src[i], dst[i]);
+  }
+}
+
+TEST_F(RandomTest, ShuffleChangesOrder) {
+  Array x = arange(50, DType::I64);
+  seed(42);
+  Array out = shuffle(x);
+  const int64_t *src = x.data<int64_t>();
+  const int64_t *dst = out.data<int64_t>();
+  int changed = 0;
+  for (int i = 0; i < 50; ++i) {
+    if (src[i] != dst[i])
+      ++changed;
+  }
+  EXPECT_GT(changed, 0);
 }

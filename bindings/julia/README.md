@@ -200,7 +200,8 @@ push!(LOAD_PATH, "/path/to/Insight7/bindings/julia")
 using Insight
 
 # Backend auto-detected (GPU when available)
-dt, id = Insight.get_device()  # (1, 0) for GPU, (0, 0) for CPU
+dt, id = Insight.get_device()  # public kind id + device id; GPU means gpu:0
+println(Insight.active_gpu_backend_name())  # "cuda", "sdaa", ... when GPU is active
 
 # --- Array Creation ---
 a = Insight.zeros(Int64[2, 3], Insight.float32)
@@ -218,8 +219,8 @@ row = a[1]              # partial indexing → shape (3,)
 val = a[1, 2]           # scalar extraction
 
 # --- Device Management ---
-Insight.set_device(1, 0)   # switch to GPU
-Insight.set_device(0, 0)   # switch to CPU
+Insight.set_device(1, 0)   # switch to public gpu:0; active backend selected by init/env
+Insight.set_device(0, 0)   # switch to public cpu:0
 
 # --- Reductions ---
 s = Insight.sum(a)
@@ -424,14 +425,16 @@ Insight.update(kf, measurements)  # measurements: [10, 1, 1]
 ### Device Information
 
 ```julia
-Insight.device_name("gpu", 0)   # "NVIDIA A800-SXM4-80GB"
-Insight.gpu_version()           # 11080
-Insight.driver_version()        # 535161
-Insight.compute_capability(0)   # 80
-Insight.device_memory(0)        # (total=85899345920, free=...)
-Insight.gpu_count()              # 1
-Insight.get_device()             # (1, 0) for GPU
-Insight.set_device(0, 0)         # switch to CPU
+Insight.device_name("gpu", 0)          # active backend device name
+Insight.active_gpu_backend_name()       # "cuda", "sdaa", ... when GPU is active
+Insight.active_gpu_backend_version()    # backend runtime/driver version string
+Insight.gpu_version()                   # backend numeric version, 0 if no GPU
+Insight.driver_version()                # backend driver version when available
+Insight.compute_capability(0)           # CUDA-style capability where available
+Insight.device_memory(0)                # (total=85899345920, free=...)
+Insight.gpu_count()                     # active backend device count
+Insight.get_device()                    # public kind id + device id
+Insight.set_device(0, 0)                # switch to public cpu:0
 ```
 
 ## Implementation Notes

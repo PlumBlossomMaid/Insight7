@@ -1,0 +1,176 @@
+name: CUDA Build (compile-only)
+
+# Compile-check for backends/cuda/** (211 .cu kernels) and tests/cuda/cpp/**.
+#
+# Every other workflow configures with -DINSIGHT_WITH_CUDA=OFF, so without this
+# job a PR that breaks CUDA compilation merges green.
+#
+# GitHub-hosted runners have NO NVIDIA GPU, so this job compiles only — it never
+# runs insight_tests_cuda. Running the GPU test suite requires a self-hosted
+# runner with a CUDA device.
+#
+# ----------------------------------------------------------------------------
+# NOTE on the Iluvatar (天数智芯 / IXUCA) backend — backends/iluvatar/**
+# ----------------------------------------------------------------------------
+# backends/iluvatar is NOT compiled by any CI job and cannot be. Its
+# CMakeLists.txt invokes /usr/local/corex/bin/clang++ and links against
+# /usr/local/corex-4.3.8/lib64 (ixthunk, CoreX cudart, ...). The CoreX SDK is
+# proprietary and not publicly downloadable, so it cannot be installed on a
+# GitHub-hosted runner. Root CMakeLists.txt handles this by defaulting
+# INSIGHT_WITH_ILUVATAR to AUTO and silently disabling the backend when
+# /usr/local/corex/include/cuda_runtime.h is absent.
+#
+# Consequence: backends/iluvatar/** (211 kernels) has ZERO compile checking.
+# Changes there must be validated manually on Iluvatar hardware, or by adding a
+# self-hosted runner with the CoreX SDK installed. Do not "fix" this by faking
+# the SDK — a stubbed CoreX toolchain would compile-check nothing real while
+# making the badge claim otherwise.
+# ----------------------------------------------------------------------------
+
+on:
+  push:
+    branches: [ main, master, develop ]
+    paths:
+      - 'backends/**'
+      - 'cmake/**'
+      - 'include/**'
+      - 'src/**'
+      - 'tests/cuda/**'
+      - 'tests/CMakeLists.txt'
+      - 'third_party/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/cuda_build.yml'
+  pull_request:
+    branches: [ main, master ]
+    paths:
+      - 'backends/**'
+      - 'cmake/**'
+      - 'include/**'
+      - 'src/**'
+      - 'tests/cuda/**'
+      - 'tests/CMakeLists.txt'
+      - 'third_party/**'
+      - 'CMakeLists.txt'
+      - '.github/workflows/cuda_build.yml'
+  workflow_dispatch:
+
+jobs:
+  cuda-compile:
+    name: CUDA Compile-Only (nvcc 12.4)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    # A CUDA devel container is used instead of a toolkit-installer action: the
+    # image already carries nvcc plus the cuFFT / cuBLAS / cuRAND / cuSOLVER dev
+    # packages that backends/cuda/CMakeLists.txt requires, and a docker pull is
+    # far less flaky than a ~3 GB download from developer.nvidia.com.
+    # CUDA 12.4 comfortably exceeds the documented 11.7+ minimum.
+    container:
+      image: nvidia/cuda:12.4.1-devel-ubuntu22.04
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 1G
+    steps:
+      # git and cmake are absent from the CUDA image, and actions/checkout needs
+      # git to fetch submodules — so this must run before the checkout step.
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates \
+            git \
+            cmake \
+            ccache \
+            build-essential \
+            python3 \
+            libfftw3-dev \
+            libopenblas-dev \
+            liblapacke-dev \
+            libomp-dev
+          git config --global --add safe.directory '*'
+
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Restore ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.ccache
+          key: ccache-cuda-${{ github.sha }}
+          restore-keys: |
+            ccache-cuda-
+
+      - name: Configure CMake
+        shell: bash
+        run: |
+          # pipefail: without it `cmake | tee` would report tee's exit status and
+          # a failed configure would look successful.
+          set -o pipefail
+          nvcc --version
+          mkdir -p build
+          cd build
+          # A single architecture instead of the project default
+          # "52;61;70;75;80;86;89" — 7 arches would multiply nvcc device-code
+          # generation time by ~7 for no extra source coverage. sm_80 is the
+          # right single pick: backends/cuda/kernels/common/half_utils.cuh needs
+          # SM 8.0+ for __nv_bfloat16, so a lower arch would not compile the
+          # bf16 kernel paths at all.
+          cmake .. \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CUDA_ARCHITECTURES=80 \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache \
+            -DINSIGHT_WITH_CUDA=ON \
+            -DINSIGHT_WITH_ILUVATAR=OFF \
+            -DINSIGHT_USE_FFTW3=ON \
+            -DINSIGHT_USE_OPENBLAS=ON \
+            -DINSIGHT_USE_MATPLOT=OFF \
+            -DINSIGHT_USE_SNDFILE=OFF \
+            -DINSIGHT_BUILD_TESTS=ON \
+            -DINSIGHT_BUILD_DEMOS=OFF \
+            -DINSIGHT_BUILD_BINDINGS=OFF \
+            -DINSIGHT_DYNAMIC_CPU_BACKEND=ON \
+            -DINSIGHT_DYNAMIC_GPU_BACKEND=ON \
+            2>&1 | tee configure.log
+
+      - name: Verify CUDA backend was actually enabled
+        run: |
+          # CMakeLists.txt:26-32 downgrades INSIGHT_WITH_CUDA to OFF with only a
+          # WARNING when nvcc is missing. Without this guard, a broken toolkit
+          # would produce a green "CUDA" run that compiled nothing but CPU code.
+          if grep -q "CUDA compiler not found" build/configure.log; then
+            echo "::error::nvcc was not detected; CMake silently disabled the CUDA backend"
+            exit 1
+          fi
+          if ! grep -q "CUDA backend enabled:" build/configure.log; then
+            echo "::error::'CUDA backend enabled' missing from the configure log"
+            exit 1
+          fi
+
+      - name: Build CUDA backend and CUDA test target
+        run: |
+          cd build
+          cmake --build . -j$(nproc) \
+            --target insight_cuda_backend \
+            --target insight_tests_cuda
+
+      - name: Verify build artifacts
+        run: |
+          # A missing artifact means the target was skipped rather than built.
+          cuda_lib=$(find build -name 'libinsight_cuda_backend.so*' -print -quit)
+          if [ -z "$cuda_lib" ]; then
+            echo "::error::libinsight_cuda_backend.so was not produced"
+            exit 1
+          fi
+          cuda_tests=$(find build -name 'insight_tests_cuda' -type f -print -quit)
+          if [ -z "$cuda_tests" ]; then
+            echo "::error::insight_tests_cuda was not produced — CUDA test sources were not compiled"
+            exit 1
+          fi
+          ls -la "$cuda_lib" "$cuda_tests"
+          echo "CUDA backend and CUDA test binary compiled successfully (not executed — no GPU on this runner)."
+
+      - name: ccache statistics
+        run: ccache -s

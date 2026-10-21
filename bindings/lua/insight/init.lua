@@ -168,6 +168,9 @@ local has_stringx, stringx = pcall(require, "pl.stringx")
 --- @class insight
 local M = {}
 
+-- Lua 5.1 / LuaJIT have no table.unpack (5.2+); keep wrap() portable.
+local _unpack = table.unpack or unpack
+
 -- Save native reference for internal use
 M._native = native
 
@@ -183,8 +186,9 @@ do
         if key == 0 then
           error("Lua arrays are 1-based: index 0 is invalid")
         end
-        local idx = key > 0 and (key - 1) or key
-        local view = self:at(idx)
+        -- self[key] goes through the __index integer overload, which
+        -- converts 1-based → 0-based and returns a view for fill_/copy_from_
+        local view = self[key]
         if type(value) == "number" then
           view:fill_(value)
         else
@@ -416,7 +420,7 @@ function M.wrap(arg_names, fn)
             pos[i] = t[i]
           end
         end
-        return fn(table.unpack(pos, 1, #arg_names))
+        return fn(_unpack(pos, 1, #arg_names))
       end
     end
     return fn(...)

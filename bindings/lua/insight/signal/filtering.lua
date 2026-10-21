@@ -8,30 +8,39 @@ local sig = native.signal
 
 local M = {}
 
-local _wrap = require("insight._wrap")
+local rule = require("argrule.rule")
+local argrule = require("argrule")
 
 --- Compute the analytic signal using the Hilbert transform.
 -- @tparam Array x Input real-valued signal array.
 -- @int[opt=-1] N Number of FFT points (-1 = signal length).
 -- @treturn Array Complex-valued analytic signal.
-M.hilbert = _wrap({ "x", "N" }, function(x, N)
-  return sig.hilbert(x, N or -1)
-end)
+M.hilbert = rule({ { name = "x", type = argrule.any, opt = true }, { name = "N", type = argrule.any, opt = true } })(
+  function(x, N)
+    return sig.hilbert(x, N or -1)
+  end
+)
 
 --- Compute the 2-D analytic signal using the Hilbert transform.
 -- @tparam Array x Input 2-D real-valued signal array.
 -- @int[opt=-1] N Number of FFT points per axis.
 -- @treturn Array 2-D complex-valued analytic signal.
-M.hilbert2 = _wrap({ "x", "N" }, function(x, N)
-  return sig.hilbert2(x, N or -1)
-end)
+M.hilbert2 = rule({ { name = "x", type = argrule.any, opt = true }, { name = "N", type = argrule.any, opt = true } })(
+  function(x, N)
+    return sig.hilbert2(x, N or -1)
+  end
+)
 
 --- Remove a trend from the data along the given axis.
 -- @tparam Array data Input array.
 -- @int[opt=-1] axis Axis along which to detrend.
 -- @string[opt="linear"] type Trend type: 'linear' or 'constant'.
 -- @treturn Array Detrended array.
-M.detrend = _wrap({ "data", "axis", "type" }, function(data, axis, type)
+M.detrend = rule({
+  { name = "data", type = argrule.any, opt = true },
+  { name = "axis", type = argrule.any, opt = true },
+  { name = "type", type = argrule.any, opt = true },
+})(function(data, axis, type)
   return sig.detrend(data, axis or -1, type or "linear")
 end)
 
@@ -40,15 +49,12 @@ end)
 -- @tparam table[opt] mysize Size of the local neighbourhood.
 -- @number[opt=-1] noise Noise power (-1 = estimated).
 -- @treturn Array Wiener-filtered array.
-M.wiener = _wrap({ "im", "mysize", "noise" }, function(im, mysize, noise)
-  local kwargs = {}
-  if mysize then
-    kwargs.mysize = mysize
-  end
-  if noise and noise ~= -1 then
-    kwargs.noise = noise
-  end
-  return sig.wiener(im, kwargs)
+M.wiener = rule({
+  { name = "im", type = argrule.any, opt = true },
+  { name = "mysize", type = argrule.any, opt = true },
+  { name = "noise", type = argrule.any, opt = true },
+})(function(im, mysize, noise)
+  return sig.wiener(im, mysize, noise)
 end)
 
 --- Apply an FIR filter to a signal.
@@ -56,7 +62,11 @@ end)
 -- @tparam Array x Input signal array.
 -- @int[opt=-1] axis Axis along which to filter.
 -- @treturn Array Filtered signal.
-M.firfilter = _wrap({ "b", "x", "axis" }, function(b, x, axis)
+M.firfilter = rule({
+  { name = "b", type = argrule.any, opt = true },
+  { name = "x", type = argrule.any, opt = true },
+  { name = "axis", type = argrule.any, opt = true },
+})(function(b, x, axis)
   return sig.firfilter(b, x, axis or -1)
 end)
 
@@ -66,7 +76,12 @@ end)
 -- @tparam Array x Input signal array.
 -- @int[opt=-1] axis Axis along which to filter.
 -- @treturn Array Filtered signal.
-M.lfilter = _wrap({ "b", "a", "x", "axis" }, function(b, a, x, axis)
+M.lfilter = rule({
+  { name = "b", type = argrule.any, opt = true },
+  { name = "a", type = argrule.any, opt = true },
+  { name = "x", type = argrule.any, opt = true },
+  { name = "axis", type = argrule.any, opt = true },
+})(function(b, a, x, axis)
   return sig.lfilter(b, a, x, axis or -1)
 end)
 
@@ -74,9 +89,11 @@ end)
 -- @tparam Array b Numerator coefficients.
 -- @tparam Array a Denominator coefficients.
 -- @treturn Array Initial state for lfilter.
-M.lfilter_zi = _wrap({ "b", "a" }, function(b, a)
-  return sig.lfilter_zi(b, a)
-end)
+M.lfilter_zi = rule({ { name = "b", type = argrule.any, opt = true }, { name = "a", type = argrule.any, opt = true } })(
+  function(b, a)
+    return sig.lfilter_zi(b, a)
+  end
+)
 
 --- Apply a forward-backward digital filter (zero-phase filtering).
 -- @tparam Array b Numerator coefficients.
@@ -84,7 +101,12 @@ end)
 -- @tparam Array x Input signal array.
 -- @int[opt=-1] axis Axis along which to filter.
 -- @treturn Array Zero-phase filtered signal.
-M.filtfilt = _wrap({ "b", "a", "x", "axis" }, function(b, a, x, axis)
+M.filtfilt = rule({
+  { name = "b", type = argrule.any, opt = true },
+  { name = "a", type = argrule.any, opt = true },
+  { name = "x", type = argrule.any, opt = true },
+  { name = "axis", type = argrule.any, opt = true },
+})(function(b, a, x, axis)
   return sig.filtfilt(b, a, x, axis or -1)
 end)
 
@@ -94,7 +116,12 @@ end)
 -- @int[opt=-1] axis Axis along which to decimate.
 -- @bool[opt=true] zero_phase Use forward-backward filtering.
 -- @treturn Array Decimated signal.
-M.decimate = _wrap({ "x", "q", "axis", "zero_phase" }, function(x, q, axis, zero_phase)
+M.decimate = rule({
+  { name = "x", type = argrule.any, opt = true },
+  { name = "q", type = argrule.any, opt = true },
+  { name = "axis", type = argrule.any, opt = true },
+  { name = "zero_phase", type = argrule.any, opt = true },
+})(function(x, q, axis, zero_phase)
   return sig.decimate(x, q, axis or -1, zero_phase == nil and true or zero_phase)
 end)
 
@@ -103,7 +130,11 @@ end)
 -- @int num Number of output samples.
 -- @int[opt=-1] axis Axis along which to resample.
 -- @treturn Array Resampled signal.
-M.resample = _wrap({ "x", "num", "axis" }, function(x, num, axis)
+M.resample = rule({
+  { name = "x", type = argrule.any, opt = true },
+  { name = "num", type = argrule.any, opt = true },
+  { name = "axis", type = argrule.any, opt = true },
+})(function(x, num, axis)
   return sig.resample(x, num, axis or -1)
 end)
 
@@ -113,7 +144,12 @@ end)
 -- @int down Downsampling factor.
 -- @int[opt=-1] axis Axis along which to resample.
 -- @treturn Array Resampled signal.
-M.resample_poly = _wrap({ "x", "up", "down", "axis" }, function(x, up, down, axis)
+M.resample_poly = rule({
+  { name = "x", type = argrule.any, opt = true },
+  { name = "up", type = argrule.any, opt = true },
+  { name = "down", type = argrule.any, opt = true },
+  { name = "axis", type = argrule.any, opt = true },
+})(function(x, up, down, axis)
   return sig.resample_poly(x, up, down, axis or -1)
 end)
 
@@ -122,7 +158,11 @@ end)
 -- @number freq Frequency shift in Hz.
 -- @number fs Sampling frequency in Hz.
 -- @treturn Array Frequency-shifted signal.
-M.freq_shift = _wrap({ "x", "freq", "fs" }, function(x, freq, fs)
+M.freq_shift = rule({
+  { name = "x", type = argrule.any, opt = true },
+  { name = "freq", type = argrule.any, opt = true },
+  { name = "fs", type = argrule.any, opt = true },
+})(function(x, freq, fs)
   return sig.freq_shift(x, freq, fs)
 end)
 

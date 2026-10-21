@@ -40,6 +40,9 @@ from insight._insight import (
     nanmin as _native_nanmin,
     nanstd as _native_nanstd,
     nanvar as _native_nanvar,
+    nanmedian as _native_nanmedian,
+    nanquantile as _native_nanquantile,
+    bincount as _native_bincount,
 )
 
 
@@ -595,6 +598,18 @@ def nanvar(
     return _native_nanvar(x, axis, keepdims, ddof)
 
 
+def nanmedian(x: "Array", axis: Optional[int] = None, keepdims: bool = False) -> "Array":
+    return _native_nanmedian(x, axis, keepdims)
+
+
+def nanquantile(x: "Array", q, axis: Optional[int] = None, keepdims: bool = False) -> "Array":
+    return _native_nanquantile(x, q, axis, keepdims)
+
+
+def bincount(x: "Array", weights: Optional["Array"] = None, minlength: int = 0) -> "Array":
+    return _native_bincount(x, weights, minlength)
+
+
 __all__ = [
     "sum",
     "mean",
@@ -622,4 +637,7 @@ __all__ = [
     "nanmin",
     "nanstd",
     "nanvar",
+    "nanmedian",
+    "nanquantile",
+    "bincount",
 ]
