@@ -507,12 +507,14 @@ Completed in the current feature branch:
 - Lua codegen pilot with deterministic operator/source/kernel manifests and backend-neutral `host` / `device` adapters.
 - Python NumPy/DLPack-facing interop entry points and binding lifetime tests.
 - Documentation moved into git-tracked `docs/` and binding READMEs so platform work does not depend on local notes.
+- **Native DLPack bridge (2026-10-23, protocol v1.3)**: vendored `third_party/dlpack` header; C ABI layer (`include/insight/c_api/dlpack.h` + `src/core/dlpack.cpp`) exporting `insight_array_to_dlpack` / `insight_array_from_dlpack` (CPU import, byte-offset + strided-copy aware, dtype/device mapping helpers); Lua binding entries `ins.to_dlpack(arr)` → `DLManagedTensor` userdata (RAII deleter on GC), `ins.from_dlpack(managed)` and `ins.from_dlpack(shape, dtype, bytes[, strides])` from-bytes shortcut (numpy-style dtype strings accepted; column-major strides for Fortran arrays). Verified by `tests/cpu/cpp/test_dlpack.cpp` (8 tests) and, at the consumer level, by lua-pickle's DLPack wiring suite (`spec/pickle_spec.lua` §10, stub-driven).
 
 Still intentionally open:
 
 - Full `Storage` object split after dynamic-output kernel ownership is centralized.
 - More generated host/device kernel source emission beyond metadata manifests.
 - Native CUDA/ROCm validation on machines with those runtimes.
+- DLPack: non-CPU (GPU) import is rejected with an explicit error; CUDA/CuPy round-trip tests and non-CUDA-GPU interop semantics are untouched.
 - Windows CUDA fixes discovered by the next validation pass.
 - Julia validation on a machine with a working Julia runtime.
 
