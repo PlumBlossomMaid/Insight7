@@ -21,7 +21,7 @@
 #include <cuda_runtime.h>
 #include <vector>
 
-#include "../../cpu/kernels/random/numpy_rng_state.h"
+#include "../../../cpu/kernels/random/numpy_rng_state.h"
 
 extern "C" {
 

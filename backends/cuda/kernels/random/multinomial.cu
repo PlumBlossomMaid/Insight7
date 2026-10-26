@@ -27,7 +27,7 @@
 #include <cuda_runtime.h>
 #include <vector>
 
-#include "../../cpu/kernels/random/numpy_rng_state.h"
+#include "../../../cpu/kernels/random/numpy_rng_state.h"
 
 static int64_t npy_searchsorted_right(const std::vector<double> &cdf,
                                       double v) {
@@ -126,10 +126,18 @@ static C_Status multinomial_gpu_dispatch(InsightArray *out, InsightArray *probs,
       for (int64_t i = 0; i < missing; ++i) {
         fresh.push_back(npy_searchsorted_right(cdf, x[i]));
       }
-      std::sort(fresh.begin(), fresh.end());
-      fresh.erase(std::unique(fresh.begin(), fresh.end()), fresh.end());
-      for (size_t i = 0; i < fresh.size() && n_uniq < num_samples; ++i) {
-        idx[n_uniq++] = fresh[i];
+      // NumPy: _, uniq_idx = np.unique(new, return_index=True);
+      //        uniq_idx.sort(); new = new.take(uniq_idx)
+      // This keeps first-occurrence order of `new`, NOT a sorted dedup.
+      std::vector<int64_t> keep;
+      keep.reserve(fresh.size());
+      for (int64_t v : fresh) {
+        if (std::find(keep.begin(), keep.end(), v) == keep.end()) {
+          keep.push_back(v);
+        }
+      }
+      for (size_t i = 0; i < keep.size() && n_uniq < num_samples; ++i) {
+        idx[n_uniq++] = keep[i];
       }
     }
   }
