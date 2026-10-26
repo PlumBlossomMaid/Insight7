@@ -3,7 +3,8 @@
  * @file set_seed.cpp
  * @brief CPU kernel for setting random seed.
  *
- * Sets the global seed for CPU backend RNG.
+ * Sets the global seed for CPU backend RNG and re-seeds the NumPy-
+ * compatible per-device MT19937 stream (device 0 on CPU).
  *
  * @param inputs  [0] = uint64_t* seed value
  * @param outputs [0] = unused
@@ -11,6 +12,7 @@
  */
 
 #include "common.h"
+#include "numpy_rng_state.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -24,6 +26,7 @@ C_Status set_seed_kernel_cpu(void **inputs, void **outputs) {
 
   uint64_t seed = *(uint64_t *)inputs[0];
   cpu_set_global_seed(seed);
+  ins::numpy_rng::seed_device(0 /* INSIGHT_DEVICE_CPU */, 0 /* device */, seed);
 
   return C_SUCCESS;
 }

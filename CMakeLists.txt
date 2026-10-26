@@ -388,6 +388,7 @@ target_include_directories(insight_core
     PUBLIC
         ${INSIGHT_INCLUDE_DIR}
         ${OpenBLAS_INCLUDE_DIRS}
+        ${CMAKE_CURRENT_SOURCE_DIR}/third_party/dlpack/include
     PRIVATE
         ${INSIGHT_INTERNAL_DIR}
         ${INSIGHT_UTILS_DIR}

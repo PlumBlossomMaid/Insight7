@@ -25,6 +25,8 @@
 #endif
 
 #include "insight/c_api/array.h"
+#include "insight/c_api/dlpack.h"
+#include "insight/c_api/exception.h"
 #include "insight/c_api/profiler.h"
 #include "insight/core/array.h"
 #include "insight/core/dtype.h"
@@ -217,6 +219,120 @@ static ins::Array lua_read_bin(const std::string &file,
                                     : ins::DType::U8;
   return ins::signal::read_bin(file, dt);
 }
+
+// Parse a numpy-style dtype string ("f4", "<f4", "i8", "u1", "b1", "c16",
+// "float32", ...) into an ins::DType. Returns ins::DType::UNKNOWN for
+// unrecognized codes. Byte-order prefixes "<" "=" "|" are accepted (they
+// describe the same native byte order on x86); ">" (big-endian) is not
+// supported and maps to UNKNOWN.
+static ins::DType numpy_dtype_str_to_dtype(const std::string &s) {
+  // Full names first ("float32", "int64", ...)
+  ins::DType named = ins::dtype_from_name(s);
+  if (named != ins::DType::UNKNOWN)
+    return named;
+  // Strip an optional byte-order prefix
+  std::string code = s;
+  if (!code.empty() &&
+      (code[0] == '<' || code[0] == '>' || code[0] == '=' || code[0] == '|')) {
+    if (code[0] == '>')
+      return ins::DType::UNKNOWN; // big-endian import unsupported
+    code = code.substr(1);
+  }
+  if (code.size() < 2)
+    return ins::DType::UNKNOWN;
+  char kind = code[0];
+  int size = std::atoi(code.c_str() + 1);
+  if (size <= 0)
+    return ins::DType::UNKNOWN;
+  switch (kind) {
+  case 'b':
+    return size == 1 ? ins::DType::BOOL : ins::DType::UNKNOWN;
+  case 'u':
+    switch (size) {
+    case 1:
+      return ins::DType::U8;
+    case 2:
+      return ins::DType::U16;
+    case 4:
+      return ins::DType::U32;
+    case 8:
+      return ins::DType::U64;
+    default:
+      return ins::DType::UNKNOWN;
+    }
+  case 'i':
+    switch (size) {
+    case 1:
+      return ins::DType::I8;
+    case 2:
+      return ins::DType::I16;
+    case 4:
+      return ins::DType::I32;
+    case 8:
+      return ins::DType::I64;
+    default:
+      return ins::DType::UNKNOWN;
+    }
+  case 'f':
+    switch (size) {
+    case 2:
+      return ins::DType::F16;
+    case 4:
+      return ins::DType::F32;
+    case 8:
+      return ins::DType::F64;
+    default:
+      return ins::DType::UNKNOWN;
+    }
+  case 'c':
+    switch (size) {
+    case 8:
+      return ins::DType::C32;
+    case 16:
+      return ins::DType::C64;
+    default:
+      return ins::DType::UNKNOWN;
+    }
+  default:
+    return ins::DType::UNKNOWN;
+  }
+}
+
+// RAII handle for a DLManagedTensorVersioned produced by
+// insight_array_to_dlpack. The deleter runs when the handle is destroyed
+// (Lua GC of the userdata) or when release() is called explicitly.
+// Non-copyable; move transfers ownership so the deleter runs exactly once.
+struct DLManagedTensorHandle {
+  DLManagedTensorVersioned *m = nullptr;
+  DLManagedTensorHandle() : m(nullptr) {}
+  explicit DLManagedTensorHandle(DLManagedTensorVersioned *ptr) : m(ptr) {}
+  DLManagedTensorHandle(const DLManagedTensorHandle &) = delete;
+  DLManagedTensorHandle &operator=(const DLManagedTensorHandle &) = delete;
+  DLManagedTensorHandle(DLManagedTensorHandle &&o) noexcept : m(o.m) {
+    o.m = nullptr;
+  }
+  DLManagedTensorHandle &operator=(DLManagedTensorHandle &&o) noexcept {
+    if (this != &o) {
+      if (m)
+        m->deleter(m);
+      m = o.m;
+      o.m = nullptr;
+    }
+    return *this;
+  }
+  ~DLManagedTensorHandle() {
+    if (m) {
+      m->deleter(m);
+      m = nullptr;
+    }
+  }
+  void release() {
+    if (m) {
+      m->deleter(m);
+      m = nullptr;
+    }
+  }
+};
 
 // Helper: ins::signal::unpack_bin wrapper (avoids sol2 default-param issues)
 static ins::Array lua_unpack_bin(const ins::Array &binary, int dtype,
@@ -855,6 +971,149 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   };
   m["zeros_like"] = &ins::zeros_like;
   m["ones_like"] = &ins::ones_like;
+
+  // ====================================================================
+  // DLPack (protocol v1.3, see include/insight/c_api/dlpack.h)
+  // ====================================================================
+
+  // ins.to_dlpack(arr) → DLManagedTensor (managed tensor userdata).
+  // The deleter runs when the userdata is GC'd or release() is called.
+  m["to_dlpack"] = [](const ins::Array &a) -> DLManagedTensorHandle {
+    DLManagedTensorVersioned *managed = nullptr;
+    C_Status st = insight_array_to_dlpack(a.layout_ptr(), &managed);
+    if (st != C_SUCCESS)
+      throw std::runtime_error(insight_get_last_error());
+    return DLManagedTensorHandle(managed);
+  };
+
+  // ins.from_dlpack(managed) → Array (import a managed tensor; data is copied)
+  // ins.from_dlpack(shape, dtype, bytes[, strides]) → Array (convenience
+  //   from-bytes path: dtype is a numpy/Insight dtype string like "f4"/"<f4"/
+  //   "float32" or an ins::DType value; bytes must be raw native-endian data.
+  //   Optional strides (element units) describe non-C-contiguous layouts such
+  //   as column-major (Fortran) arrays; omitted → row-major contiguous.)
+  m["from_dlpack"] = sol::overload(
+      [](const DLManagedTensorHandle &h) -> ins::Array {
+        InsightArray out;
+        C_Status st = insight_array_from_dlpack(h.m, &out);
+        if (st != C_SUCCESS)
+          throw std::runtime_error(insight_get_last_error());
+        ins::Array arr(&out); // adopt C-side layout (ref_count++)
+        insight_array_destroy(&out);
+        return arr;
+      },
+      [](sol::table shape, sol::object dtype, const std::string &bytes,
+         sol::optional<sol::table> strides) -> ins::Array {
+        // resolve dtype: numpy-style string or ins::DType value
+        ins::DType dt;
+        if (dtype.is<std::string>()) {
+          dt = numpy_dtype_str_to_dtype(dtype.as<std::string>());
+        } else if (dtype.is<ins::DType>()) {
+          dt = dtype.as<ins::DType>();
+        } else {
+          throw std::runtime_error(
+              "from_dlpack: dtype must be a string or an ins::DType value");
+        }
+        if (static_cast<int>(dt) == 0)
+          throw std::runtime_error("from_dlpack: unsupported dtype");
+
+        std::vector<int64_t> dims = table_to_shape(shape);
+        int32_t ndim = static_cast<int32_t>(dims.size());
+        // Explicit strides override contiguous row-major (DLPack v1.2+
+        // requires non-null strides whenever ndim != 0; if the caller omits
+        // them we synthesize row-major strides).
+        std::vector<int64_t> strides_v;
+        if (strides.has_value()) {
+          strides_v = table_to_shape(strides.value());
+          if (static_cast<int32_t>(strides_v.size()) != ndim)
+            throw std::runtime_error(
+                "from_dlpack: strides length must equal ndim");
+        } else {
+          strides_v.assign(ndim, 1);
+          if (ndim > 0) {
+            strides_v[ndim - 1] = 1;
+            for (int32_t i = ndim - 2; i >= 0; --i)
+              strides_v[i] = strides_v[i + 1] * dims[i + 1];
+          }
+        }
+        DLDataType dl_dtype;
+        C_Status st1 =
+            insight_dtype_to_dlpack(static_cast<int32_t>(dt), &dl_dtype);
+        if (st1 != C_SUCCESS)
+          throw std::runtime_error(insight_get_last_error());
+
+        DLManagedTensorVersioned m;
+        std::memset(&m, 0, sizeof(m));
+        m.version.major = DLPACK_MAJOR_VERSION;
+        m.version.minor = DLPACK_MINOR_VERSION;
+        m.dl_tensor.data = const_cast<char *>(bytes.data());
+        m.dl_tensor.device.device_type = kDLCPU;
+        m.dl_tensor.device.device_id = 0;
+        m.dl_tensor.ndim = ndim;
+        m.dl_tensor.dtype = dl_dtype;
+        m.dl_tensor.shape = ndim > 0 ? dims.data() : nullptr;
+        m.dl_tensor.strides = ndim > 0 ? strides_v.data() : nullptr;
+        m.dl_tensor.byte_offset = 0;
+
+        InsightArray out;
+        C_Status st2 = insight_array_from_dlpack(&m, &out);
+        if (st2 != C_SUCCESS)
+          throw std::runtime_error(insight_get_last_error());
+        ins::Array arr(&out); // adopt C-side layout (ref_count++)
+        insight_array_destroy(&out);
+        return arr;
+      });
+
+  // DLManagedTensor userdata: read the descriptor, copy bytes out, release.
+  sol::usertype<DLManagedTensorHandle> dlm_type =
+      m.new_usertype<DLManagedTensorHandle>("DLManagedTensor");
+  dlm_type["release"] = &DLManagedTensorHandle::release;
+  dlm_type["ndim"] = sol::property(
+      [](const DLManagedTensorHandle &h) { return h.m->dl_tensor.ndim; });
+  dlm_type["shape"] = sol::property(
+      [](const DLManagedTensorHandle &h, sol::this_state ts) -> sol::table {
+        sol::state_view lv(ts);
+        sol::table t = lv.create_table(h.m->dl_tensor.ndim);
+        for (int32_t i = 0; i < h.m->dl_tensor.ndim; ++i)
+          t[i + 1] = h.m->dl_tensor.shape[i];
+        return t;
+      });
+  dlm_type["strides"] = sol::property(
+      [](const DLManagedTensorHandle &h, sol::this_state ts) -> sol::table {
+        sol::state_view lv(ts);
+        sol::table t = lv.create_table(h.m->dl_tensor.ndim);
+        for (int32_t i = 0; i < h.m->dl_tensor.ndim; ++i)
+          t[i + 1] = h.m->dl_tensor.strides[i];
+        return t;
+      });
+  dlm_type["dtype"] =
+      sol::property([](const DLManagedTensorHandle &h) -> ins::DType {
+        int32_t dt = 0;
+        if (insight_dtype_from_dlpack(&h.m->dl_tensor.dtype, &dt) != C_SUCCESS)
+          return ins::DType::UNKNOWN;
+        return static_cast<ins::DType>(dt);
+      });
+  dlm_type["device_type"] = sol::property([](const DLManagedTensorHandle &h) {
+    return h.m->dl_tensor.device.device_type;
+  });
+  dlm_type["device_id"] = sol::property([](const DLManagedTensorHandle &h) {
+    return h.m->dl_tensor.device.device_id;
+  });
+  dlm_type["byte_offset"] = sol::property([](const DLManagedTensorHandle &h) {
+    return h.m->dl_tensor.byte_offset;
+  });
+  dlm_type["data"] = sol::property(
+      [](const DLManagedTensorHandle &h) { return h.m->dl_tensor.data; });
+  // bytes() copies the logical payload (data + byte_offset, numel*itemsize)
+  dlm_type["bytes"] = [](const DLManagedTensorHandle &h) -> std::string {
+    const DLTensor &t = h.m->dl_tensor;
+    int64_t numel = 1;
+    for (int32_t i = 0; i < t.ndim; ++i)
+      numel *= t.shape[i];
+    size_t itemsize = (t.dtype.bits * t.dtype.lanes + 7) / 8;
+    const char *base = static_cast<const char *>(t.data) + t.byte_offset;
+    return std::string(base, static_cast<size_t>(numel) * itemsize);
+  };
 
   // ====================================================================
   // Elementwise

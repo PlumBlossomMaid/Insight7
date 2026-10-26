@@ -39,7 +39,12 @@ void add_backend_search_path(const std::string &path) {
 using LibHandle = HMODULE;
 
 static LibHandle load_library(const char *path) {
-  LibHandle handle = LoadLibraryA(path);
+  // LOAD_WITH_ALTERED_SEARCH_PATH: search the DLL's own directory first for
+  // its dependencies (fftw3/openblas sit beside the backend dll). A plain
+  // LoadLibraryA does NOT include the loaded DLL's directory in the search,
+  // so backend loads fail with 0x7e MODULE_NOT_FOUND unless cwd/PATH happen
+  // to point at the backend dir (verified 2026-10-23 via probe script).
+  LibHandle handle = LoadLibraryExA(path, NULL, LOAD_WITH_ALTERED_SEARCH_PATH);
   if (!handle) {
     DWORD error = GetLastError();
     char *error_msg = nullptr;
