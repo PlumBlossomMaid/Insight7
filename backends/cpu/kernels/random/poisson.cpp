@@ -41,8 +41,7 @@ C_Status poisson_kernel_cpu(void **inputs, void **outputs) {
   case INSIGHT_DTYPE_I32: {
     int32_t *out_data = (int32_t *)out->data;
     for (int64_t linear = 0; linear < cnt; ++linear) {
-      int64_t off_out =
-          cpu_offset_from_linear(linear, ndim, dims, out_strides);
+      int64_t off_out = cpu_offset_from_linear(linear, ndim, dims, out_strides);
       out_data[off_out] = (int32_t)numpy_random_poisson(st, lam);
     }
     break;
@@ -50,8 +49,7 @@ C_Status poisson_kernel_cpu(void **inputs, void **outputs) {
   case INSIGHT_DTYPE_I64: {
     int64_t *out_data = (int64_t *)out->data;
     for (int64_t linear = 0; linear < cnt; ++linear) {
-      int64_t off_out =
-          cpu_offset_from_linear(linear, ndim, dims, out_strides);
+      int64_t off_out = cpu_offset_from_linear(linear, ndim, dims, out_strides);
       out_data[off_out] = numpy_random_poisson(st, lam);
     }
     break;

@@ -27,9 +27,9 @@
 namespace {
 
 struct DLPackDTypeMap {
-  int32_t insight;   // InsightDType enum value
-  uint8_t code;      // DLDataTypeCode value
-  uint8_t bits;      // number of bits
+  int32_t insight; // InsightDType enum value
+  uint8_t code;    // DLDataTypeCode value
+  uint8_t bits;    // number of bits
 };
 
 // Follows include/insight/core/dtype.h DType order. lanes is always 1.
@@ -171,8 +171,8 @@ C_Status insight_array_to_dlpack(const InsightArray *array,
   if (insight_dtype_to_dlpack(array->dtype, &dl_dtype) != C_SUCCESS)
     return C_FAILED;
   DLDevice dl_dev;
-  if (insight_device_to_dlpack(array->device_type, array->device_id,
-                               &dl_dev) != C_SUCCESS)
+  if (insight_device_to_dlpack(array->device_type, array->device_id, &dl_dev) !=
+      C_SUCCESS)
     return C_FAILED;
 
   try {
@@ -201,8 +201,7 @@ C_Status insight_array_to_dlpack(const InsightArray *array,
 
     // Keep the storage alive: manager_ctx holds an ins::Array copy sharing
     // the same ref_count. The deleter destroys it (and this struct).
-    managed->manager_ctx =
-        new ins::Array(const_cast<InsightArray *>(array));
+    managed->manager_ctx = new ins::Array(const_cast<InsightArray *>(array));
     managed->deleter = [](DLManagedTensorVersioned *self) {
       if (!self)
         return;
@@ -264,9 +263,9 @@ C_Status insight_array_from_dlpack(const DLManagedTensorVersioned *src,
     ins::Place place = ins::CPUPlace();
     void *data = bytes > 0 ? place.allocate(bytes) : nullptr;
 
-    C_Status st = insight_array_create(
-        out, data, dims.empty() ? nullptr : dims.data(), ndim, dtype,
-        INSIGHT_DEVICE_CPU, 0);
+    C_Status st =
+        insight_array_create(out, data, dims.empty() ? nullptr : dims.data(),
+                             ndim, dtype, INSIGHT_DEVICE_CPU, 0);
     if (st != C_SUCCESS) {
       if (data)
         place.deallocate(data, bytes);

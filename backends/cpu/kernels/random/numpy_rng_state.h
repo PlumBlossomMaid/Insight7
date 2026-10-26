@@ -25,7 +25,8 @@
 #include <mutex>
 #include <stdint.h>
 
-#define NPY_RNG_KEY(type, id) ((int64_t)(((int64_t)(type) << 32) | (int64_t)(id)))
+#define NPY_RNG_KEY(type, id)                                                  \
+  ((int64_t)(((int64_t)(type) << 32) | (int64_t)(id)))
 
 namespace ins {
 namespace numpy_rng {
@@ -49,8 +50,7 @@ inline std::mutex &mutex() {
  * @brief Seed one device's global state (re-seed = reset stream, exactly
  * like `np.random.seed(s)`).
  */
-inline void seed_device(int32_t device_type, int32_t device_id,
-                        uint64_t seed) {
+inline void seed_device(int32_t device_type, int32_t device_id, uint64_t seed) {
   std::lock_guard<std::mutex> lock(mutex());
   int64_t key = NPY_RNG_KEY(device_type, device_id);
   numpy_rk_seed(&devices()[key].state, static_cast<uint32_t>(seed));

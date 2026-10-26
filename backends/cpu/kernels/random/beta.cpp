@@ -61,8 +61,7 @@ C_Status beta_kernel_cpu(void **inputs, void **outputs) {
     beta_fill_float((float *)out->data, n, ndim, dims, out_strides, st, a, b);
     break;
   case INSIGHT_DTYPE_F64:
-    beta_fill_double((double *)out->data, n, ndim, dims, out_strides, st, a,
-                     b);
+    beta_fill_double((double *)out->data, n, ndim, dims, out_strides, st, a, b);
     break;
   default:
     ins::numpy_rng::unlock_device();

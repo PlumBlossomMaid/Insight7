@@ -9,7 +9,8 @@
 // (from_dlpack), so other frameworks can exchange arrays with Insight without
 // copying through a Python layer.
 //
-// Protocol version pinned to v1.3 (see third_party/dlpack/include/dlpack/dlpack.h).
+// Protocol version pinned to v1.3 (see
+// third_party/dlpack/include/dlpack/dlpack.h).
 //
 // Lifecycle rules (mirror the DLPack spec):
 //   - to_dlpack: producer creates a DLManagedTensorVersioned whose dl_tensor

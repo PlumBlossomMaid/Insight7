@@ -1,8 +1,8 @@
 // tests/cpu/cpp/test_dlpack.cpp
-#include "insight/insight.h"
 #include "insight/c_api/dlpack.h"
-#include <gtest/gtest.h>
+#include "insight/insight.h"
 #include <cstring>
+#include <gtest/gtest.h>
 
 using namespace ins;
 
@@ -26,14 +26,12 @@ TEST_F(DLPackTest, DTypeRoundTrip) {
 }
 
 TEST_F(DLPackTest, DTypeAllMapped) {
-  const int32_t all[] = {INSIGHT_DTYPE_BOOL,  INSIGHT_DTYPE_U8,
-                         INSIGHT_DTYPE_I8,    INSIGHT_DTYPE_I16,
-                         INSIGHT_DTYPE_I32,   INSIGHT_DTYPE_I64,
-                         INSIGHT_DTYPE_F16,   INSIGHT_DTYPE_BF16,
-                         INSIGHT_DTYPE_F32,   INSIGHT_DTYPE_F64,
-                         INSIGHT_DTYPE_C32,   INSIGHT_DTYPE_C64,
-                         INSIGHT_DTYPE_U16,   INSIGHT_DTYPE_U32,
-                         INSIGHT_DTYPE_U64};
+  const int32_t all[] = {
+      INSIGHT_DTYPE_BOOL, INSIGHT_DTYPE_U8,   INSIGHT_DTYPE_I8,
+      INSIGHT_DTYPE_I16,  INSIGHT_DTYPE_I32,  INSIGHT_DTYPE_I64,
+      INSIGHT_DTYPE_F16,  INSIGHT_DTYPE_BF16, INSIGHT_DTYPE_F32,
+      INSIGHT_DTYPE_F64,  INSIGHT_DTYPE_C32,  INSIGHT_DTYPE_C64,
+      INSIGHT_DTYPE_U16,  INSIGHT_DTYPE_U32,  INSIGHT_DTYPE_U64};
   for (int32_t dt : all) {
     DLDataType dl;
     ASSERT_EQ(insight_dtype_to_dlpack(dt, &dl), C_SUCCESS);
@@ -116,7 +114,7 @@ TEST_F(DLPackTest, FromDLPackBasic) {
 
   InsightArray out;
   ASSERT_EQ(insight_array_from_dlpack(&m, &out), C_SUCCESS);
-  Array arr(&out); // adopts ref → ref_count 2
+  Array arr(&out);             // adopts ref → ref_count 2
   insight_array_destroy(&out); // drop the C-side ref → arr owns the last one
   EXPECT_EQ(arr.shape(), Shape({2, 3}));
   EXPECT_EQ(arr.dtype(), DType::F32);

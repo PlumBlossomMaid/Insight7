@@ -121,8 +121,7 @@ static C_Status multinomial_impl(InsightArray *out, InsightArray *probs,
           any_positive = true;
       }
       if (!any_positive || cdf[d - 1] <= 0.0) {
-        cpu_set_last_error(
-            "multinomial: total probability must be positive");
+        cpu_set_last_error("multinomial: total probability must be positive");
         return C_FAILED;
       }
       double total = cdf[d - 1];

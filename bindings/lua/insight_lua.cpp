@@ -232,8 +232,8 @@ static ins::DType numpy_dtype_str_to_dtype(const std::string &s) {
     return named;
   // Strip an optional byte-order prefix
   std::string code = s;
-  if (!code.empty() && (code[0] == '<' || code[0] == '>' || code[0] == '=' ||
-                        code[0] == '|')) {
+  if (!code.empty() &&
+      (code[0] == '<' || code[0] == '>' || code[0] == '=' || code[0] == '|')) {
     if (code[0] == '>')
       return ins::DType::UNKNOWN; // big-endian import unsupported
     code = code.substr(1);
@@ -1037,8 +1037,8 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
           }
         }
         DLDataType dl_dtype;
-        C_Status st1 = insight_dtype_to_dlpack(static_cast<int32_t>(dt),
-                                               &dl_dtype);
+        C_Status st1 =
+            insight_dtype_to_dlpack(static_cast<int32_t>(dt), &dl_dtype);
         if (st1 != C_SUCCESS)
           throw std::runtime_error(insight_get_last_error());
 
@@ -1086,8 +1086,8 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
           t[i + 1] = h.m->dl_tensor.strides[i];
         return t;
       });
-  dlm_type["dtype"] = sol::property(
-      [](const DLManagedTensorHandle &h) -> ins::DType {
+  dlm_type["dtype"] =
+      sol::property([](const DLManagedTensorHandle &h) -> ins::DType {
         int32_t dt = 0;
         if (insight_dtype_from_dlpack(&h.m->dl_tensor.dtype, &dt) != C_SUCCESS)
           return ins::DType::UNKNOWN;
@@ -1099,13 +1099,11 @@ extern "C" INSIGHT_LUA_EXPORT int luaopen__insight(lua_State *L) {
   dlm_type["device_id"] = sol::property([](const DLManagedTensorHandle &h) {
     return h.m->dl_tensor.device.device_id;
   });
-  dlm_type["byte_offset"] = sol::property(
-      [](const DLManagedTensorHandle &h) {
-        return h.m->dl_tensor.byte_offset;
-      });
-  dlm_type["data"] = sol::property([](const DLManagedTensorHandle &h) {
-    return h.m->dl_tensor.data;
+  dlm_type["byte_offset"] = sol::property([](const DLManagedTensorHandle &h) {
+    return h.m->dl_tensor.byte_offset;
   });
+  dlm_type["data"] = sol::property(
+      [](const DLManagedTensorHandle &h) { return h.m->dl_tensor.data; });
   // bytes() copies the logical payload (data + byte_offset, numel*itemsize)
   dlm_type["bytes"] = [](const DLManagedTensorHandle &h) -> std::string {
     const DLTensor &t = h.m->dl_tensor;

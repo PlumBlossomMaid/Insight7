@@ -40,8 +40,7 @@ C_Status rand_kernel_cpu(void **inputs, void **outputs) {
   case INSIGHT_DTYPE_F32: {
     float *out_data = (float *)out->data;
     for (int64_t linear = 0; linear < n; ++linear) {
-      int64_t off_out =
-          cpu_offset_from_linear(linear, ndim, dims, out_strides);
+      int64_t off_out = cpu_offset_from_linear(linear, ndim, dims, out_strides);
       out_data[off_out] = (float)numpy_rk_double(st);
     }
     break;
@@ -49,8 +48,7 @@ C_Status rand_kernel_cpu(void **inputs, void **outputs) {
   case INSIGHT_DTYPE_F64: {
     double *out_data = (double *)out->data;
     for (int64_t linear = 0; linear < n; ++linear) {
-      int64_t off_out =
-          cpu_offset_from_linear(linear, ndim, dims, out_strides);
+      int64_t off_out = cpu_offset_from_linear(linear, ndim, dims, out_strides);
       out_data[off_out] = numpy_rk_double(st);
     }
     break;
@@ -58,20 +56,16 @@ C_Status rand_kernel_cpu(void **inputs, void **outputs) {
   case INSIGHT_DTYPE_F16: {
     uint16_t *out_data = (uint16_t *)out->data;
     for (int64_t linear = 0; linear < n; ++linear) {
-      int64_t off_out =
-          cpu_offset_from_linear(linear, ndim, dims, out_strides);
-      out_data[off_out] =
-          insight::f32_to_f16((float)numpy_rk_double(st));
+      int64_t off_out = cpu_offset_from_linear(linear, ndim, dims, out_strides);
+      out_data[off_out] = insight::f32_to_f16((float)numpy_rk_double(st));
     }
     break;
   }
   case INSIGHT_DTYPE_BF16: {
     uint16_t *out_data = (uint16_t *)out->data;
     for (int64_t linear = 0; linear < n; ++linear) {
-      int64_t off_out =
-          cpu_offset_from_linear(linear, ndim, dims, out_strides);
-      out_data[off_out] =
-          insight::f32_to_bf16((float)numpy_rk_double(st));
+      int64_t off_out = cpu_offset_from_linear(linear, ndim, dims, out_strides);
+      out_data[off_out] = insight::f32_to_bf16((float)numpy_rk_double(st));
     }
     break;
   }

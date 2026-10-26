@@ -25,10 +25,10 @@
 #ifndef INSIGHT_CPU_NUMPY_RNG_H
 #define INSIGHT_CPU_NUMPY_RNG_H
 
-#include <stdint.h>
-#include <stddef.h>
-#include <math.h>
 #include <algorithm>
+#include <math.h>
+#include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -157,7 +157,8 @@ static inline uint32_t numpy_rk_random(numpy_rk_state *state) {
       state->key[i] =
           state->key[i + (RK_M - RK_N)] ^ (y >> 1) ^ (-(y & 1) & RK_MATRIX_A);
     }
-    y = (state->key[RK_N - 1] & RK_UPPER_MASK) | (state->key[0] & RK_LOWER_MASK);
+    y = (state->key[RK_N - 1] & RK_UPPER_MASK) |
+        (state->key[0] & RK_LOWER_MASK);
     state->key[RK_N - 1] =
         state->key[RK_M - 1] ^ (y >> 1) ^ (-(y & 1) & RK_MATRIX_A);
     state->pos = 0;
@@ -420,11 +421,11 @@ static inline double numpy_random_loggam(double x) {
   double x0, x2, lg2pi, gl, gl0;
   int k, n;
 
-  static double a[10] = {
-      8.333333333333333e-02, -2.777777777777778e-03, 7.936507936507937e-04,
-      -5.952380952380952e-04, 8.417508417508418e-04, -1.917526917526918e-03,
-      6.410256410256410e-03, -2.955065359477124e-02, 1.796443723688307e-01,
-      -1.39243221690590e+00};
+  static double a[10] = {8.333333333333333e-02, -2.777777777777778e-03,
+                         7.936507936507937e-04, -5.952380952380952e-04,
+                         8.417508417508418e-04, -1.917526917526918e-03,
+                         6.410256410256410e-03, -2.955065359477124e-02,
+                         1.796443723688307e-01, -1.39243221690590e+00};
 
   if ((x == 1.0) || (x == 2.0)) {
     return 0.0;
@@ -480,8 +481,7 @@ static inline int64_t numpy_random_poisson(numpy_rk_state *state, double lam) {
         continue;
       }
       if ((log(V) + log(invalpha) - log(a / (us * us) + b)) <=
-          (-lam + (double)k * loglam -
-           numpy_random_loggam((double)k + 1))) {
+          (-lam + (double)k * loglam - numpy_random_loggam((double)k + 1))) {
         return k;
       }
     }

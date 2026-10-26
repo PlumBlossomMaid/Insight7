@@ -43,18 +43,16 @@ static C_Status randint_impl(InsightArray *out, int64_t low, int64_t high,
   if (is32) {
     int32_t *out_data = (int32_t *)out->data;
     for (int64_t linear = 0; linear < n; ++linear) {
-      int64_t off_out =
-          cpu_offset_from_linear(linear, ndim, dims, out_strides);
-      out_data[off_out] = (int32_t)numpy_random_bounded_uint64(st, off, rng,
-                                                               mask);
+      int64_t off_out = cpu_offset_from_linear(linear, ndim, dims, out_strides);
+      out_data[off_out] =
+          (int32_t)numpy_random_bounded_uint64(st, off, rng, mask);
     }
   } else {
     int64_t *out_data = (int64_t *)out->data;
     for (int64_t linear = 0; linear < n; ++linear) {
-      int64_t off_out =
-          cpu_offset_from_linear(linear, ndim, dims, out_strides);
-      out_data[off_out] = (int64_t)numpy_random_bounded_uint64(st, off, rng,
-                                                               mask);
+      int64_t off_out = cpu_offset_from_linear(linear, ndim, dims, out_strides);
+      out_data[off_out] =
+          (int64_t)numpy_random_bounded_uint64(st, off, rng, mask);
     }
   }
 

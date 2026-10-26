@@ -44,18 +44,15 @@ C_Status gamma_kernel_cpu(void **inputs, void **outputs) {
   case INSIGHT_DTYPE_F32: {
     float *out_data = (float *)out->data;
     for (int64_t linear = 0; linear < n; ++linear) {
-      int64_t off_out =
-          cpu_offset_from_linear(linear, ndim, dims, out_strides);
-      out_data[off_out] =
-          (float)numpy_legacy_gamma(st, shape_param, scale);
+      int64_t off_out = cpu_offset_from_linear(linear, ndim, dims, out_strides);
+      out_data[off_out] = (float)numpy_legacy_gamma(st, shape_param, scale);
     }
     break;
   }
   case INSIGHT_DTYPE_F64: {
     double *out_data = (double *)out->data;
     for (int64_t linear = 0; linear < n; ++linear) {
-      int64_t off_out =
-          cpu_offset_from_linear(linear, ndim, dims, out_strides);
+      int64_t off_out = cpu_offset_from_linear(linear, ndim, dims, out_strides);
       out_data[off_out] = numpy_legacy_gamma(st, shape_param, scale);
     }
     break;

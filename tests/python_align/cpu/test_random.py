@@ -167,31 +167,31 @@ class TestRandomBitExact:
     def test_choice_replace_true_no_p(self):
         self._seed_and_sync()
         np_a = np.random.choice(10, size=20, replace=True)
-        a = ins.choice(ins.arange(10, dtype=ins.DType.int64, place=self.CPU),
-                       20, True)
+        a = ins.choice(ins.arange(10, dtype=ins.DType.int64, place=self.CPU), 20, True)
         np.testing.assert_array_equal(a.numpy(), np_a)
 
     def test_choice_replace_true_with_p(self):
         self._seed_and_sync()
         probs = np.array([0.05, 0.05, 0.3, 0.6], dtype=np.float64)
         np_a = np.random.choice(4, size=30, replace=True, p=probs)
-        a = ins.choice(ins.arange(4, dtype=ins.DType.int64, place=self.CPU),
-                       30, True, ins.from_numpy(probs))
+        a = ins.choice(
+            ins.arange(4, dtype=ins.DType.int64, place=self.CPU), 30, True, ins.from_numpy(probs)
+        )
         np.testing.assert_array_equal(a.numpy(), np_a)
 
     def test_choice_replace_false_no_p(self):
         self._seed_and_sync()
         np_a = np.random.choice(10, size=10, replace=False)
-        a = ins.choice(ins.arange(10, dtype=ins.DType.int64, place=self.CPU),
-                       10, False)
+        a = ins.choice(ins.arange(10, dtype=ins.DType.int64, place=self.CPU), 10, False)
         np.testing.assert_array_equal(a.numpy(), np_a)
 
     def test_choice_replace_false_with_p(self):
         self._seed_and_sync()
         probs = np.array([0.1, 0.1, 0.2, 0.2, 0.4], dtype=np.float64)
         np_a = np.random.choice(5, size=5, replace=False, p=probs)
-        a = ins.choice(ins.arange(5, dtype=ins.DType.int64, place=self.CPU),
-                       5, False, ins.from_numpy(probs))
+        a = ins.choice(
+            ins.arange(5, dtype=ins.DType.int64, place=self.CPU), 5, False, ins.from_numpy(probs)
+        )
         np.testing.assert_array_equal(a.numpy(), np_a)
 
     def test_shuffle_matches_numpy(self):
