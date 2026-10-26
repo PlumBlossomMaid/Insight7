@@ -3,7 +3,9 @@
  * @file set_seed.cu
  * @brief CUDA kernel for setting the global random seed.
  *
- * Sets the global seed used for random number generation.
+ * Seeds the per-device NumPy-compatible MT19937 stream used by every GPU
+ * random kernel (which generate on the host and copy to the device), so
+ * GPU output is bit-identical to CPU output for the same device seed.
  *
  * @param inputs  [0] = uint64_t* seed value
  * @param outputs [0] = unused
@@ -15,8 +17,7 @@
 #include <cstdint>
 #include <cuda_runtime.h>
 
-// Global device seed storage
-static __device__ uint64_t d_global_seed = 0;
+#include "../../cpu/kernels/random/numpy_rng_state.h"
 
 extern "C" {
 
@@ -28,8 +29,9 @@ C_Status set_seed_kernel_gpu(void **inputs, void **outputs) {
 
   uint64_t seed = *static_cast<uint64_t *>(inputs[0]);
 
-  // Copy seed to device
-  cudaMemcpyToSymbol(d_global_seed, &seed, sizeof(uint64_t));
+  int dev = 0;
+  cudaGetDevice(&dev);
+  ins::numpy_rng::seed_device(1 /* INSIGHT_DEVICE_GPU */, dev, seed);
 
   cudaError_t err = cudaGetLastError();
   if (err != cudaSuccess) {
@@ -42,5 +44,4 @@ C_Status set_seed_kernel_gpu(void **inputs, void **outputs) {
 
 } // extern "C"
 
-// Register for common types
 REGISTER_GPU_KERNEL(set_seed, INSIGHT_DTYPE_U64, set_seed_kernel_gpu);

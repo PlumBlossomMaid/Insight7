@@ -3249,6 +3249,13 @@ PYBIND11_MODULE(_insight, m) {
       },
       py::arg("lam"), py::arg("shape"), py::arg("dtype") = DType::I64,
       py::arg("place") = get_device());
+  m.def(
+      "chisquare",
+      [](double df, const Shape &shape, DType dtype, const Place &place) {
+        return chisquare(df, shape, dtype, place);
+      },
+      py::arg("df"), py::arg("shape"), py::arg("dtype") = DType::F32,
+      py::arg("place") = get_device());
 
   // --- Additional FFT ---
   m.def(

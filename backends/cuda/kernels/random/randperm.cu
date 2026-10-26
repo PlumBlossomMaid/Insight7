@@ -1,24 +1,25 @@
 // backends/cuda/kernels/random/randperm.cu
 /**
  * @file randperm.cu
- * @brief CUDA kernel for random permutation.
+ * @brief CUDA kernel for random permutation [0, n).
  *
- * Generates a random permutation of [0, n).
- * Uses CPU implementation (Fisher-Yates shuffle) as GPU fallback.
- * Supports I32 and I64 types.
+ * Uses the same NumPy-compatible RNG stream as the CPU backend, generated
+ * on the host and copied to the device, so GPU output is bit-identical to
+ * CPU output and to `np.random.permutation(n)` for the same seed.
  *
  * @param inputs  [0] = InsightArray* output array
- *                [1] = uint64_t* device seed
+ *                [1] = uint64_t* device seed (unused: per-device persistent
+ *                      stream seeded via set_seed)
  * @param outputs [0] = InsightArray* output array (same as inputs[0])
  * @return C_SUCCESS on success, C_FAILED on error
  */
 
 #include "../../registry/cuda_registry.h"
 #include "insight/c_api/array.h"
-#include <cstdint>
-#include <cstring>
 #include <cuda_runtime.h>
-#include <random>
+#include <vector>
+
+#include "../../cpu/kernels/random/numpy_rng_state.h"
 
 extern "C" {
 
@@ -30,53 +31,58 @@ C_Status randperm_kernel_gpu(void **inputs, void **outputs) {
     return C_FAILED;
   }
 
-  uint64_t seed = *static_cast<uint64_t *>(inputs[1]);
   int64_t n = out->numel;
-
   if (n == 0)
     return C_SUCCESS;
 
-  // Generate permutation on CPU (Fisher-Yates shuffle)
-  int64_t *perm = new int64_t[n];
-  for (int64_t i = 0; i < n; ++i) {
-    perm[i] = i;
-  }
+  int32_t device_id = out->device_id;
+  numpy_rk_state *st = ins::numpy_rng::lock_device(out->device_type, device_id);
 
-  std::mt19937 rng(static_cast<uint32_t>(seed));
-  for (int64_t i = n - 1; i > 0; --i) {
-    std::uniform_int_distribution<int64_t> dist(0, i);
-    int64_t j = dist(rng);
-    std::swap(perm[i], perm[j]);
-  }
-
-  // Copy to device
+  cudaError_t err = cudaSuccess;
   switch (out->dtype) {
   case INSIGHT_DTYPE_I32: {
-    int32_t *perm32 = new int32_t[n];
+    std::vector<int32_t> host(n);
     for (int64_t i = 0; i < n; ++i) {
-      perm32[i] = static_cast<int32_t>(perm[i]);
+      host[i] = static_cast<int32_t>(i);
     }
-    cudaMemcpy(out->data, perm32, n * sizeof(int32_t), cudaMemcpyHostToDevice);
-    delete[] perm32;
+    // for i in reversed(range(1, n)): j = random_interval(i); swap
+    for (int64_t i = n - 1; i > 0; --i) {
+      int64_t j = (int64_t)numpy_random_interval(st, (uint64_t)i);
+      int32_t tmp = host[i];
+      host[i] = host[j];
+      host[j] = tmp;
+    }
+    err = cudaMemcpy(out->data, host.data(), n * sizeof(int32_t),
+                     cudaMemcpyHostToDevice);
     break;
   }
-  case INSIGHT_DTYPE_I64:
-    cudaMemcpy(out->data, perm, n * sizeof(int64_t), cudaMemcpyHostToDevice);
+  case INSIGHT_DTYPE_I64: {
+    std::vector<int64_t> host(n);
+    for (int64_t i = 0; i < n; ++i) {
+      host[i] = i;
+    }
+    for (int64_t i = n - 1; i > 0; --i) {
+      int64_t j = (int64_t)numpy_random_interval(st, (uint64_t)i);
+      int64_t tmp = host[i];
+      host[i] = host[j];
+      host[j] = tmp;
+    }
+    err = cudaMemcpy(out->data, host.data(), n * sizeof(int64_t),
+                     cudaMemcpyHostToDevice);
     break;
+  }
   default:
-    delete[] perm;
+    ins::numpy_rng::unlock_device();
     gpu_set_last_error("randperm: unsupported dtype");
     return C_FAILED;
   }
 
-  delete[] perm;
+  ins::numpy_rng::unlock_device();
 
-  cudaError_t err = cudaGetLastError();
   if (err != cudaSuccess) {
     gpu_set_last_error(cudaGetErrorString(err));
     return C_FAILED;
   }
-
   return C_SUCCESS;
 }
 

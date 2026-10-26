@@ -30,6 +30,7 @@ from insight._insight import (
     beta as _native_beta,
     binomial as _native_binomial,
     poisson as _native_poisson,
+    chisquare as _native_chisquare,
     get_device as _get_device,
 )
 
@@ -420,6 +421,32 @@ def poisson(
     return _native_poisson(lam, _to_shape(shape), dtype, place)
 
 
+def chisquare(
+    df: float,
+    shape: "Shape",
+    dtype: "DType" = None,
+    place: "Place" = None,
+) -> "Array":
+    """Create an array from a chi-square distribution.
+
+    Args:
+        df: Degrees of freedom.
+        shape: Desired output shape.
+        dtype: Data type (default: float32).
+        place: Device placement (default: current device).
+
+    Returns:
+        Array of the given shape with chi-square-distributed values.
+    """
+    from insight._insight import float32 as _f32, CPUPlace as _cpu
+
+    if dtype is None:
+        dtype = _f32
+    if place is None:
+        place = _get_device()
+    return _native_chisquare(df, _to_shape(shape), dtype, place)
+
+
 __all__ = [
     "rand",
     "randn",
@@ -439,4 +466,5 @@ __all__ = [
     "beta",
     "binomial",
     "poisson",
+    "chisquare",
 ]
